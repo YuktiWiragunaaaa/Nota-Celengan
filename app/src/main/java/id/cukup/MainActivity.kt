@@ -17,6 +17,16 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Fingerprint
+import androidx.compose.material3.Icon
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -58,7 +68,7 @@ class MainActivity : FragmentActivity() {
                 val s = settings
                 when {
                     s == null -> Box(Modifier.fillMaxSize().background(colors.paper))
-                    s.biometricLock && !unlocked -> LockScreen(onUnlock = ::authenticate)
+                    s.biometricLock && !unlocked -> LockScreen(name = s.name, onUnlock = ::authenticate)
                     else -> CukupNav(onboarded = s.onboarded, openAdd = openAdd, onAddHandled = { openAdd = false })
                 }
             }
@@ -100,17 +110,35 @@ class MainActivity : FragmentActivity() {
     }
 
     @androidx.compose.runtime.Composable
-    private fun LockScreen(onUnlock: () -> Unit) {
+    private fun LockScreen(name: String, onUnlock: () -> Unit) {
         val c = colors
+        id.cukup.ui.components.LightStatusBarIcons(light = true)
         LaunchedEffect(Unit) { onUnlock() }
+        val pulse = androidx.compose.animation.core.rememberInfiniteTransition(label = "pulse")
+        val ring by pulse.animateFloat(
+            1f, 1.18f,
+            androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween<Float>(1400), androidx.compose.animation.core.RepeatMode.Reverse),
+            label = "ring",
+        )
         Column(
-            Modifier.fillMaxSize().background(c.paper).padding(32.dp),
-            verticalArrangement = Arrangement.Center,
+            Modifier.fillMaxSize().background(c.brandBrush).padding(32.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text(italicize("Cukup dikunci"), style = Type.display, color = c.ink)
-            Spacer(Modifier.height(24.dp))
-            InkButton("Buka", onClick = onUnlock, modifier = Modifier.fillMaxWidth(0.6f))
+            Spacer(Modifier.weight(1f))
+            Text(if (name.isBlank()) "Hai!" else "Hai, $name", style = Type.display, color = Color.White)
+            Spacer(Modifier.height(6.dp))
+            Text("Uangmu aman di sini.", style = Type.body, color = Color.White.copy(alpha = 0.7f))
+            Spacer(Modifier.weight(0.62f))
+            Box(contentAlignment = Alignment.Center) {
+                Box(Modifier.size(120.dp).graphicsLayer { scaleX = ring; scaleY = ring }.clip(CircleShape).background(Color.White.copy(alpha = 0.12f)))
+                Box(
+                    Modifier.size(88.dp).clip(CircleShape).background(Color.White).clickable(onClick = onUnlock),
+                    contentAlignment = Alignment.Center,
+                ) { Icon(Icons.Rounded.Fingerprint, "Buka dengan sidik jari", tint = c.accent, modifier = Modifier.size(44.dp)) }
+            }
+            Spacer(Modifier.height(16.dp))
+            Text("Sentuh untuk membuka", style = Type.bodySmall, color = Color.White.copy(alpha = 0.7f))
+            Spacer(Modifier.weight(1f))
         }
     }
 

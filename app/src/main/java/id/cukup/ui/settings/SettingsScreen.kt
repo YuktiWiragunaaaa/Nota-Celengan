@@ -64,7 +64,14 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
-class SettingsViewModel @Inject constructor(private val store: SettingsStore) : ViewModel() {
+class SettingsViewModel @Inject constructor(
+    private val store: SettingsStore,
+    private val repository: id.cukup.data.MoneyRepository,
+) : ViewModel() {
+    fun eraseEverything() {
+        viewModelScope.launch { repository.eraseEverything() }
+    }
+
     val settings: StateFlow<Settings> = store.settings.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), Settings())
 
     fun update(transform: (Settings) -> Settings) {
@@ -82,6 +89,7 @@ fun SettingsScreen(contentPadding: PaddingValues, onEditSplit: () -> Unit, vm: S
     var notifAllowed by remember { mutableStateOf(canNotify(context)) }
     var editSchedule by remember { mutableStateOf(false) }
     var editLimit by remember { mutableStateOf(false) }
+    var confirmErase by remember { mutableStateOf(false) }
     val askNotif = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { notifAllowed = it }
     LaunchedEffect(lifecycle) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
@@ -152,15 +160,38 @@ fun SettingsScreen(contentPadding: PaddingValues, onEditSplit: () -> Unit, vm: S
             enabled = biometricAvailable,
         ) { on -> vm.update { it.copy(biometricLock = on) } }
 
+        Group("Data")
+        Row(
+            Modifier.fillMaxWidth().clickable { confirmErase = true }.padding(horizontal = Gutter, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text("Hapus semua data", style = Type.strong, color = c.over)
+                Text("Mulai dari nol lagi. Kantong, catatan, dan setelan ikut terhapus.", style = Type.bodySmall, color = c.mute)
+            }
+        }
+        Hairline()
+
         Group("Privasi")
         Column(Modifier.padding(horizontal = Gutter, vertical = 8.dp)) {
             Bullet("Cukup nggak pakai internet, jadi datamu nggak ke mana-mana.")
             Bullet("Datanya nggak ikut backup Google. Kalau aplikasinya dihapus, datanya ikut hilang.")
         }
         Text(
-            "Cukup 0.3",
+            "Cukup 0.4",
             style = Type.bodySmall, color = c.faint,
             modifier = Modifier.padding(horizontal = Gutter, vertical = 20.dp),
+        )
+    }
+
+    if (confirmErase) {
+        AlertDialog(
+            onDismissRequest = { confirmErase = false },
+            title = { Text("Hapus semua data?", style = Type.title) },
+            text = { Text("Semua kantong, catatan, dan setelan hilang dan nggak bisa dikembalikan.", style = Type.body) },
+            confirmButton = { TextButton({ confirmErase = false; vm.eraseEverything() }) { Text("Hapus semua", color = c.over) } },
+            dismissButton = { TextButton({ confirmErase = false }) { Text("Batal", color = c.ink) } },
+            containerColor = c.card,
         )
     }
 

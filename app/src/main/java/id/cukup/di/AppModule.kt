@@ -17,5 +17,7 @@ object AppModule {
     @Provides
     @Singleton
     fun database(@ApplicationContext context: Context): CukupDatabase =
-        Room.databaseBuilder(context, CukupDatabase::class.java, "cukup.db").build()
+        Room.databaseBuilder(context, CukupDatabase::class.java, "cukup.db")
+            .addMigrations(id.cukup.data.db.MIGRATION_1_2)
+            .build()
 }

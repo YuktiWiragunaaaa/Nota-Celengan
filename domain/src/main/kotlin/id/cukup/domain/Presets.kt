@@ -37,3 +37,44 @@ object Presets {
         ),
     )
 }
+
+/** Kategori siap pakai untuk kantong baru. Nama dan ikon tetap bisa diubah. */
+object Templates {
+    val all = listOf(
+        PresetPocket("Makan", "🍜", 0, PocketKind.SPEND, PocketTag.FOOD),
+        PresetPocket("Jajan & kopi", "☕", 0, PocketKind.SPEND, PocketTag.FUN),
+        PresetPocket("Belanja bulanan", "🛒", 0, PocketKind.SPEND, PocketTag.NEEDS),
+        PresetPocket("Transport", "🛵", 0, PocketKind.SPEND, PocketTag.TRANSPORT),
+        PresetPocket("Bensin", "⛽", 0, PocketKind.SPEND, PocketTag.TRANSPORT),
+        PresetPocket("Kos & sewa", "🏠", 0, PocketKind.SPEND, PocketTag.BILLS),
+        PresetPocket("Listrik & air", "🔌", 0, PocketKind.SPEND, PocketTag.BILLS),
+        PresetPocket("Pulsa & internet", "📶", 0, PocketKind.SPEND, PocketTag.BILLS),
+        PresetPocket("Langganan", "📺", 0, PocketKind.SPEND, PocketTag.BILLS),
+        PresetPocket("Belanja online", "🛍️", 0, PocketKind.SPEND, PocketTag.SHOPPING),
+        PresetPocket("Fashion", "👕", 0, PocketKind.SPEND, PocketTag.SHOPPING),
+        PresetPocket("Skincare", "🧴", 0, PocketKind.SPEND, PocketTag.SHOPPING),
+        PresetPocket("Nongkrong", "🎧", 0, PocketKind.SPEND, PocketTag.FUN),
+        PresetPocket("Hiburan", "🎬", 0, PocketKind.SPEND, PocketTag.FUN),
+        PresetPocket("Olahraga", "🏋️", 0, PocketKind.SPEND, PocketTag.FUN),
+        PresetPocket("Kesehatan", "💊", 0, PocketKind.SPEND, PocketTag.NEEDS),
+        PresetPocket("Pendidikan", "📚", 0, PocketKind.SPEND, PocketTag.NEEDS),
+        PresetPocket("Keluarga", "👨‍👩‍👧", 0, PocketKind.SPEND, PocketTag.NEEDS),
+        PresetPocket("Hewan peliharaan", "🐾", 0, PocketKind.SPEND, PocketTag.NEEDS),
+        PresetPocket("Hadiah", "🎁", 0, PocketKind.SPEND, PocketTag.WANTS),
+        PresetPocket("Gadget", "💻", 0, PocketKind.SPEND, PocketTag.WANTS),
+        PresetPocket("Sedekah", "🙏", 0, PocketKind.SPEND, PocketTag.OTHER),
+        PresetPocket("Tabungan", "🌱", 0, PocketKind.SAVE, PocketTag.SAVINGS),
+        PresetPocket("Dana darurat", "🛟", 0, PocketKind.SAVE, PocketTag.SAVINGS),
+        PresetPocket("Liburan", "✈️", 0, PocketKind.SAVE, PocketTag.SAVINGS),
+        PresetPocket("Investasi", "📈", 0, PocketKind.SAVE, PocketTag.SAVINGS),
+        PresetPocket("Bayar hutang", "🧾", 0, PocketKind.DEBT, PocketTag.DEBT),
+        PresetPocket("Lainnya", "✨", 0, PocketKind.SPEND, PocketTag.OTHER),
+    )
+
+    /** Ikon tambahan untuk kantong buatan sendiri. */
+    val emojis = listOf(
+        "🍜", "🍔", "🍱", "☕", "🧋", "🛒", "🛵", "🚗", "⛽", "🚌", "🏠", "🔌", "📶", "📺", "🎮", "🛍️",
+        "👕", "👟", "🧴", "💄", "🎧", "🎬", "🎤", "🏋️", "⚽", "💊", "🩺", "📚", "✏️", "👶", "👨‍👩‍👧", "🐾",
+        "🎁", "💍", "💻", "📱", "🙏", "🕌", "⛪", "🌱", "🛟", "✈️", "🏝️", "📈", "💰", "🧾", "💳", "✨",
+    )
+}

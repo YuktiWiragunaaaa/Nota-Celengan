@@ -9,24 +9,26 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import id.cukup.R
+import id.cukup.domain.Pocket
 
 /**
- * Cukup mengikuti arah "classic editorial": putih pecah, arang, garis tipis, tanpa warna aksen.
- * Warna hanya muncul pada pos (tanah, zaitun, pasir…) dan status (oker = hati-hati, bata = lewat).
+ * Cukup v0.4: hangat dan hidup. Gradien oranye ke merah tua untuk bagian utama,
+ * kartu putih bersih untuk isi, warna kantong cerah dan bisa dipilih sendiri.
  */
 @Immutable
 data class CukupColors(
     val paper: Color,
+    val card: Color,
     val surface: Color,
     val ink: Color,
     val mute: Color,
@@ -35,68 +37,68 @@ data class CukupColors(
     val dark: Color,
     val onDark: Color,
     val onDarkMute: Color,
+    val good: Color,
     val caution: Color,
     val over: Color,
+    val brand: List<Color>,
     val pockets: List<Color>,
     val isDark: Boolean,
 ) {
     fun pocket(index: Int): Color = pockets[((index % pockets.size) + pockets.size) % pockets.size]
+
+    /** Warna kantong: pilihan pengguna, atau warna bawaan sesuai urutan. */
+    fun of(p: Pocket, index: Int): Color = p.color?.let { Color(it) } ?: pocket(index)
+
+    val brandBrush: Brush get() = Brush.verticalGradient(brand)
+    val accent: Color get() = brand.last()
 }
 
+/** Warna yang bisa dipilih untuk kantong. Cerah, terbaca di atas gradien dan di atas putih. */
+val PocketPalette = listOf(
+    Color(0xFFFFC53D), // kuning
+    Color(0xFF20C9A6), // tosca
+    Color(0xFF8B6CFF), // ungu
+    Color(0xFF3DA5FF), // biru
+    Color(0xFFFF5C7A), // merah muda
+    Color(0xFF7ED957), // hijau
+    Color(0xFFF25FC6), // magenta
+    Color(0xFFFF8A3D), // jingga
+    Color(0xFFB98A64), // cokelat
+    Color(0xFF9AA5B1), // abu
+)
+
 private val Light = CukupColors(
-    paper = Color(0xFFFBFAF7),
-    surface = Color(0xFFF4F2ED),
-    ink = Color(0xFF1F1E1C),
-    mute = Color(0xFF77756F),
-    faint = Color(0xFFAEACA5),
-    line = Color(0xFFE6E4DE),
-    dark = Color(0xFF2A2926),
-    onDark = Color(0xFFF3F1EC),
-    onDarkMute = Color(0xFFB9B6AE),
-    caution = Color(0xFF9A6B2F),
-    over = Color(0xFFA3402F),
-    pockets = listOf(
-        Color(0xFF2A2926), // arang
-        Color(0xFFA0674B), // tanah liat
-        Color(0xFF6F7355), // zaitun
-        Color(0xFFC4A77D), // pasir
-        Color(0xFF66737D), // batu
-        Color(0xFFB48780), // mawar kering
-        Color(0xFF8C7A5B), // kayu
-    ),
+    paper = Color(0xFFF4F1EE),
+    card = Color(0xFFFFFFFF),
+    surface = Color(0xFFEFEAE6),
+    ink = Color(0xFF17110E),
+    mute = Color(0xFF6F6560),
+    faint = Color(0xFFABA29D),
+    line = Color(0xFFEAE4DF),
+    dark = Color(0xFF17110E),
+    onDark = Color(0xFFFFFFFF),
+    onDarkMute = Color(0xB3FFFFFF),
+    good = Color(0xFF1F9D6B),
+    caution = Color(0xFFE08A1E),
+    over = Color(0xFFD9392B),
+    brand = listOf(Color(0xFF3B0A04), Color(0xFF8C1C07), Color(0xFFD9481A), Color(0xFFF2782E)),
+    pockets = PocketPalette,
     isDark = false,
 )
 
-private val Dark = CukupColors(
-    paper = Color(0xFF171614),
-    surface = Color(0xFF201F1C),
-    ink = Color(0xFFF3F1EC),
-    mute = Color(0xFFB9B6AE),
-    faint = Color(0xFF7D7A73),
-    line = Color(0xFF34322E),
-    dark = Color(0xFF0F0E0D),
-    onDark = Color(0xFFF3F1EC),
-    onDarkMute = Color(0xFFB9B6AE),
-    caution = Color(0xFFD1A263),
-    over = Color(0xFFD9826F),
-    pockets = listOf(
-        Color(0xFFE8E4DC),
-        Color(0xFFC98B6D),
-        Color(0xFF9FA37F),
-        Color(0xFFD9C095),
-        Color(0xFF93A1AB),
-        Color(0xFFD1A69F),
-        Color(0xFFB5A07C),
-    ),
+private val Dark = Light.copy(
+    paper = Color(0xFF0F0B0A),
+    card = Color(0xFF1B1513),
+    surface = Color(0xFF241D1A),
+    ink = Color(0xFFF6F0EC),
+    mute = Color(0xFFB4AAA4),
+    faint = Color(0xFF7A716C),
+    line = Color(0xFF2D2522),
+    dark = Color(0xFF000000),
     isDark = true,
 )
 
 val LocalCukupColors = staticCompositionLocalOf { Light }
-
-val Serif = FontFamily(
-    Font(R.font.instrument_serif, FontWeight.Normal),
-    Font(R.font.instrument_serif_italic, FontWeight.Normal, FontStyle.Italic),
-)
 
 @OptIn(androidx.compose.ui.text.ExperimentalTextApi::class)
 val Sans = FontFamily(
@@ -104,23 +106,24 @@ val Sans = FontFamily(
     Font(R.font.inter, FontWeight.Normal, variationSettings = FontVariation.Settings(FontVariation.weight(400))),
     Font(R.font.inter, FontWeight.Medium, variationSettings = FontVariation.Settings(FontVariation.weight(500))),
     Font(R.font.inter, FontWeight.SemiBold, variationSettings = FontVariation.Settings(FontVariation.weight(600))),
+    Font(R.font.inter, FontWeight.Bold, variationSettings = FontVariation.Settings(FontVariation.weight(700))),
 )
 
+/**
+ * Skala huruf mengikuti rasio emas (1,618): 13 → 21 → 34 → 55.
+ * Angka memakai angka tabular supaya rapi saat berubah.
+ */
 object Type {
-    // Angka memakai Inter Light dengan angka tabular: angka 1 di Instrument Serif mirip huruf l.
-    /** Angka besar di beranda. */
-    val hero = TextStyle(fontFamily = Sans, fontWeight = FontWeight.Light, fontSize = 46.sp, lineHeight = 52.sp, letterSpacing = (-0.02).em, fontFeatureSettings = "tnum")
-    /** Angka menengah (total, ringkasan). */
-    val number = TextStyle(fontFamily = Sans, fontWeight = FontWeight.Light, fontSize = 26.sp, lineHeight = 32.sp, letterSpacing = (-0.01).em, fontFeatureSettings = "tnum")
-    val display = TextStyle(fontFamily = Serif, fontSize = 36.sp, lineHeight = 40.sp)
-    val title = TextStyle(fontFamily = Serif, fontSize = 26.sp, lineHeight = 30.sp)
-    val statement = TextStyle(fontFamily = Serif, fontStyle = FontStyle.Italic, fontSize = 20.sp, lineHeight = 26.sp)
-    val amount = TextStyle(fontFamily = Sans, fontWeight = FontWeight.Normal, fontSize = 16.sp, lineHeight = 22.sp, fontFeatureSettings = "tnum")
+    val hero = TextStyle(fontFamily = Sans, fontWeight = FontWeight.Medium, fontSize = 46.sp, lineHeight = 52.sp, letterSpacing = (-0.03).em, fontFeatureSettings = "tnum")
+    val number = TextStyle(fontFamily = Sans, fontWeight = FontWeight.SemiBold, fontSize = 26.sp, lineHeight = 32.sp, letterSpacing = (-0.02).em, fontFeatureSettings = "tnum")
+    val display = TextStyle(fontFamily = Sans, fontWeight = FontWeight.SemiBold, fontSize = 30.sp, lineHeight = 36.sp, letterSpacing = (-0.02).em)
+    val title = TextStyle(fontFamily = Sans, fontWeight = FontWeight.SemiBold, fontSize = 21.sp, lineHeight = 26.sp, letterSpacing = (-0.01).em)
+    val statement = TextStyle(fontFamily = Sans, fontWeight = FontWeight.Normal, fontSize = 17.sp, lineHeight = 24.sp)
+    val amount = TextStyle(fontFamily = Sans, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, lineHeight = 22.sp, fontFeatureSettings = "tnum")
     val body = TextStyle(fontFamily = Sans, fontSize = 15.sp, lineHeight = 22.sp)
     val bodySmall = TextStyle(fontFamily = Sans, fontSize = 13.sp, lineHeight = 18.sp)
-    val strong = TextStyle(fontFamily = Sans, fontSize = 15.sp, lineHeight = 22.sp, fontWeight = FontWeight.Medium)
-    /** Eyebrow kecil huruf kapital. */
-    val label = TextStyle(fontFamily = Sans, fontSize = 11.sp, lineHeight = 14.sp, letterSpacing = 0.16.em, fontWeight = FontWeight.Medium)
+    val strong = TextStyle(fontFamily = Sans, fontSize = 15.sp, lineHeight = 21.sp, fontWeight = FontWeight.Medium)
+    val label = TextStyle(fontFamily = Sans, fontSize = 12.sp, lineHeight = 16.sp, letterSpacing = 0.02.em, fontWeight = FontWeight.Medium)
 }
 
 @Composable
@@ -128,17 +131,17 @@ fun CukupTheme(dark: Boolean = isSystemInDarkTheme(), content: @Composable () ->
     val c = if (dark) Dark else Light
     val scheme = if (dark) {
         darkColorScheme(
-            primary = c.ink, onPrimary = c.paper, background = c.paper, onBackground = c.ink,
-            surface = c.paper, onSurface = c.ink, surfaceVariant = c.surface, onSurfaceVariant = c.mute,
+            primary = c.accent, onPrimary = Color.White, background = c.paper, onBackground = c.ink,
+            surface = c.card, onSurface = c.ink, surfaceVariant = c.surface, onSurfaceVariant = c.mute,
             outline = c.line, outlineVariant = c.line, error = c.over, secondary = c.mute,
-            surfaceContainer = c.surface, surfaceContainerHigh = c.surface, surfaceContainerLow = c.paper,
+            surfaceContainer = c.card, surfaceContainerHigh = c.card, surfaceContainerLow = c.paper,
         )
     } else {
         lightColorScheme(
-            primary = c.ink, onPrimary = c.paper, background = c.paper, onBackground = c.ink,
-            surface = c.paper, onSurface = c.ink, surfaceVariant = c.surface, onSurfaceVariant = c.mute,
+            primary = c.accent, onPrimary = Color.White, background = c.paper, onBackground = c.ink,
+            surface = c.card, onSurface = c.ink, surfaceVariant = c.surface, onSurfaceVariant = c.mute,
             outline = c.line, outlineVariant = c.line, error = c.over, secondary = c.mute,
-            surfaceContainer = c.surface, surfaceContainerHigh = c.surface, surfaceContainerLow = c.paper,
+            surfaceContainer = c.card, surfaceContainerHigh = c.card, surfaceContainerLow = c.paper,
         )
     }
     CompositionLocalProvider(LocalCukupColors provides c) {

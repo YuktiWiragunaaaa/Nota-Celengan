@@ -14,9 +14,12 @@ data class Pocket(
     val kind: PocketKind,
     val tag: PocketTag = PocketTag.OTHER,
     val sortOrder: Int = 0,
+    /** Warna pilihan pengguna (ARGB). null = warna bawaan sesuai urutan. */
+    val color: Int? = null,
 )
 
-enum class TxType { INCOME, EXPENSE, MOVE }
+/** ADJUST = penyesuaian saldo kantong (bukan belanja, bukan pemasukan). */
+enum class TxType { INCOME, EXPENSE, MOVE, ADJUST }
 enum class TxStatus { CONFIRMED, PENDING, DISMISSED }
 enum class TxSource { MANUAL, NOTIFICATION }
 

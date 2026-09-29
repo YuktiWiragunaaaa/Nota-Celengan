@@ -223,6 +223,7 @@ fun TxDetailScreen(onBack: () -> Unit, vm: TxDetailViewModel = hiltViewModel()) 
                         TxType.EXPENSE -> if (tx.isPaylater) "Pengeluaran · paylater" else "Pengeluaran"
                         TxType.INCOME -> "Pemasukan"
                         TxType.MOVE -> "Pindah kantong"
+                        TxType.ADJUST -> "Penyesuaian saldo"
                     },
                 )
                 Text(Rupiah.format(tx.amount), style = Type.hero, color = c.ink)
@@ -270,6 +271,7 @@ fun TxDetailScreen(onBack: () -> Unit, vm: TxDetailViewModel = hiltViewModel()) 
                     Info("Dari", pocketsById[tx.pocketId]?.name ?: "—")
                     Info("Ke", pocketsById[tx.toPocketId]?.name ?: "—")
                 }
+                TxType.ADJUST -> Info("Kantong", pocketsById[tx.pocketId ?: tx.toPocketId]?.name ?: "—")
             }
         }
         Hairline()

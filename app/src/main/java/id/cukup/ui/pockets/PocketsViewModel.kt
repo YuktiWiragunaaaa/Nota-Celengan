@@ -79,11 +79,15 @@ data class PocketDetailState(
 
 @HiltViewModel
 class PocketDetailViewModel @Inject constructor(
-    repository: MoneyRepository,
+    private val repository: MoneyRepository,
     savedState: SavedStateHandle,
 ) : ViewModel() {
 
     private val pocketId: Long = checkNotNull(savedState.get<Long>("id"))
+
+    fun setBalance(target: Long) {
+        viewModelScope.launch { repository.setBalance(pocketId, target) }
+    }
 
     val state: StateFlow<PocketDetailState> = combine(
         repository.summary,
@@ -119,6 +123,11 @@ class PocketDetailViewModel @Inject constructor(
                 TxType.MOVE -> when (id) {
                     t.pocketId -> PocketEntry(t, -t.amount, "Pindah ke ${pockets[t.toPocketId]?.name ?: "kantong lain"}")
                     t.toPocketId -> PocketEntry(t, t.amount, "Pindah dari ${pockets[t.pocketId]?.name ?: "kantong lain"}")
+                    else -> null
+                }
+                TxType.ADJUST -> when (id) {
+                    t.pocketId -> PocketEntry(t, -t.amount, t.merchant)
+                    t.toPocketId -> PocketEntry(t, t.amount, t.merchant)
                     else -> null
                 }
             }

@@ -50,6 +50,7 @@ data class AddState(
             TxType.EXPENSE -> pocketId != null
             TxType.INCOME -> split || toPocketId != null
             TxType.MOVE -> pocketId != null && toPocketId != null && pocketId != toPocketId
+            TxType.ADJUST -> false
         }
 }
 
@@ -181,6 +182,7 @@ class AddViewModel @Inject constructor(
                 TxType.EXPENSE -> repository.addExpense(s.amount, s.pocketId!!, s.merchant, s.note, at, s.isPaylater)
                 TxType.INCOME -> repository.addIncome(s.amount, s.merchant, s.note, at, if (s.split) null else s.toPocketId)
                 TxType.MOVE -> repository.move(s.pocketId!!, s.toPocketId!!, s.amount, s.note, at)
+                TxType.ADJUST -> Unit
             }
             _effects.send(AddEffect.Saved)
         }

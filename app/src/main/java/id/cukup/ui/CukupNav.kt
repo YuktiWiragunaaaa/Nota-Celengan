@@ -19,6 +19,18 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ReceiptLong
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.DonutLarge
+import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material3.Icon
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.foundation.layout.Arrangement
+import id.cukup.ui.components.Pill
+import id.cukup.ui.components.LightStatusBarIcons
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -69,14 +81,23 @@ private object Routes {
     fun add(type: String = "EXPENSE", pocket: Long = 0) = "add?type=$type&pocket=$pocket"
 }
 
-private val tabs = listOf(Routes.HOME to "Beranda", Routes.HISTORY to "Riwayat", Routes.POCKETS to "Kantong", Routes.SETTINGS to "Setelan")
+private data class TabItem(val route: String, val label: String, val icon: ImageVector)
+
+private val tabs = listOf(
+    TabItem(Routes.HOME, "Beranda", Icons.Rounded.Home),
+    TabItem(Routes.HISTORY, "Riwayat", Icons.AutoMirrored.Rounded.ReceiptLong),
+    TabItem(Routes.POCKETS, "Kantong", Icons.Rounded.DonutLarge),
+    TabItem(Routes.SETTINGS, "Setelan", Icons.Rounded.Tune),
+)
 
 @Composable
 fun CukupNav(onboarded: Boolean, openAdd: Boolean, onAddHandled: () -> Unit) {
     val nav = rememberNavController()
     val entry by nav.currentBackStackEntryAsState()
     val route = entry?.destination?.route
-    val showBar = route in tabs.map { it.first }
+    val showBar = route in tabs.map { it.route }
+    // Layar bergradien memakai ikon status bar terang.
+    LightStatusBarIcons(light = route in setOf(Routes.HOME, Routes.POCKETS, Routes.POCKET))
     val c = colors
 
     LaunchedEffect(openAdd, onboarded) {
@@ -89,7 +110,7 @@ fun CukupNav(onboarded: Boolean, openAdd: Boolean, onAddHandled: () -> Unit) {
     val density = LocalDensity.current
     val top = with(density) { WindowInsets.statusBars.getTop(this).toDp() }
     val bottom = with(density) { WindowInsets.navigationBars.getBottom(this).toDp() }
-    val tabPadding = PaddingValues(top = top, bottom = bottom + 84.dp)
+    val tabPadding = PaddingValues(top = top, bottom = bottom + 96.dp)
 
     Box(Modifier.fillMaxSize().background(c.paper)) {
         NavHost(
@@ -108,6 +129,7 @@ fun CukupNav(onboarded: Boolean, openAdd: Boolean, onAddHandled: () -> Unit) {
                     contentPadding = tabPadding,
                     onIncome = { nav.navigate(Routes.add("INCOME")) },
                     onExpense = { nav.navigate(Routes.add()) },
+                    onMove = { nav.navigate(Routes.add("MOVE")) },
                     onOpenPocket = { nav.navigate("pocket/$it") },
                     onEditSplit = { nav.navigate(Routes.SPLIT) },
                     onOpenInbox = { nav.navigate(Routes.INBOX) },
@@ -168,40 +190,45 @@ private fun NavHostController.switchTab(route: String) {
 @Composable
 private fun BottomBar(current: String?, onTab: (String) -> Unit, onAdd: () -> Unit, modifier: Modifier = Modifier) {
     val c = colors
-    Column(modifier.fillMaxWidth().background(c.paper.copy(alpha = 0.96f)).windowInsetsPadding(WindowInsets.navigationBars)) {
-        Hairline()
-        Row(Modifier.fillMaxWidth().height(72.dp), verticalAlignment = Alignment.CenterVertically) {
-            tabs.take(2).forEach { (r, label) -> Tab(label, r == current, { onTab(r) }, Modifier.weight(1f)) }
-            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                Box(
-                    Modifier
-                        .size(54.dp)
-                        .shadow(6.dp, CircleShape, ambientColor = c.ink, spotColor = c.ink)
-                        .clip(CircleShape)
-                        .background(c.ink)
-                        .clickable(role = Role.Button, onClick = onAdd)
-                        .semantics { contentDescription = "Catat transaksi" },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text("+", style = Type.display, color = c.paper)
-                }
-            }
-            tabs.drop(2).forEach { (r, label) -> Tab(label, r == current, { onTab(r) }, Modifier.weight(1f)) }
-        }
+    Row(
+        modifier
+            .windowInsetsPadding(WindowInsets.navigationBars)
+            .padding(horizontal = 20.dp, vertical = 12.dp)
+            .fillMaxWidth()
+            .height(64.dp)
+            .shadow(16.dp, Pill, ambientColor = Color.Black.copy(alpha = 0.25f), spotColor = Color.Black.copy(alpha = 0.25f))
+            .clip(Pill)
+            .background(c.card)
+            .padding(horizontal = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        tabs.take(2).forEach { t -> Tab(t, t.route == current) { onTab(t.route) } }
+        Box(
+            Modifier
+                .size(50.dp)
+                .clip(CircleShape)
+                .background(c.brandBrush)
+                .clickable(role = Role.Button, onClick = onAdd)
+                .semantics { contentDescription = "Catat uang keluar" },
+            contentAlignment = Alignment.Center,
+        ) { Icon(Icons.Rounded.Add, null, tint = Color.White) }
+        tabs.drop(2).forEach { t -> Tab(t, t.route == current) { onTab(t.route) } }
     }
 }
 
 @Composable
-private fun Tab(label: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier) {
+private fun Tab(tab: TabItem, selected: Boolean, onClick: () -> Unit) {
     val c = colors
-    Column(
-        modifier.clickable(role = Role.Tab, onClick = onClick).padding(vertical = 12.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
+    Box(
+        Modifier
+            .size(48.dp)
+            .clip(CircleShape)
+            .background(if (selected) c.ink else Color.Transparent)
+            .clickable(role = Role.Tab, onClick = onClick)
+            .semantics { contentDescription = tab.label },
+        contentAlignment = Alignment.Center,
     ) {
-        Text(label.uppercase(Id), style = Type.label, color = if (selected) c.ink else c.faint)
-        Box(
-            Modifier.padding(top = 6.dp).size(width = 16.dp, height = 1.5.dp)
-                .background(if (selected) c.ink else c.paper),
-        )
+        Icon(tab.icon, null, tint = if (selected) c.card else c.mute, modifier = Modifier.size(22.dp))
     }
 }

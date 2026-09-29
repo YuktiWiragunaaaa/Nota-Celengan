@@ -57,6 +57,7 @@ fun AddScreen(onClose: () -> Unit, vm: AddViewModel = hiltViewModel()) {
                 TxType.EXPENSE -> "Uang keluar"
                 TxType.INCOME -> "Uang masuk"
                 TxType.MOVE -> "Pindah antar kantong"
+                TxType.ADJUST -> "Atur saldo"
             },
             onBack = onClose,
         )
@@ -128,6 +129,7 @@ fun AddScreen(onClose: () -> Unit, vm: AddViewModel = hiltViewModel()) {
                         LineField(s.merchant, { vm.onIntent(AddIntent.Merchant(it)) }, "Dari mana? (mis. gaji, uang saku, jualan)")
                     }
                 }
+                TxType.ADJUST -> Unit
                 TxType.MOVE -> {
                     Label("Dari kantong")
                     PocketPicker(s.pockets, s.pocketId, { vm.onIntent(AddIntent.From(it)) })

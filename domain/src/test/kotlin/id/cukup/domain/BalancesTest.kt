@@ -106,4 +106,14 @@ class BalancesTest {
         assertEquals(Warning.NEAR, Balances.compute(two, listOf(lastWeek, thisWeek, spent(400_000)), a1 + a2, 500, 7).warning)
         assertEquals(Warning.OVER, Balances.compute(two, listOf(lastWeek, thisWeek, spent(500_001)), a1 + a2, 500, 7).warning)
     }
+
+    @Test
+    fun `adjust resets a pocket without touching budget`() {
+        val (inc, allocs) = income(1, 1_000_000)
+        val reset = Transaction(id = 2, type = TxType.ADJUST, amount = 200_000, pocketId = 3, occurredAt = 300)
+        val s = Balances.compute(pockets, listOf(inc, reset), allocs, 0, 1)
+        assertEquals(0L, s.pockets[2].balance)
+        assertEquals(0L, s.spentThisCycle)
+        assertEquals(0L, s.budgetUsed)
+    }
 }

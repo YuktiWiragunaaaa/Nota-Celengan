@@ -234,6 +234,33 @@ class MoneyRepository @Inject constructor(
         return saved
     }
 
+    /** Mengubah isi kantong menjadi [target] lewat transaksi penyesuaian (riwayat tetap ada). */
+    suspend fun setBalance(pocketId: Long, target: Long) {
+        val current = currentSummary().pockets.firstOrNull { it.pocket.id == pocketId }?.balance ?: return
+        val diff = target - current
+        if (diff == 0L) return
+        dao.insertTransaction(
+            TransactionEntity.from(
+                Transaction(
+                    type = TxType.ADJUST,
+                    amount = kotlin.math.abs(diff),
+                    pocketId = if (diff < 0) pocketId else null,
+                    toPocketId = if (diff > 0) pocketId else null,
+                    merchant = if (target == 0L) "Saldo dikosongkan" else "Saldo disesuaikan",
+                    occurredAt = System.currentTimeMillis(),
+                ),
+            ),
+        )
+        changed()
+    }
+
+    /** Menghapus semua data dan pengaturan. Aplikasi kembali ke awal. */
+    suspend fun eraseEverything() {
+        db.withTransaction { db.clearAllTables() }
+        settingsStore.update { Settings() }
+        widgets.refresh()
+    }
+
     suspend fun hasPockets(): Boolean = dao.pocketCount() > 0
 
     suspend fun pendingCount(): Int = pending.first().size

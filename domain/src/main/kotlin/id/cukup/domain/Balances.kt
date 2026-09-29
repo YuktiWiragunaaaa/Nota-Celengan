@@ -124,6 +124,11 @@ object Balances {
                         add(inCycle, t.toPocketId, t.amount)
                     }
                 }
+                TxType.ADJUST -> {
+                    // pocketId = dikurangi, toPocketId = ditambah. Tidak memengaruhi jatah.
+                    add(balance, t.pocketId, -t.amount)
+                    add(balance, t.toPocketId, t.amount)
+                }
             }
         }
 
