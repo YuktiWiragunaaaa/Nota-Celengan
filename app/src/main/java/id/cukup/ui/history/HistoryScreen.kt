@@ -115,7 +115,7 @@ fun HistoryScreen(contentPadding: PaddingValues, onOpenTx: (Long) -> Unit, vm: H
     LazyColumn(Modifier.fillMaxSize().background(c.paper), contentPadding = contentPadding) {
         item {
             Column(Modifier.padding(horizontal = Gutter).padding(top = 24.dp)) {
-                Text(italicize("Ke mana <i>uangnya?</i>"), style = Type.display, color = c.ink)
+                Text(italicize("Riwayat"), style = Type.display, color = c.ink)
                 Spacer(Modifier.height(16.dp))
                 Row {
                     Column(Modifier.weight(1f)) {
@@ -146,7 +146,7 @@ fun HistoryScreen(contentPadding: PaddingValues, onOpenTx: (Long) -> Unit, vm: H
         }
         if (s.loaded && s.groups.isEmpty()) {
             item {
-                Text("Belum ada transaksi di sini.", style = Type.body, color = c.faint, modifier = Modifier.padding(Gutter))
+                Text("Belum ada yang dicatat.", style = Type.body, color = c.faint, modifier = Modifier.padding(Gutter))
             }
         }
         s.groups.forEach { (date, txs) ->

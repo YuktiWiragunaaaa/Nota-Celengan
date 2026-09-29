@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import id.cukup.data.MoneyRepository
+import id.cukup.domain.Advisor
+import id.cukup.domain.Insight
 import id.cukup.domain.Pocket
 import id.cukup.domain.Schedule
 import id.cukup.domain.Summary
@@ -26,6 +28,7 @@ data class HomeState(
     val pocketIndex: Map<Long, Int> = emptyMap(),
     val schedule: Schedule = Schedule(),
     val nextPayday: LocalDate? = null,
+    val insights: List<Insight> = emptyList(),
 )
 
 @HiltViewModel
@@ -48,6 +51,10 @@ class HomeViewModel @Inject constructor(repository: MoneyRepository) : ViewModel
             pocketIndex = pockets.mapIndexed { i, p -> p.id to i }.toMap(),
             schedule = settings.schedule,
             nextPayday = repository.cycle(settings.schedule).nextPayday,
+            insights = Advisor.insights(
+                summary, txs, pockets,
+                repository.cycle(settings.schedule), repository.previousCycle(settings.schedule), LocalDate.now(),
+            ),
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeState())
 }

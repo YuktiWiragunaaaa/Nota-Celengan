@@ -30,6 +30,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import id.cukup.domain.Insight
 import id.cukup.domain.PocketBalance
 import id.cukup.domain.PocketKind
 import id.cukup.domain.Rupiah
@@ -92,6 +93,11 @@ fun HomeScreen(
             }
         }
 
+        if (s.insights.isNotEmpty()) {
+            item { SectionHeader("Catatan ${s.schedule.periodName}") }
+            items(s.insights, key = { "i" + it.kind }) { insight -> InsightRow(insight) }
+        }
+
         if (s.pendingCount > 0) {
             item {
                 Row(
@@ -106,7 +112,7 @@ fun HomeScreen(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        "${s.pendingCount} transaksi dari notifikasi, cek dulu",
+                        "Ada ${s.pendingCount} transaksi baru dari notifikasi. Cek sebentar?",
                         style = Type.body, color = c.onDark, modifier = Modifier.weight(1f),
                     )
                     Text("→", style = Type.title, color = c.onDark)
@@ -138,7 +144,7 @@ fun HomeScreen(
         if (s.recent.isEmpty()) {
             item {
                 Text(
-                    "Belum ada catatan. Pakai tombol \"Uang keluar\" setiap belanja, termasuk yang pakai uang tunai.",
+                    "Belum ada catatan. Tiap belanja, termasuk pakai uang tunai, tinggal tekan Uang keluar.",
                     style = Type.body, color = c.faint,
                     modifier = Modifier.padding(horizontal = Gutter, vertical = 8.dp),
                 )
@@ -184,7 +190,7 @@ private fun BudgetCard(summary: Summary, periodName: String, nextPayday: LocalDa
         if (summary.budget <= 0 && summary.budgetUsed == 0L) {
             Text("Belum ada uang masuk", style = Type.number, color = c.faint)
             Spacer(Modifier.height(6.dp))
-            Text("Catat gaji atau uang saku lewat \"Uang masuk\". Nanti otomatis dibagi ke kantong.", style = Type.bodySmall, color = c.mute)
+            Text("Catat gaji atau uang sakumu dulu lewat tombol Uang masuk.", style = Type.bodySmall, color = c.mute)
             return@Column
         }
         Row(verticalAlignment = Alignment.Bottom) {
@@ -212,9 +218,9 @@ private fun BudgetCard(summary: Summary, periodName: String, nextPayday: LocalDa
         val perDay = summary.budgetLeft.coerceAtLeast(0) / summary.daysLeft.coerceAtLeast(1)
         Text(
             when (warning) {
-                Warning.CALM -> "Masih aman. Kira-kira ${Rupiah.format(perDay)} per hari sampai gajian ($payday, ${summary.daysLeft} hari lagi)."
-                Warning.NEAR -> "Hati-hati, sudah ${(summary.budgetRatio * 100).toInt()}% terpakai. Sisa ${Rupiah.format(perDay)} per hari sampai $payday."
-                Warning.OVER -> "Sudah lewat ${Rupiah.format(-summary.budgetLeft)} dari jatah. Coba tahan belanja sampai $payday."
+                Warning.CALM -> "Aman. Kira-kira ${Rupiah.format(perDay)} sehari sampai gajian hari $payday."
+                Warning.NEAR -> "Sudah kepakai ${(summary.budgetRatio * 100).toInt()}%. Sisanya kira-kira ${Rupiah.format(perDay)} sehari sampai $payday."
+                Warning.OVER -> "Kelebihan ${Rupiah.format(-summary.budgetLeft)}. Coba tahan dulu sampai $payday."
             },
             style = Type.body, color = if (warning == Warning.CALM) c.ink else tone,
         )
@@ -247,10 +253,28 @@ internal fun PocketRow(pb: PocketBalance, index: Int, onClick: () -> Unit) {
 private fun greeting(name: String): String {
     val h = java.time.LocalTime.now().hour
     val time = when (h) {
-        in 4..10 -> "Selamat pagi"
-        in 11..14 -> "Selamat siang"
-        in 15..17 -> "Selamat sore"
-        else -> "Selamat malam"
+        in 4..10 -> "Pagi"
+        in 11..14 -> "Siang"
+        in 15..17 -> "Sore"
+        else -> "Malam"
     }
     return if (name.isBlank()) "$time." else "$time, $name."
+}
+
+@Composable
+private fun InsightRow(insight: Insight) {
+    val c = colors
+    Row(Modifier.fillMaxWidth().padding(horizontal = Gutter, vertical = 7.dp), verticalAlignment = Alignment.Top) {
+        Box(
+            Modifier.padding(top = 8.dp).width(6.dp).height(6.dp).clip(RoundedCornerShape(3.dp)).background(
+                when (insight.tone) {
+                    Insight.Tone.GOOD -> c.pocket(2)
+                    Insight.Tone.INFO -> c.faint
+                    Insight.Tone.WARN -> c.caution
+                },
+            ),
+        )
+        Spacer(Modifier.width(12.dp))
+        Text(insight.text, style = Type.body, color = c.ink)
+    }
 }

@@ -52,6 +52,8 @@ import id.cukup.ui.components.Hairline
 import id.cukup.ui.components.LineField
 import id.cukup.ui.components.ScheduleEditor
 import id.cukup.ui.components.describe
+import id.cukup.domain.Rupiah
+import androidx.compose.ui.text.input.KeyboardType
 import id.cukup.ui.onboarding.Bullet
 import id.cukup.ui.theme.Type
 import id.cukup.ui.theme.colors
@@ -79,6 +81,7 @@ fun SettingsScreen(contentPadding: PaddingValues, onEditSplit: () -> Unit, vm: S
     var listenerOn by remember { mutableStateOf(MoneyNotificationListener.isEnabled(context)) }
     var notifAllowed by remember { mutableStateOf(canNotify(context)) }
     var editSchedule by remember { mutableStateOf(false) }
+    var editLimit by remember { mutableStateOf(false) }
     val askNotif = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { notifAllowed = it }
     LaunchedEffect(lifecycle) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
@@ -112,26 +115,30 @@ fun SettingsScreen(contentPadding: PaddingValues, onEditSplit: () -> Unit, vm: S
         Group("Peringatan")
         Toggle(
             "Beri tahu kalau belanja kebanyakan",
-            if (notifAllowed) "Saat 80% jatah terpakai, dan saat lewat." else "Izin notifikasi belum diberikan. Nyalakan untuk meminta izin.",
+            if (notifAllowed) "Saat 80% jatah terpakai, dan saat lewat." else "Izin notifikasinya belum ada. Nyalakan untuk minta izin.",
             s.budgetAlerts && notifAllowed,
         ) { on ->
             if (on && !notifAllowed && Build.VERSION.SDK_INT >= 33) askNotif.launch(Manifest.permission.POST_NOTIFICATIONS)
             vm.update { it.copy(budgetAlerts = on) }
         }
+        Link(
+            "Batas sekali belanja",
+            if (s.singleLimit > 0) "Tanya dulu kalau di atas ${Rupiah.format(s.singleLimit)}" else "Belum diatur",
+        ) { editLimit = true }
 
         Group("Catat otomatis")
         Link(
             "Baca notifikasi e-wallet & bank",
-            if (listenerOn) "Aktif" else "Belum aktif. Ketuk untuk menyalakan.",
+            if (listenerOn) "Aktif" else "Belum nyala. Ketuk di sini.",
             valueColor = if (listenerOn) null else c.caution,
         ) { context.startActivity(Intent(AndroidSettings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
         Toggle(
             "Langsung simpan tanpa dicek",
-            "Kalau mati, transaksi dari notifikasi menunggu di \"cek dulu\".",
+            "Kalau mati, kamu cek dulu sebelum tersimpan.",
             s.autoConfirm,
         ) { on -> vm.update { it.copy(autoConfirm = on) } }
         Text(
-            "HP Xiaomi: supaya tetap jalan, buka Setelan HP → Aplikasi → Cukup → Penghemat baterai → \"Tanpa batasan\", dan nyalakan \"Mulai otomatis\".",
+            "Pakai Xiaomi? Biar tetap jalan, buka Setelan HP, pilih Aplikasi, cari Cukup, lalu ubah Penghemat baterai ke \"Tanpa batasan\" dan nyalakan \"Mulai otomatis\".",
             style = Type.bodySmall, color = c.faint,
             modifier = Modifier.padding(horizontal = Gutter, vertical = 12.dp),
         )
@@ -147,13 +154,34 @@ fun SettingsScreen(contentPadding: PaddingValues, onEditSplit: () -> Unit, vm: S
 
         Group("Privasi")
         Column(Modifier.padding(horizontal = Gutter, vertical = 8.dp)) {
-            Bullet("Cukup tidak bisa mengakses internet. Data tidak keluar dari HP ini.")
-            Bullet("Data tidak ikut backup Google. Kalau aplikasi dihapus, data ikut hilang.")
+            Bullet("Cukup nggak pakai internet, jadi datamu nggak ke mana-mana.")
+            Bullet("Datanya nggak ikut backup Google. Kalau aplikasinya dihapus, datanya ikut hilang.")
         }
         Text(
-            "Cukup 0.2",
+            "Cukup 0.3",
             style = Type.bodySmall, color = c.faint,
             modifier = Modifier.padding(horizontal = Gutter, vertical = 20.dp),
+        )
+    }
+
+    if (editLimit) {
+        var draft by remember { mutableStateOf(if (s.singleLimit > 0) s.singleLimit.toString() else "") }
+        AlertDialog(
+            onDismissRequest = { editLimit = false },
+            title = { Text("Batas sekali belanja", style = Type.title) },
+            text = {
+                Column {
+                    Text("Kalau satu kali belanja lebih dari ini, Cukup tanya dulu sebelum menyimpan. Kosongkan untuk mematikan.", style = Type.body, color = c.mute)
+                    androidx.compose.foundation.layout.Spacer(Modifier.padding(6.dp))
+                    LineField(draft, { v -> draft = v.filter(Char::isDigit).take(10) }, "Misalnya 200000", keyboardType = KeyboardType.Number)
+                    if (draft.isNotEmpty()) Text(Rupiah.format(draft.toLong()), style = Type.bodySmall, color = c.mute, modifier = Modifier.padding(top = 6.dp))
+                }
+            },
+            confirmButton = {
+                TextButton({ vm.update { it.copy(singleLimit = draft.toLongOrNull() ?: 0) }; editLimit = false }) { Text("Simpan", color = c.ink) }
+            },
+            dismissButton = { TextButton({ editLimit = false }) { Text("Batal", color = c.mute) } },
+            containerColor = c.paper,
         )
     }
 

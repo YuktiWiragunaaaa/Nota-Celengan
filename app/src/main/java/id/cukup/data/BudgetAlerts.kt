@@ -23,8 +23,9 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Mengirim notifikasi saat jatah belanja periode ini mencapai 80% dan saat terlewati.
- * Tiap tingkat hanya dikirim sekali per periode.
+ * Notifikasi pop-up (heads-up) soal jatah belanja:
+ * - 80% jatah terpakai, dan saat jatah terlewati (masing-masing sekali per periode);
+ * - satu kali belanja di atas batas yang diatur pengguna.
  */
 @Singleton
 class BudgetAlerts @Inject constructor(
@@ -39,46 +40,68 @@ class BudgetAlerts @Inject constructor(
 
         val period = PayCycle.of(LocalDate.now(), s.schedule).start.toString()
         val key = "$period:${level.name}"
-        // Sudah dikirim untuk tingkat ini (atau lebih tinggi) di periode yang sama.
         if (s.lastAlert == key || (level == Warning.NEAR && s.lastAlert == "$period:${Warning.OVER.name}")) return
         settings.update { it.copy(lastAlert = key) }
 
-        val name = s.schedule.periodName
-        val (title, text) = when (level) {
-            Warning.NEAR -> "Jatah $name tinggal sedikit" to
-                "Sudah terpakai ${Rupiah.format(summary.budgetUsed)} dari ${Rupiah.format(summary.budget)}. Sisa ${Rupiah.format(summary.budgetLeft)}."
-            else -> "Jatah $name sudah lewat" to
-                "Kamu belanja ${Rupiah.format(-summary.budgetLeft)} lebih dari jatah ${Rupiah.format(summary.budget)}."
+        val period_ = s.schedule.periodName
+        when (level) {
+            Warning.NEAR -> post(
+                ID_BUDGET,
+                "Jatah $period_ tinggal ${Rupiah.format(summary.budgetLeft)}",
+                "Sudah kepakai ${Rupiah.format(summary.budgetUsed)} dari ${Rupiah.format(summary.budget)}. Pelan-pelan dulu ya.",
+            )
+            else -> post(
+                ID_BUDGET,
+                "Jatah $period_ sudah habis",
+                "Kelebihan ${Rupiah.format(-summary.budgetLeft)}. Kalau bisa, tahan dulu sampai gajian.",
+            )
         }
-        post(title, text)
     }
 
-    private fun post(title: String, text: String) {
+    /** Dipanggil untuk belanja yang tercatat otomatis dari notifikasi. */
+    suspend fun checkSingle(amount: Long, merchant: String) {
+        val s = settings.current()
+        if (!s.budgetAlerts || s.singleLimit <= 0 || amount <= s.singleLimit) return
+        val where = if (merchant.isBlank()) "" else " di $merchant"
+        post(
+            ID_SINGLE,
+            "Belanja besar: ${Rupiah.format(amount)}$where",
+            "Di atas batas sekali belanjamu (${Rupiah.format(s.singleLimit)}). Cuma mengingatkan.",
+        )
+    }
+
+    private fun post(id: Int, title: String, text: String) {
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) return
         val manager = context.getSystemService(NotificationManager::class.java)
+        manager.deleteNotificationChannel(OLD_CHANNEL)
         manager.createNotificationChannel(
-            NotificationChannel(CHANNEL, "Peringatan jatah", NotificationManager.IMPORTANCE_DEFAULT).apply {
-                description = "Saat belanja hampir atau sudah melewati jatah."
+            // IMPORTANCE_HIGH = muncul sebagai pop-up di atas layar.
+            NotificationChannel(CHANNEL, "Peringatan belanja", NotificationManager.IMPORTANCE_HIGH).apply {
+                description = "Muncul saat jatah hampir habis, sudah habis, atau ada belanja besar."
             },
         )
         val open = PendingIntent.getActivity(
-            context, 0, Intent(context, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE,
+            context, id, Intent(context, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE,
         )
         val n = NotificationCompat.Builder(context, CHANNEL)
             .setSmallIcon(R.drawable.ic_notif)
             .setContentTitle(title)
             .setContentText(text)
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setContentIntent(open)
             .setAutoCancel(true)
             .build()
-        runCatching { NotificationManagerCompat.from(context).notify(ID, n) }
+        runCatching { NotificationManagerCompat.from(context).notify(id, n) }
     }
 
     private companion object {
-        const val CHANNEL = "budget"
-        const val ID = 1
+        const val OLD_CHANNEL = "budget"
+        const val CHANNEL = "budget_alerts"
+        const val ID_BUDGET = 1
+        const val ID_SINGLE = 2
     }
 }

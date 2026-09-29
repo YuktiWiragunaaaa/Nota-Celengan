@@ -108,7 +108,7 @@ class MainActivity : FragmentActivity() {
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text(italicize("Cukup <i>terkunci.</i>"), style = Type.display, color = c.ink)
+            Text(italicize("Cukup dikunci"), style = Type.display, color = c.ink)
             Spacer(Modifier.height(24.dp))
             InkButton("Buka", onClick = onUnlock, modifier = Modifier.fillMaxWidth(0.6f))
         }

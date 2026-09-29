@@ -26,6 +26,8 @@ data class Settings(
     val autoConfirm: Boolean = false,
     /** Kirim notifikasi saat jatah belanja hampir / sudah habis. */
     val budgetAlerts: Boolean = true,
+    /** Tanya dulu kalau satu kali belanja di atas nominal ini. 0 = mati. */
+    val singleLimit: Long = 0,
     /** Peringatan terakhir yang sudah dikirim: "<awal periode>:<tingkat>", agar tidak berulang. */
     val lastAlert: String = "",
 )
@@ -46,6 +48,7 @@ class SettingsStore @Inject constructor(@ApplicationContext private val context:
         val autoConfirm = booleanPreferencesKey("auto_confirm")
         val budgetAlerts = booleanPreferencesKey("budget_alerts")
         val lastAlert = stringPreferencesKey("last_alert")
+        val singleLimit = longPreferencesKey("single_limit")
     }
 
     private fun read(p: Preferences) = Settings(
@@ -61,6 +64,7 @@ class SettingsStore @Inject constructor(@ApplicationContext private val context:
         autoConfirm = p[K.autoConfirm] ?: false,
         budgetAlerts = p[K.budgetAlerts] ?: true,
         lastAlert = p[K.lastAlert] ?: "",
+        singleLimit = p[K.singleLimit] ?: 0,
     )
 
     val settings: Flow<Settings> = context.dataStore.data.map(::read)
@@ -80,6 +84,7 @@ class SettingsStore @Inject constructor(@ApplicationContext private val context:
             p[K.autoConfirm] = next.autoConfirm
             p[K.budgetAlerts] = next.budgetAlerts
             p[K.lastAlert] = next.lastAlert
+            p[K.singleLimit] = next.singleLimit
         }
     }
 }

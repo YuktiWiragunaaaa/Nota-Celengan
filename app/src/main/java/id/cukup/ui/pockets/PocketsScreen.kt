@@ -111,13 +111,13 @@ fun SplitScreen(onBack: () -> Unit, vm: PocketsViewModel = hiltViewModel()) {
         if (editing == null) return@Column
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
             Text(
-                "Geser persen tiap kantong. Berlaku untuk uang masuk berikutnya; yang sudah tercatat tidak berubah.",
+                "Geser persen tiap kantong. Perubahannya berlaku untuk uang yang masuk setelah ini.",
                 style = Type.body, color = c.mute,
                 modifier = Modifier.padding(horizontal = Gutter),
             )
             SplitEditor(editing, onChange = vm::edit)
             Text(
-                "Kantong yang dihapus disembunyikan, riwayatnya tetap ada. Pindahkan dulu sisa uangnya ke kantong lain.",
+                "Kantong yang dihapus cuma disembunyikan, riwayatnya masih ada. Sebaiknya pindahkan dulu sisa uangnya.",
                 style = Type.bodySmall, color = c.faint,
                 modifier = Modifier.padding(horizontal = Gutter, vertical = 8.dp),
             )

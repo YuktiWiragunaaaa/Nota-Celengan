@@ -93,14 +93,14 @@ fun InboxScreen(onBack: () -> Unit, vm: InboxViewModel = hiltViewModel()) {
         TopBar("Perlu dicek", onBack = onBack)
         if (s.loaded && s.pending.isEmpty()) {
             Column(Modifier.padding(Gutter)) {
-                Text(italicize("Semua sudah <i>beres.</i>"), style = Type.display, color = c.ink)
+                Text(italicize("Nggak ada yang perlu dicek"), style = Type.display, color = c.ink)
                 Spacer(Modifier.height(8.dp))
-                Text("Transaksi yang terbaca dari notifikasi akan muncul di sini.", style = Type.body, color = c.mute)
+                Text("Nanti transaksi dari notifikasi muncul di sini.", style = Type.body, color = c.mute)
             }
             return@Column
         }
         Text(
-            "Terbaca dari notifikasi HP. Pastikan nominal dan kantongnya benar, lalu simpan.",
+            "Ini dari notifikasi HP-mu. Cek dulu nominal dan kantongnya, lalu simpan.",
             style = Type.bodySmall, color = c.mute,
             modifier = Modifier.padding(horizontal = Gutter).padding(bottom = 12.dp),
         )
@@ -242,7 +242,7 @@ fun TxDetailScreen(onBack: () -> Unit, vm: TxDetailViewModel = hiltViewModel()) 
                     Eyebrow("Kantong", Modifier.padding(horizontal = Gutter).padding(top = 20.dp, bottom = 10.dp))
                     PocketPicker(s.pockets, tx.pocketId, vm::changePocket)
                     Text(
-                        "Cukup akan ingat pilihan ini untuk transaksi berikutnya di tempat yang sama.",
+                        "Lain kali belanja di tempat yang sama, otomatis masuk kantong ini.",
                         style = Type.bodySmall, color = c.faint,
                         modifier = Modifier.padding(horizontal = Gutter, vertical = 10.dp),
                     )
@@ -281,7 +281,7 @@ fun TxDetailScreen(onBack: () -> Unit, vm: TxDetailViewModel = hiltViewModel()) 
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
             title = { Text("Hapus transaksi?", style = Type.title) },
-            text = { Text("Isi kantong akan dihitung ulang. Tidak bisa dibatalkan.", style = Type.body) },
+            text = { Text("Isi kantong dihitung ulang, dan ini nggak bisa dibatalkan.", style = Type.body) },
             confirmButton = { TextButton({ confirmDelete = false; vm.delete(onBack) }) { Text("Hapus", color = c.over) } },
             dismissButton = { TextButton({ confirmDelete = false }) { Text("Batal", color = c.ink) } },
             containerColor = c.paper,

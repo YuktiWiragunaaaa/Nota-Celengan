@@ -53,6 +53,9 @@ class MoneyRepository @Inject constructor(
 
     fun cycle(schedule: Schedule, today: LocalDate = LocalDate.now(zone)): PayCycle = PayCycle.of(today, schedule)
 
+    /** Periode sebelum periode yang sedang berjalan. */
+    fun previousCycle(schedule: Schedule): PayCycle = PayCycle.of(cycle(schedule).start.minusDays(1), schedule)
+
     fun summarize(p: List<Pocket>, t: List<Transaction>, a: List<Allocation>, schedule: Schedule): Summary {
         val today = LocalDate.now(zone)
         val cycle = cycle(schedule, today)
@@ -224,7 +227,10 @@ class MoneyRepository @Inject constructor(
         } else {
             dao.insertTransaction(TransactionEntity.from(tx)) > 0
         }
-        if (saved) changed()
+        if (saved) {
+            changed()
+            if (tx.type == TxType.EXPENSE && !tx.isPaylater) runCatching { alerts.checkSingle(tx.amount, tx.merchant) }
+        }
         return saved
     }
 

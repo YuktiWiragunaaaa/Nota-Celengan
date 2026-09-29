@@ -90,7 +90,7 @@ fun OnboardingScreen(onDone: () -> Unit, vm: OnboardingViewModel = hiltViewModel
             when (step) {
                 OnboardingStep.NAME -> NameStep(s.name) { vm.onIntent(OnboardingIntent.Name(it)) }
                 OnboardingStep.SCHEDULE -> Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-                    Heading("Kapan kamu <i>terima uang?</i>", "Gaji, uang saku, atau hasil kerja. Jatah belanja dihitung per periode ini.")
+                    Heading("Biasanya gajian kapan?", "Bisa gaji, uang saku, atau hasil jualan. Jatah belanjamu dihitung dari hari ini sampai gajian berikutnya.")
                     ScheduleEditor(s.schedule, { vm.onIntent(OnboardingIntent.SetSchedule(it)) })
                     Spacer(Modifier.height(24.dp))
                 }
@@ -155,16 +155,16 @@ private fun NameStep(name: String, onName: (String) -> Unit) {
     val c = colors
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         Heading(
-            "Uangmu, <i>dibagi rapi.</i>",
-            "Tiap uang masuk langsung dibagi ke beberapa kantong, misalnya separuh untuk belanja dan separuh ditabung. " +
-                "Cukup memberi tahu kalau belanjamu mulai kebanyakan.",
+            "Halo, kenalan dulu yuk.",
+            "Tiap kamu terima uang, Cukup langsung membaginya. Misalnya separuh buat belanja, separuh ditabung. " +
+                "Kalau belanjamu mulai kebanyakan, nanti dikasih tahu.",
         )
         Column(Modifier.padding(horizontal = Gutter)) {
             Eyebrow("Nama panggilanmu")
             Spacer(Modifier.height(10.dp))
             LineField(name, onName, "Misalnya: Yukti")
             Spacer(Modifier.height(20.dp))
-            Text("Data hanya tersimpan di HP ini. Tanpa akun, tanpa internet.", style = Type.bodySmall, color = c.faint)
+            Text("Semua datamu cuma disimpan di HP ini.", style = Type.bodySmall, color = c.faint)
         }
     }
 }
@@ -173,7 +173,7 @@ private fun NameStep(name: String, onName: (String) -> Unit) {
 private fun SplitStep(s: OnboardingState, onIntent: (OnboardingIntent) -> Unit) {
     val c = colors
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-        Heading("Mau <i>dibagi</i> bagaimana?", "Pilih contoh di bawah, lalu geser persennya sesukamu. Bisa diubah kapan saja.")
+        Heading("Uangnya mau dibagi gimana?", "Pilih salah satu dulu. Persennya bisa kamu geser sendiri, kapan saja.")
         Row(
             Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = Gutter),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -206,7 +206,7 @@ private fun StartStep(s: OnboardingState, onAmount: (Long) -> Unit) {
     val c = colors
     Column(Modifier.fillMaxSize()) {
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-            Heading("Uangmu <i>sekarang</i> berapa?", "Jumlah semua: dompet, rekening, e-wallet. Langsung dibagi ke kantong. Boleh dilewati.")
+            Heading("Sekarang pegang uang berapa?", "Gabungan uang di dompet, rekening, dan e-wallet. Kalau malas ngitung, lewati saja.")
             Text(
                 Rupiah.format(s.startAmount),
                 style = Type.hero,
@@ -226,11 +226,11 @@ private fun PermissionsStep() {
     val context = LocalContext.current
     val askNotif = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-        Heading("Dua izin <i>(boleh nanti)</i>", null)
+        Heading("Terakhir, dua izin", null)
         Column(Modifier.padding(horizontal = Gutter)) {
             Text("1. Peringatan belanja", style = Type.strong, color = c.ink)
             Text(
-                "Cukup memberi notifikasi saat belanjamu sudah 80% dari jatah, dan saat lewat.",
+                "Biar bisa diingatkan kalau belanjamu sudah 80% dari jatah, atau sudah lewat.",
                 style = Type.body, color = c.mute,
             )
             Spacer(Modifier.height(10.dp))
@@ -242,8 +242,8 @@ private fun PermissionsStep() {
             Spacer(Modifier.height(28.dp))
             Text("2. Catat otomatis dari e-wallet & m-banking", style = Type.strong, color = c.ink)
             Text(
-                "Cukup membaca notifikasi transaksi dari GoPay, OVO, DANA, ShopeePay, BCA, BRImo, dan lainnya. " +
-                    "Hanya nominal dan nama toko yang disimpan. Uang tunai tetap dicatat manual lewat tombol di beranda.",
+                "Biar belanja pakai GoPay, OVO, DANA, ShopeePay, BCA, BRImo, dan lainnya tercatat sendiri. " +
+                    "Yang disimpan cuma nominal dan nama tokonya. Belanja pakai uang tunai tetap dicatat sendiri ya.",
                 style = Type.body, color = c.mute,
             )
             Spacer(Modifier.height(10.dp))
@@ -253,7 +253,7 @@ private fun PermissionsStep() {
                 height = 44.dp,
             )
             Spacer(Modifier.height(6.dp))
-            Text("Cari \"Cukup\" lalu nyalakan.", style = Type.bodySmall, color = c.faint)
+            Text("Cari Cukup di daftar, lalu nyalakan.", style = Type.bodySmall, color = c.faint)
         }
         Spacer(Modifier.height(24.dp))
     }

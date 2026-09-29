@@ -14,7 +14,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Switch
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -99,7 +101,7 @@ fun AddScreen(onClose: () -> Unit, vm: AddViewModel = hiltViewModel()) {
                     ) {
                         Column(Modifier.weight(1f)) {
                             Text("Pakai paylater", style = Type.strong, color = c.ink)
-                            Text("Bayar nanti. Dicatat sebagai hutang, isi kantong tidak berkurang sekarang.", style = Type.bodySmall, color = c.mute)
+                            Text("Dicatat sebagai hutang. Isi kantong belum berkurang.", style = Type.bodySmall, color = c.mute)
                         }
                         Switch(
                             checked = s.isPaylater,
@@ -153,6 +155,20 @@ fun AddScreen(onClose: () -> Unit, vm: AddViewModel = hiltViewModel()) {
             onClick = { vm.onIntent(AddIntent.Save) },
             enabled = s.canSave,
             modifier = Modifier.fillMaxWidth().padding(horizontal = Gutter, vertical = 12.dp),
+        )
+    }
+    s.confirm?.let { message ->
+        AlertDialog(
+            onDismissRequest = { vm.onIntent(AddIntent.CancelConfirm) },
+            title = { Text("Yakin mau disimpan?", style = Type.title) },
+            text = { Text(message, style = Type.body) },
+            confirmButton = {
+                TextButton({ vm.onIntent(AddIntent.ConfirmSave) }) { Text("Tetap simpan", color = c.over) }
+            },
+            dismissButton = {
+                TextButton({ vm.onIntent(AddIntent.CancelConfirm) }) { Text("Nggak jadi", color = c.ink) }
+            },
+            containerColor = c.paper,
         )
     }
 }

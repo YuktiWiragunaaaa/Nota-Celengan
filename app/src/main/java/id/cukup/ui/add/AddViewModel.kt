@@ -7,6 +7,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import id.cukup.data.MoneyRepository
 import id.cukup.domain.Pocket
 import id.cukup.domain.PocketKind
+import id.cukup.domain.Rupiah
 import id.cukup.domain.TxType
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -37,6 +38,12 @@ data class AddState(
     val daysAgo: Int = 0,
     val pocketTouched: Boolean = false,
     val saving: Boolean = false,
+    /** Sisa jatah belanja periode ini dan batas sekali belanja, untuk konfirmasi sebelum simpan. */
+    val budget: Long = 0,
+    val budgetLeft: Long = 0,
+    val singleLimit: Long = 0,
+    /** Pesan konfirmasi yang sedang ditampilkan (null = tidak ada). */
+    val confirm: String? = null,
 ) {
     val canSave: Boolean
         get() = amount > 0 && !saving && when (type) {
@@ -57,6 +64,8 @@ sealed interface AddIntent {
     data class Paylater(val on: Boolean) : AddIntent
     data class Day(val daysAgo: Int) : AddIntent
     data object Save : AddIntent
+    data object ConfirmSave : AddIntent
+    data object CancelConfirm : AddIntent
 }
 
 sealed interface AddEffect {
@@ -85,12 +94,17 @@ class AddViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
+            repository.settings.collect { st -> _state.update { it.copy(singleLimit = st.singleLimit) } }
+        }
+        viewModelScope.launch {
             repository.summary.collect { summary ->
                 val pockets = summary.pockets.map { it.pocket }
                 _state.update { s ->
                     s.copy(
                         pockets = pockets,
                         balances = summary.pockets.associate { it.pocket.id to it.balance },
+                        budget = summary.budget,
+                        budgetLeft = summary.budgetLeft,
                         pocketId = s.pocketId ?: pockets.firstOrNull { it.kind == PocketKind.SPEND }?.id ?: pockets.firstOrNull()?.id,
                     )
                 }
@@ -114,7 +128,15 @@ class AddViewModel @Inject constructor(
                 _state.update { it.copy(isPaylater = intent.on) }
             }
             is AddIntent.Day -> _state.update { it.copy(daysAgo = intent.daysAgo) }
-            AddIntent.Save -> save()
+            AddIntent.Save -> {
+                val message = warningFor(_state.value)
+                if (message != null) _state.update { it.copy(confirm = message) } else save()
+            }
+            AddIntent.ConfirmSave -> {
+                _state.update { it.copy(confirm = null) }
+                save()
+            }
+            AddIntent.CancelConfirm -> _state.update { it.copy(confirm = null) }
         }
     }
 
@@ -127,6 +149,20 @@ class AddViewModel @Inject constructor(
             delay(250)
             val p = repository.suggestPocket(_state.value.merchant) ?: return@launch
             _state.update { if (it.pocketTouched) it else it.copy(pocketId = p.id) }
+        }
+    }
+
+    /** Kalimat peringatan kalau belanja ini melewati jatah atau batas sekali belanja. */
+    private fun warningFor(s: AddState): String? {
+        if (s.type != TxType.EXPENSE || s.isPaylater) return null
+        val pocket = s.pockets.firstOrNull { it.id == s.pocketId } ?: return null
+        val overBudget = pocket.kind == PocketKind.SPEND && s.budget > 0 && s.amount > s.budgetLeft
+        val overSingle = s.singleLimit > 0 && s.amount > s.singleLimit
+        return when {
+            overBudget && s.budgetLeft <= 0 -> "Jatah belanjamu sudah habis. Kalau disimpan, kelebihannya jadi ${Rupiah.format(s.amount - s.budgetLeft)}."
+            overBudget -> "Sisa jatahmu tinggal ${Rupiah.format(s.budgetLeft)}. Belanja ini bikin lewat ${Rupiah.format(s.amount - s.budgetLeft)}."
+            overSingle -> "Ini di atas batas sekali belanjamu (${Rupiah.format(s.singleLimit)})."
+            else -> null
         }
     }
 
