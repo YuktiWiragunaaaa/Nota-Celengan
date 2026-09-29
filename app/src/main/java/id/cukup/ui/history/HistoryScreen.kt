@@ -1,7 +1,12 @@
 package id.cukup.ui.history
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -10,47 +15,50 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.BarChart
+import androidx.compose.material.icons.rounded.DonutLarge
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
-import com.patrykandpatrick.vico.compose.cartesian.CartesianChartHost
-import com.patrykandpatrick.vico.compose.cartesian.axis.rememberBottom
-import com.patrykandpatrick.vico.compose.cartesian.layer.rememberColumnCartesianLayer
-import com.patrykandpatrick.vico.compose.cartesian.rememberCartesianChart
-import com.patrykandpatrick.vico.compose.common.component.rememberLineComponent
-import com.patrykandpatrick.vico.compose.common.component.rememberTextComponent
-import com.patrykandpatrick.vico.compose.common.fill
-import com.patrykandpatrick.vico.core.cartesian.axis.HorizontalAxis
-import com.patrykandpatrick.vico.core.cartesian.data.CartesianChartModelProducer
-import com.patrykandpatrick.vico.core.cartesian.data.CartesianValueFormatter
-import com.patrykandpatrick.vico.core.cartesian.data.columnSeries
-import com.patrykandpatrick.vico.core.cartesian.layer.ColumnCartesianLayer
 import dagger.hilt.android.lifecycle.HiltViewModel
 import id.cukup.data.MoneyRepository
+import id.cukup.domain.ChartReader
 import id.cukup.domain.Pocket
 import id.cukup.domain.Rupiah
 import id.cukup.domain.Transaction
 import id.cukup.domain.TxStatus
 import id.cukup.domain.TxType
+import id.cukup.ui.components.CardShape
 import id.cukup.ui.components.Choice
-import id.cukup.ui.components.Eyebrow
+import id.cukup.ui.components.DayBarChart
+import id.cukup.ui.components.DonutChart
 import id.cukup.ui.components.Gutter
-import id.cukup.ui.components.Hairline
+import id.cukup.ui.components.HBarChart
+import id.cukup.ui.components.Id
+import id.cukup.ui.components.Pill
+import id.cukup.ui.components.RoundIcon
+import id.cukup.ui.components.Slice
 import id.cukup.ui.components.TxRow
 import id.cukup.ui.components.dayLabel
 import id.cukup.ui.components.localDate
-import id.cukup.ui.onboarding.italicize
 import id.cukup.ui.theme.Type
 import id.cukup.ui.theme.colors
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -59,49 +67,65 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import java.time.LocalDate
+import java.time.format.TextStyle
 import java.time.temporal.ChronoUnit
 import javax.inject.Inject
 
+enum class Range(val label: String) { THIS("Periode ini"), LAST("Periode lalu"), DAYS30("30 hari") }
+
 data class HistoryState(
     val loaded: Boolean = false,
+    val range: Range = Range.THIS,
     val pockets: List<Pocket> = emptyList(),
-    val filter: Long? = null,
-    /** Pengeluaran per hari sepanjang siklus berjalan (indeks 0 = hari pertama siklus). */
+    val days: List<LocalDate> = emptyList(),
     val daily: List<Long> = emptyList(),
-    val cycleStart: LocalDate = LocalDate.now(),
-    val groups: List<Pair<LocalDate, List<Transaction>>> = emptyList(),
+    val txs: List<Transaction> = emptyList(),
     val spent: Long = 0,
-    val average: Long = 0,
+    val income: Long = 0,
+    val byPocket: List<Pair<Pocket, Long>> = emptyList(),
+    val reading: String = "",
+    val limitPerDay: Long = 0,
 )
 
 @HiltViewModel
 class HistoryViewModel @Inject constructor(repository: MoneyRepository) : ViewModel() {
-    private val filter = MutableStateFlow<Long?>(null)
+    private val range = MutableStateFlow(Range.THIS)
 
-    val state: StateFlow<HistoryState> = combine(repository.pockets, repository.transactions, repository.settings, filter) { pockets, txs, settings, f ->
+    val state: StateFlow<HistoryState> = combine(repository.pockets, repository.transactions, repository.settings, repository.summary, range) { pockets, all, settings, summary, r ->
         val today = LocalDate.now()
         val cycle = repository.cycle(settings.schedule, today)
-        val shown = txs.filter { it.status == TxStatus.CONFIRMED && (f == null || it.pocketId == f || it.toPocketId == f) }
-        val days = (ChronoUnit.DAYS.between(cycle.start, today).toInt() + 1).coerceAtLeast(1)
-        val daily = LongArray(days)
-        shown.filter { it.type == TxType.EXPENSE && !it.isPaylater }.forEach { t ->
-            val d = ChronoUnit.DAYS.between(cycle.start, localDate(t.occurredAt)).toInt()
-            if (d in 0 until days) daily[d] += t.amount
+        val (from, toExclusive) = when (r) {
+            Range.THIS -> cycle.start to cycle.nextPayday
+            Range.LAST -> repository.previousCycle(settings.schedule).start to cycle.start
+            Range.DAYS30 -> today.minusDays(29) to today.plusDays(1)
         }
+        val shownEnd = if (toExclusive.isAfter(today.plusDays(1))) today.plusDays(1) else toExclusive
+        val n = ChronoUnit.DAYS.between(from, shownEnd).toInt().coerceIn(1, 62)
+        val days = (0 until n).map { from.plusDays(it.toLong()) }
+        val inRange = all.filter { it.status == TxStatus.CONFIRMED && localDate(it.occurredAt).let { d -> !d.isBefore(from) && d.isBefore(toExclusive) } }
+        val daily = LongArray(n)
+        inRange.filter { it.type == TxType.EXPENSE && !it.isPaylater }.forEach { t ->
+            val i = ChronoUnit.DAYS.between(from, localDate(t.occurredAt)).toInt()
+            if (i in 0 until n) daily[i] += t.amount
+        }
+        val byPocket = ChartReader.spendingByPocket(inRange, pockets)
         HistoryState(
             loaded = true,
+            range = r,
             pockets = pockets,
-            filter = f,
+            days = days,
             daily = daily.toList(),
-            cycleStart = cycle.start,
-            groups = shown.groupBy { localDate(it.occurredAt) }.toList().sortedByDescending { it.first },
+            txs = inRange,
             spent = daily.sum(),
-            average = daily.sum() / days,
+            income = inRange.filter { it.type == TxType.INCOME }.sumOf { it.amount },
+            byPocket = byPocket,
+            reading = ChartReader.readSpending(byPocket),
+            limitPerDay = if (r == Range.THIS && summary.budget > 0) summary.budget / cycle.length.coerceAtLeast(1) else 0,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HistoryState())
 
-    fun setFilter(id: Long?) {
-        filter.value = id
+    fun setRange(r: Range) {
+        range.value = r
     }
 }
 
@@ -109,96 +133,137 @@ class HistoryViewModel @Inject constructor(repository: MoneyRepository) : ViewMo
 fun HistoryScreen(contentPadding: PaddingValues, onOpenTx: (Long) -> Unit, vm: HistoryViewModel = hiltViewModel()) {
     val s by vm.state.collectAsStateWithLifecycle()
     val c = colors
+    var day by rememberSaveable(s.range) { mutableStateOf<Int?>(null) }
+    var picked by rememberSaveable(s.range) { mutableStateOf<Long?>(null) }
+    var breakdown by rememberSaveable { mutableStateOf("DONUT") }
     val byId = s.pockets.associateBy { it.id }
     val index = s.pockets.mapIndexed { i, p -> p.id to i }.toMap()
+    fun colorOf(p: Pocket) = c.of(p, index[p.id] ?: 0)
+
+    val selectedDay = day?.let { s.days.getOrNull(it) }
+    val list = s.txs
+        .filter { selectedDay == null || localDate(it.occurredAt) == selectedDay }
+        .filter { picked == null || it.pocketId == picked }
+    val groups = list.groupBy { localDate(it.occurredAt) }.toList().sortedByDescending { it.first }
 
     LazyColumn(Modifier.fillMaxSize().background(c.paper), contentPadding = contentPadding) {
         item {
-            Column(Modifier.padding(horizontal = Gutter).padding(top = 24.dp)) {
-                Text(italicize("Riwayat"), style = Type.display, color = c.ink)
-                Spacer(Modifier.height(16.dp))
-                Row {
-                    Column(Modifier.weight(1f)) {
-                        Eyebrow("Keluar periode ini")
-                        Text(Rupiah.format(s.spent), style = Type.number, color = c.ink)
+            Text("Riwayat", style = Type.display, color = c.ink, modifier = Modifier.padding(horizontal = Gutter).padding(top = 16.dp))
+            LazyRow(contentPadding = PaddingValues(horizontal = Gutter), horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 12.dp)) {
+                items(Range.entries) { r -> Choice(r.label, s.range == r, { vm.setRange(r) }) }
+            }
+        }
+
+        // Grafik harian: sentuh batang untuk memilih hari.
+        item {
+            Column(Modifier.padding(Gutter).fillMaxWidth().clip(CardShape).background(c.card).padding(18.dp)) {
+                AnimatedContent(selectedDay, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "day") { d ->
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        Column(Modifier.weight(1f)) {
+                            Text(if (d == null) "Total keluar" else dayLabel(d), style = Type.bodySmall, color = c.mute)
+                            Text(
+                                Rupiah.format(if (d == null) s.spent else s.daily.getOrElse(day ?: 0) { 0 }),
+                                style = Type.number, color = c.ink,
+                            )
+                        }
+                        if (d == null && s.income > 0) {
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text("Masuk", style = Type.bodySmall, color = c.mute)
+                                Text("+" + Rupiah.short(s.income), style = Type.amount, color = c.good)
+                            }
+                        }
                     }
-                    Column(Modifier.weight(1f)) {
-                        Eyebrow("Rata-rata per hari")
-                        Text(Rupiah.format(s.average), style = Type.number, color = c.ink)
+                }
+                Spacer(Modifier.height(14.dp))
+                val labels = s.days.map { d ->
+                    when {
+                        s.days.size <= 8 -> d.dayOfWeek.getDisplayName(TextStyle.SHORT, Id).take(3)
+                        d.dayOfMonth % 5 == 1 -> "${d.dayOfMonth}"
+                        else -> ""
                     }
+                }
+                DayBarChart(
+                    values = s.daily,
+                    labels = labels,
+                    selected = day,
+                    onSelect = { day = it },
+                    barColor = c.accent,
+                    faint = c.faint,
+                    limitPerDay = s.limitPerDay,
+                    limitColor = c.caution,
+                    modifier = Modifier.fillMaxWidth().height(170.dp),
+                )
+                if (s.limitPerDay > 0) {
+                    Text(
+                        "Garis putus-putus = jatah per hari (${Rupiah.short(s.limitPerDay)}). Sentuh batang untuk lihat harinya.",
+                        style = Type.label, color = c.faint, modifier = Modifier.padding(top = 10.dp),
+                    )
                 }
             }
         }
-        item {
-            DailyChart(s.daily, s.cycleStart, Modifier.fillMaxWidth().height(180.dp).padding(horizontal = 12.dp, vertical = 16.dp))
-        }
-        item {
-            androidx.compose.foundation.lazy.LazyRow(
-                contentPadding = PaddingValues(horizontal = Gutter),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.padding(bottom = 8.dp),
-            ) {
-                item { Choice("Semua", s.filter == null, { vm.setFilter(null) }) }
-                items(s.pockets, key = { it.id }) { p ->
-                    Choice("${p.emoji} ${p.name}", s.filter == p.id, { vm.setFilter(p.id) })
-                }
-            }
-        }
-        if (s.loaded && s.groups.isEmpty()) {
+
+        // Pengeluaran per kantong.
+        if (s.byPocket.isNotEmpty()) {
             item {
-                Text("Belum ada yang dicatat.", style = Type.body, color = c.faint, modifier = Modifier.padding(Gutter))
+                Column(Modifier.padding(horizontal = Gutter).fillMaxWidth().clip(CardShape).background(c.card).padding(18.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Ke mana saja", style = Type.title, color = c.ink, modifier = Modifier.weight(1f))
+                        RoundIcon(
+                            if (breakdown == "DONUT") Icons.Rounded.BarChart else Icons.Rounded.DonutLarge,
+                            "Ganti grafik", { breakdown = if (breakdown == "DONUT") "BAR" else "DONUT" },
+                            background = c.surface, size = 38.dp,
+                        )
+                    }
+                    Text(s.reading, style = Type.bodySmall, color = c.mute, modifier = Modifier.padding(top = 4.dp, bottom = 12.dp))
+                    val slices = s.byPocket.map { (p, v) -> Slice(p.id, p.name, p.emoji, v.toFloat(), colorOf(p), Rupiah.short(v)) }
+                    AnimatedContent(breakdown, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "bd") { type ->
+                        if (type == "BAR") {
+                            HBarChart(slices, picked, { picked = it }, textColor = c.ink, track = c.line)
+                        } else {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                DonutChart(slices, picked, { picked = it }, Modifier.height(150.dp).weight(1f), track = c.line) {
+                                    val p = s.byPocket.firstOrNull { it.first.id == picked }
+                                    val total = s.byPocket.sumOf { it.second }.coerceAtLeast(1)
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text(if (p == null) "100%" else "${p.second * 100 / total}%", style = Type.amount, color = c.ink)
+                                        Text(p?.first?.name ?: "semua", style = Type.label, color = c.faint, textAlign = TextAlign.Center)
+                                    }
+                                }
+                                Column(Modifier.weight(1f).padding(start = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    s.byPocket.take(5).forEach { (p, v) ->
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Box(Modifier.padding(end = 8.dp).size(10.dp).clip(Pill).background(colorOf(p)))
+                                            Text(p.name, style = Type.label, color = c.ink, modifier = Modifier.weight(1f), maxLines = 1)
+                                            Text(Rupiah.short(v), style = Type.label, color = c.mute)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
-        s.groups.forEach { (date, txs) ->
+
+        // Daftar transaksi (ikut tersaring oleh hari / kantong yang dipilih).
+        item {
+            Row(Modifier.padding(horizontal = Gutter).padding(top = 24.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("Transaksi", style = Type.title, color = c.ink, modifier = Modifier.weight(1f))
+                if (day != null || picked != null) Choice("Tampilkan semua", false, { day = null; picked = null })
+            }
+        }
+        if (s.loaded && groups.isEmpty()) {
+            item { Text("Belum ada yang dicatat di sini.", style = Type.body, color = c.faint, modifier = Modifier.padding(Gutter)) }
+        }
+        groups.forEach { (date, txs) ->
             item(key = "d$date") {
-                Row(
-                    Modifier.fillMaxWidth().padding(horizontal = Gutter).padding(top = 20.dp, bottom = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Eyebrow(dayLabel(date), Modifier.weight(1f))
-                    val out = txs.filter { it.type == TxType.EXPENSE && !it.isPaylater }.sumOf { it.amount }
-                    if (out > 0) Text("−" + Rupiah.format(out), style = Type.bodySmall, color = c.mute)
-                }
-                Hairline()
+                Text(dayLabel(date), style = Type.label, color = c.faint, modifier = Modifier.padding(horizontal = Gutter).padding(top = 14.dp, bottom = 2.dp))
             }
             items(txs, key = { it.id }) { tx ->
-                TxRow(
-                    tx, tx.pocketId?.let(byId::get), tx.toPocketId?.let(byId::get),
-                    c.pocket(index[tx.pocketId] ?: 0), onClick = { onOpenTx(tx.id) },
-                )
+                val p = tx.pocketId?.let(byId::get)
+                TxRow(tx, p, tx.toPocketId?.let(byId::get), p?.let(::colorOf) ?: Color.Gray, onClick = { onOpenTx(tx.id) })
             }
         }
         item { Spacer(Modifier.height(24.dp)) }
     }
-}
-
-@Composable
-private fun DailyChart(daily: List<Long>, start: LocalDate, modifier: Modifier) {
-    val c = colors
-    val producer = remember { CartesianChartModelProducer() }
-    LaunchedEffect(daily) {
-        val values = daily.ifEmpty { listOf(0L) }
-        producer.runTransaction { columnSeries { series(values.map { it.toDouble() }) } }
-    }
-    val dayFormatter = remember(start) {
-        CartesianValueFormatter { _, x, _ -> start.plusDays(x.toLong()).dayOfMonth.toString() }
-    }
-    CartesianChartHost(
-        chart = rememberCartesianChart(
-            rememberColumnCartesianLayer(
-                ColumnCartesianLayer.ColumnProvider.series(
-                    rememberLineComponent(fill = fill(c.ink), thickness = 8.dp),
-                ),
-            ),
-            bottomAxis = HorizontalAxis.rememberBottom(
-                valueFormatter = dayFormatter,
-                label = rememberTextComponent(color = c.faint),
-                line = null,
-                tick = null,
-                guideline = null,
-            ),
-        ),
-        modelProducer = producer,
-        modifier = modifier,
-    )
 }

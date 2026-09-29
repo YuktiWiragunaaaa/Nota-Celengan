@@ -54,12 +54,10 @@ class MainActivity : FragmentActivity() {
     @Inject lateinit var settingsStore: SettingsStore
 
     private var openAdd by mutableStateOf(false)
-    private var unlocked by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        unlocked = savedInstanceState?.getBoolean(KEY_UNLOCKED) ?: false
         openAdd = intent?.getBooleanExtra(EXTRA_ADD, false) ?: false
 
         setContent {
@@ -68,7 +66,7 @@ class MainActivity : FragmentActivity() {
                 val s = settings
                 when {
                     s == null -> Box(Modifier.fillMaxSize().background(colors.paper))
-                    s.biometricLock && !unlocked -> LockScreen(name = s.name, onUnlock = ::authenticate)
+                    s.biometricLock && LockState.locked -> LockScreen(name = s.name, onUnlock = ::authenticate)
                     else -> CukupNav(onboarded = s.onboarded, openAdd = openAdd, onAddHandled = { openAdd = false })
                 }
             }
@@ -80,24 +78,13 @@ class MainActivity : FragmentActivity() {
         if (intent.getBooleanExtra(EXTRA_ADD, false)) openAdd = true
     }
 
-    override fun onStop() {
-        super.onStop()
-        // Kunci lagi bila aplikasi ditinggal (bukan sekadar rotasi layar).
-        if (!isChangingConfigurations) unlocked = false
-    }
-
-    override fun onSaveInstanceState(outState: Bundle) {
-        super.onSaveInstanceState(outState)
-        outState.putBoolean(KEY_UNLOCKED, unlocked)
-    }
-
     private fun authenticate() {
         val prompt = BiometricPrompt(
             this,
             ContextCompat.getMainExecutor(this),
             object : BiometricPrompt.AuthenticationCallback() {
                 override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
-                    unlocked = true
+                    LockState.locked = false
                 }
             },
         )
@@ -144,6 +131,5 @@ class MainActivity : FragmentActivity() {
 
     companion object {
         const val EXTRA_ADD = "id.cukup.ADD"
-        private const val KEY_UNLOCKED = "unlocked"
     }
 }

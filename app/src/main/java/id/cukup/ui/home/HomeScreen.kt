@@ -64,6 +64,14 @@ import id.cukup.domain.PocketKind
 import id.cukup.domain.Rupiah
 import id.cukup.domain.Summary
 import id.cukup.domain.Warning
+import androidx.compose.material.icons.rounded.BarChart
+import androidx.compose.material.icons.rounded.BubbleChart
+import androidx.compose.material.icons.rounded.DonutLarge
+import id.cukup.ui.components.Avatar
+import id.cukup.ui.components.ChartSwitch
+import id.cukup.ui.components.DonutChart
+import id.cukup.ui.components.HBarChart
+import id.cukup.ui.components.Slice
 import id.cukup.ui.components.Bubble
 import id.cukup.ui.components.BubbleChart
 import id.cukup.ui.components.CardShape
@@ -89,6 +97,7 @@ fun HomeScreen(
     onOpenInbox: () -> Unit,
     onOpenTx: (Long) -> Unit,
     onOpenHistory: () -> Unit,
+    onOpenProfile: () -> Unit,
     vm: HomeViewModel = hiltViewModel(),
 ) {
     val s by vm.state.collectAsStateWithLifecycle()
@@ -114,6 +123,11 @@ fun HomeScreen(
                 onSelect = { selected = if (selected == it) null else it },
                 onOpenPocket = onOpenPocket,
                 onOpenInbox = onOpenInbox,
+                chart = s.chart,
+                onChart = vm::setChart,
+                reading = s.reading,
+                avatarVersion = s.avatarVersion,
+                onOpenProfile = onOpenProfile,
             )
         }
         item {
@@ -176,6 +190,11 @@ private fun Hero(
     onSelect: (Long) -> Unit,
     onOpenPocket: (Long) -> Unit,
     onOpenInbox: () -> Unit,
+    chart: String,
+    onChart: (String) -> Unit,
+    reading: List<String>,
+    avatarVersion: Long,
+    onOpenProfile: () -> Unit,
 ) {
     val c = colors
     val white = Color.White
@@ -190,12 +209,11 @@ private fun Hero(
     ) {
         // Baris atas: sapaan dan lonceng.
         Row(Modifier.fillMaxWidth().padding(horizontal = Gutter, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                Modifier.size(40.dp).clip(CircleShape).background(white.copy(alpha = 0.18f)),
-                contentAlignment = Alignment.Center,
-            ) { Text(name.firstOrNull()?.uppercase() ?: "☺", style = Type.strong, color = white) }
-            Spacer(Modifier.width(10.dp))
-            Text(if (name.isBlank()) "Hai!" else "Hai, $name", style = Type.strong, color = white, modifier = Modifier.weight(1f))
+            Row(Modifier.weight(1f).clip(Pill).clickable(onClick = onOpenProfile), verticalAlignment = Alignment.CenterVertically) {
+                Avatar(name, avatarVersion)
+                Spacer(Modifier.width(10.dp))
+                Text(if (name.isBlank()) "Hai!" else "Hai, $name", style = Type.strong, color = white, modifier = Modifier.padding(end = 12.dp))
+            }
             Box {
                 Box(
                     Modifier.size(40.dp).clip(CircleShape).background(white.copy(alpha = 0.18f))
@@ -229,23 +247,49 @@ private fun Hero(
         Spacer(Modifier.height(10.dp))
         StatusChip(summary, Modifier.align(Alignment.CenterHorizontally))
 
-        // Gelembung kantong.
+        // Grafik kantong: bisa diganti donat / batang / gelembung.
         val pockets = summary.pockets
-        val bubbles = pockets.mapIndexed { i, pb -> pb.toBubble(c.of(pb.pocket, i)) }
-        BubbleChart(
-            bubbles = bubbles,
-            selected = selected,
-            onSelect = onSelect,
-            modifier = Modifier.fillMaxWidth().height(250.dp).padding(horizontal = 28.dp, vertical = 6.dp),
+        Spacer(Modifier.height(18.dp))
+        ChartSwitch(
+            listOf("DONUT" to Icons.Rounded.DonutLarge, "BAR" to Icons.Rounded.BarChart, "BUBBLE" to Icons.Rounded.BubbleChart),
+            current = chart, onPick = onChart, modifier = Modifier.align(Alignment.CenterHorizontally),
         )
+        val slices = pockets.mapIndexed { i, pb ->
+            Slice(pb.pocket.id, pb.pocket.name, pb.pocket.emoji, pb.balance.coerceAtLeast(0).toFloat(), c.of(pb.pocket, i), Rupiah.short(pb.balance))
+        }
+        val pickedFor: (Long?) -> Unit = { id -> if (id == null) { if (selected != null) onSelect(selected) } else onSelect(id) }
+        AnimatedContent(chart, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "chart") { type ->
+            when (type) {
+                "BAR" -> HBarChart(
+                    slices, selected, pickedFor,
+                    Modifier.fillMaxWidth().padding(horizontal = 28.dp, vertical = 18.dp),
+                )
+                "BUBBLE" -> BubbleChart(
+                    bubbles = pockets.mapIndexed { i, pb -> pb.toBubble(c.of(pb.pocket, i)) },
+                    selected = selected,
+                    onSelect = onSelect,
+                    modifier = Modifier.fillMaxWidth().height(240.dp).padding(horizontal = 28.dp, vertical = 8.dp),
+                )
+                else -> DonutChart(
+                    slices, selected, pickedFor,
+                    Modifier.fillMaxWidth().height(230.dp).padding(vertical = 16.dp),
+                ) {
+                    val pb = pockets.firstOrNull { it.pocket.id == selected }
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(pb?.pocket?.emoji ?: "💰", fontSize = androidx.compose.ui.unit.TextUnit(22f, androidx.compose.ui.unit.TextUnitType.Sp))
+                        Text(pb?.pocket?.name ?: "Total", style = Type.label, color = soft)
+                        Text(Rupiah.short(pb?.balance ?: summary.total), style = Type.title, color = white)
+                    }
+                }
+            }
+        }
         val pick = pockets.firstOrNull { it.pocket.id == selected }
         AnimatedContent(pick, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "pick") { pb ->
             if (pb == null) {
-                Text(
-                    "Ketuk gelembung untuk lihat isinya",
-                    style = Type.bodySmall, color = soft,
-                    modifier = Modifier.fillMaxWidth().height(48.dp).padding(top = 16.dp), textAlign = TextAlign.Center,
-                )
+                // Kesimpulan dari grafik.
+                Column(Modifier.fillMaxWidth().padding(horizontal = 28.dp).height(48.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    reading.forEach { line -> Text(line, style = Type.bodySmall, color = soft, textAlign = TextAlign.Center, maxLines = 1) }
+                }
             } else {
                 Row(
                     Modifier

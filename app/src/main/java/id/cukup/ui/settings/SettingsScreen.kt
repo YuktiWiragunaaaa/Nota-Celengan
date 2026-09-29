@@ -31,6 +31,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -53,6 +54,8 @@ import id.cukup.ui.components.LineField
 import id.cukup.ui.components.ScheduleEditor
 import id.cukup.ui.components.describe
 import id.cukup.domain.Rupiah
+import id.cukup.domain.BudgetRule
+import kotlin.math.roundToInt
 import androidx.compose.ui.text.input.KeyboardType
 import id.cukup.ui.onboarding.Bullet
 import id.cukup.ui.theme.Type
@@ -89,6 +92,7 @@ fun SettingsScreen(contentPadding: PaddingValues, onEditSplit: () -> Unit, vm: S
     var notifAllowed by remember { mutableStateOf(canNotify(context)) }
     var editSchedule by remember { mutableStateOf(false) }
     var editLimit by remember { mutableStateOf(false) }
+    var editRule by remember { mutableStateOf(false) }
     var confirmErase by remember { mutableStateOf(false) }
     val askNotif = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { notifAllowed = it }
     LaunchedEffect(lifecycle) {
@@ -119,6 +123,13 @@ fun SettingsScreen(contentPadding: PaddingValues, onEditSplit: () -> Unit, vm: S
         Group("Uang masuk & pembagian")
         Link("Jadwal gajian", s.schedule.describe()) { editSchedule = true }
         Link("Pembagian ke kantong", "Ubah persen tiap kantong", onClick = onEditSplit)
+        Link(
+            "Cara hitung jatah",
+            when (s.budgetRule.mode) {
+                BudgetRule.Mode.POCKETS -> "Dari kantong belanja"
+                BudgetRule.Mode.LAST_INCOME -> "${s.budgetRule.percent}% dari uang masuk periode lalu"
+            },
+        ) { editRule = true }
 
         Group("Peringatan")
         Toggle(
@@ -178,7 +189,7 @@ fun SettingsScreen(contentPadding: PaddingValues, onEditSplit: () -> Unit, vm: S
             Bullet("Datanya nggak ikut backup Google. Kalau aplikasinya dihapus, datanya ikut hilang.")
         }
         Text(
-            "Cukup 0.4",
+            "Cukup 0.5",
             style = Type.bodySmall, color = c.faint,
             modifier = Modifier.padding(horizontal = Gutter, vertical = 20.dp),
         )
@@ -191,6 +202,41 @@ fun SettingsScreen(contentPadding: PaddingValues, onEditSplit: () -> Unit, vm: S
             text = { Text("Semua kantong, catatan, dan setelan hilang dan nggak bisa dikembalikan.", style = Type.body) },
             confirmButton = { TextButton({ confirmErase = false; vm.eraseEverything() }) { Text("Hapus semua", color = c.over) } },
             dismissButton = { TextButton({ confirmErase = false }) { Text("Batal", color = c.ink) } },
+            containerColor = c.card,
+        )
+    }
+
+    if (editRule) {
+        var mode by remember { mutableStateOf(s.budgetRule.mode) }
+        var percent by remember { mutableStateOf(s.budgetRule.percent.toFloat()) }
+        AlertDialog(
+            onDismissRequest = { editRule = false },
+            title = { Text("Cara hitung jatah", style = Type.title) },
+            text = {
+                Column {
+                    RuleOption(
+                        "Dari kantong belanja",
+                        "Jatah = bagian kantong \"untuk belanja\" dari uang yang masuk periode ini.",
+                        mode == BudgetRule.Mode.POCKETS,
+                    ) { mode = BudgetRule.Mode.POCKETS }
+                    RuleOption(
+                        "Persen dari uang masuk periode lalu",
+                        "Contoh: 50% dari total gaji minggu kemarin.",
+                        mode == BudgetRule.Mode.LAST_INCOME,
+                    ) { mode = BudgetRule.Mode.LAST_INCOME }
+                    if (mode == BudgetRule.Mode.LAST_INCOME) {
+                        Text("${percent.toInt()}%", style = Type.number, color = c.ink, modifier = Modifier.padding(top = 12.dp))
+                        androidx.compose.material3.Slider(
+                            value = percent, onValueChange = { percent = (it / 5f).roundToInt() * 5f }, valueRange = 5f..100f,
+                            colors = androidx.compose.material3.SliderDefaults.colors(thumbColor = c.accent, activeTrackColor = c.accent, inactiveTrackColor = c.line),
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton({ vm.update { it.copy(budgetRule = BudgetRule(mode, percent.toInt())) }; editRule = false }) { Text("Simpan", color = c.ink) }
+            },
+            dismissButton = { TextButton({ editRule = false }) { Text("Batal", color = c.mute) } },
             containerColor = c.card,
         )
     }
@@ -277,4 +323,24 @@ private fun Toggle(title: String, subtitle: String, checked: Boolean, enabled: B
         )
     }
     Hairline()
+}
+
+@Composable
+private fun RuleOption(title: String, subtitle: String, selected: Boolean, onClick: () -> Unit) {
+    val c = colors
+    Row(
+        Modifier.fillMaxWidth().clip(id.cukup.ui.components.CardShape)
+            .background(if (selected) c.surface else Color.Transparent)
+            .clickable(onClick = onClick).padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        androidx.compose.material3.RadioButton(
+            selected = selected, onClick = onClick,
+            colors = androidx.compose.material3.RadioButtonDefaults.colors(selectedColor = c.accent),
+        )
+        Column(Modifier.padding(start = 6.dp)) {
+            Text(title, style = Type.strong, color = c.ink)
+            Text(subtitle, style = Type.bodySmall, color = c.mute)
+        }
+    }
 }

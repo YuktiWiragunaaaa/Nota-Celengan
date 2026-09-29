@@ -32,6 +32,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.Flag
 import androidx.compose.material.icons.rounded.PieChart
 import androidx.compose.material.icons.rounded.SwapVert
 import androidx.compose.material3.AlertDialog
@@ -85,6 +86,7 @@ fun PocketsScreen(
     onOpenPocket: (Long) -> Unit,
     onEditSplit: () -> Unit,
     onMove: () -> Unit,
+    onOpenGoals: () -> Unit,
     vm: PocketsViewModel = hiltViewModel(),
 ) {
     val s by vm.state.collectAsStateWithLifecycle()
@@ -98,6 +100,8 @@ fun PocketsScreen(
         Column(Modifier.windowInsetsPadding(WindowInsets.statusBars)) {
             Row(Modifier.fillMaxWidth().padding(horizontal = Gutter, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("Kantong", style = Type.title, color = Color.White, modifier = Modifier.weight(1f))
+                RoundIcon(Icons.Rounded.Flag, "Target tabungan", onOpenGoals, background = Color.White.copy(alpha = 0.18f), tint = Color.White)
+                Spacer(Modifier.width(8.dp))
                 RoundIcon(Icons.Rounded.PieChart, "Ubah pembagian", onEditSplit, background = Color.White.copy(alpha = 0.18f), tint = Color.White)
             }
             BubbleChart(

@@ -34,6 +34,8 @@ data class Summary(
     val budget: Long = 0,
     /** Yang sudah dibelanjakan dari kantong belanja periode ini. */
     val budgetUsed: Long = 0,
+    /** Uang masuk yang jadi dasar jatah (periode ini, atau periode lalu untuk LAST_INCOME). */
+    val basisIncome: Long = 0,
 ) {
     val budgetLeft: Long get() = budget - budgetUsed
     val budgetRatio: Float get() = if (budget <= 0) (if (budgetUsed > 0) 1.01f else 0f) else budgetUsed.toFloat() / budget
@@ -72,6 +74,8 @@ object Balances {
         allocations: List<Allocation>,
         cycleStartMillis: Long,
         daysLeft: Int,
+        rule: BudgetRule = BudgetRule(),
+        previousStartMillis: Long = Long.MIN_VALUE,
     ): Summary {
         val confirmed = transactions.filter { it.status == TxStatus.CONFIRMED }
         val byId = confirmed.associateBy { it.id }
@@ -146,7 +150,17 @@ object Balances {
             paylaterDebt = (paylater - repaid).coerceAtLeast(0),
             spentThisCycle = spent,
             incomeThisCycle = income,
-            budget = budgetOf(spendRows),
+            budget = when (rule.mode) {
+                BudgetRule.Mode.POCKETS -> budgetOf(spendRows)
+                BudgetRule.Mode.LAST_INCOME -> {
+                    val last = confirmed.filter { it.type == TxType.INCOME && it.occurredAt >= previousStartMillis && it.occurredAt < cycleStartMillis }.sumOf { it.amount }
+                    (if (last > 0) last else income) * rule.percent.coerceIn(0, 100) / 100
+                }
+            },
+            basisIncome = when (rule.mode) {
+                BudgetRule.Mode.POCKETS -> income
+                BudgetRule.Mode.LAST_INCOME -> confirmed.filter { it.type == TxType.INCOME && it.occurredAt >= previousStartMillis && it.occurredAt < cycleStartMillis }.sumOf { it.amount }.takeIf { it > 0 } ?: income
+            },
             budgetUsed = used,
         )
     }

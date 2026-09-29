@@ -84,6 +84,8 @@ class AddViewModel @Inject constructor(
             type = savedState.get<String>("type")?.let { runCatching { TxType.valueOf(it) }.getOrNull() } ?: TxType.EXPENSE,
             pocketId = savedState.get<Long>("pocket")?.takeIf { it > 0 },
             pocketTouched = (savedState.get<Long>("pocket") ?: 0L) > 0,
+            toPocketId = savedState.get<Long>("to")?.takeIf { it > 0 },
+            split = (savedState.get<Long>("to") ?: 0L) <= 0,
         ),
     )
     val state: StateFlow<AddState> = _state.asStateFlow()

@@ -24,11 +24,12 @@ data class PocketEntity(
     val sortOrder: Int,
     val archived: Boolean = false,
     val color: Int? = null,
+    val target: Long? = null,
 ) {
-    fun toDomain() = Pocket(id, name, emoji, percent, PocketKind.valueOf(kind), PocketTag.valueOf(tag), sortOrder, color)
+    fun toDomain() = Pocket(id, name, emoji, percent, PocketKind.valueOf(kind), PocketTag.valueOf(tag), sortOrder, color, target)
 
     companion object {
-        fun from(p: Pocket) = PocketEntity(p.id, p.name, p.emoji, p.percent, p.kind.name, p.tag.name, p.sortOrder, color = p.color)
+        fun from(p: Pocket) = PocketEntity(p.id, p.name, p.emoji, p.percent, p.kind.name, p.tag.name, p.sortOrder, color = p.color, target = p.target)
     }
 }
 

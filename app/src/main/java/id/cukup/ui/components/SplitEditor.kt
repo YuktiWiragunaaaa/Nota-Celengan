@@ -71,11 +71,12 @@ data class EditablePocket(
     val kind: PocketKind,
     val tag: PocketTag,
     val color: Int? = null,
+    val target: Long? = null,
 ) {
-    fun toPocket(order: Int) = Pocket(id, name.trim().ifBlank { "Kantong" }, emoji, percent, kind, tag, order, color)
+    fun toPocket(order: Int) = Pocket(id, name.trim().ifBlank { "Kantong" }, emoji, percent, kind, tag, order, color, target)
 
     companion object {
-        fun from(p: Pocket, index: Int) = EditablePocket(index.toLong() + 1, p.id, p.name, p.emoji, p.percent, p.kind, p.tag, p.color)
+        fun from(p: Pocket, index: Int) = EditablePocket(index.toLong() + 1, p.id, p.name, p.emoji, p.percent, p.kind, p.tag, p.color, p.target)
     }
 }
 

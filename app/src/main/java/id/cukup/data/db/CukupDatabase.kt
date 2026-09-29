@@ -5,7 +5,7 @@ import androidx.room.RoomDatabase
 
 @Database(
     entities = [PocketEntity::class, TransactionEntity::class, AllocationEntity::class, MerchantRuleEntity::class],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 abstract class CukupDatabase : RoomDatabase() {
@@ -16,5 +16,12 @@ abstract class CukupDatabase : RoomDatabase() {
 val MIGRATION_1_2 = object : androidx.room.migration.Migration(1, 2) {
     override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE pockets ADD COLUMN color INTEGER")
+    }
+}
+
+/** v3: kantong bisa punya target tabungan. */
+val MIGRATION_2_3 = object : androidx.room.migration.Migration(2, 3) {
+    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE pockets ADD COLUMN target INTEGER")
     }
 }

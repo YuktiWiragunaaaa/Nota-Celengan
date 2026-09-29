@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 import javax.inject.Inject
 
@@ -29,10 +30,21 @@ data class HomeState(
     val schedule: Schedule = Schedule(),
     val nextPayday: LocalDate? = null,
     val insights: List<Insight> = emptyList(),
+    val chart: String = "DONUT",
+    val reading: List<String> = emptyList(),
+    val avatarVersion: Long = 0,
 )
 
 @HiltViewModel
-class HomeViewModel @Inject constructor(repository: MoneyRepository) : ViewModel() {
+class HomeViewModel @Inject constructor(
+    repository: MoneyRepository,
+    private val settingsStore: id.cukup.data.SettingsStore,
+) : ViewModel() {
+
+    fun setChart(type: String) {
+        viewModelScope.launch { settingsStore.update { it.copy(chart = type) } }
+    }
+
 
     val state: StateFlow<HomeState> = combine(
         repository.summary,
@@ -51,6 +63,9 @@ class HomeViewModel @Inject constructor(repository: MoneyRepository) : ViewModel
             pocketIndex = pockets.mapIndexed { i, p -> p.id to i }.toMap(),
             schedule = settings.schedule,
             nextPayday = repository.cycle(settings.schedule).nextPayday,
+            chart = settings.chart,
+            reading = id.cukup.domain.ChartReader.read(summary),
+            avatarVersion = settings.avatarVersion,
             insights = Advisor.insights(
                 summary, txs, pockets,
                 repository.cycle(settings.schedule), repository.previousCycle(settings.schedule), LocalDate.now(),

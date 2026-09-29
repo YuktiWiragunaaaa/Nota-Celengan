@@ -114,9 +114,14 @@ fun AddScreen(onClose: () -> Unit, vm: AddViewModel = hiltViewModel()) {
                 TxType.INCOME -> {
                     Label("Masukkan ke")
                     Row(Modifier.padding(horizontal = Gutter), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Choice("Bagi ke semua kantong", s.split, { vm.onIntent(AddIntent.Split(true)) })
-                        Choice("Satu kantong saja", !s.split, { vm.onIntent(AddIntent.Split(false)) })
+                        Choice("Bagi otomatis", s.split, { vm.onIntent(AddIntent.Split(true)) })
+                        Choice("Masuk ke 1 kantong", !s.split, { vm.onIntent(AddIntent.Split(false)) })
                     }
+                    Text(
+                        if (s.split) "Dibagi sesuai persen tiap kantong." else "Semua uangnya masuk ke satu kantong, tanpa dibagi. Cocok untuk kado atau bonus.",
+                        style = Type.bodySmall, color = c.mute,
+                        modifier = Modifier.padding(horizontal = Gutter).padding(top = 8.dp),
+                    )
                     Spacer(Modifier.height(10.dp))
                     if (s.split) {
                         Hairline()

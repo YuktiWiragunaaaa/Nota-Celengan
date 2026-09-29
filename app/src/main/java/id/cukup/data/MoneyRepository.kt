@@ -9,6 +9,7 @@ import id.cukup.data.db.TransactionEntity
 import id.cukup.domain.Allocation
 import id.cukup.domain.Allocator
 import id.cukup.domain.Balances
+import id.cukup.domain.BudgetRule
 import id.cukup.domain.MerchantClassifier
 import id.cukup.domain.NotificationParser
 import id.cukup.domain.PayCycle
@@ -48,7 +49,7 @@ class MoneyRepository @Inject constructor(
     val settings: Flow<Settings> = settingsStore.settings
 
     val summary: Flow<Summary> = combine(pockets, transactions, allocations, settings) { p, t, a, s ->
-        summarize(p, t, a, s.schedule)
+        summarize(p, t, a, s.schedule, s.budgetRule)
     }
 
     fun cycle(schedule: Schedule, today: LocalDate = LocalDate.now(zone)): PayCycle = PayCycle.of(today, schedule)
@@ -56,15 +57,16 @@ class MoneyRepository @Inject constructor(
     /** Periode sebelum periode yang sedang berjalan. */
     fun previousCycle(schedule: Schedule): PayCycle = PayCycle.of(cycle(schedule).start.minusDays(1), schedule)
 
-    fun summarize(p: List<Pocket>, t: List<Transaction>, a: List<Allocation>, schedule: Schedule): Summary {
+    fun summarize(p: List<Pocket>, t: List<Transaction>, a: List<Allocation>, schedule: Schedule, rule: BudgetRule = BudgetRule()): Summary {
         val today = LocalDate.now(zone)
         val cycle = cycle(schedule, today)
         val start = cycle.start.atStartOfDay(zone).toInstant().toEpochMilli()
-        return Balances.compute(p, t, a, start, cycle.daysLeft(today))
+        val previousStart = PayCycle.of(cycle.start.minusDays(1), schedule).start.atStartOfDay(zone).toInstant().toEpochMilli()
+        return Balances.compute(p, t, a, start, cycle.daysLeft(today), rule, previousStart)
     }
 
     suspend fun currentSummary(): Summary =
-        summarize(pockets.first(), transactions.first(), allocations.first(), settingsStore.current().schedule)
+        summarize(pockets.first(), transactions.first(), allocations.first(), settingsStore.current().schedule, settingsStore.current().budgetRule)
 
     // ——— Pos ———
 
@@ -252,6 +254,23 @@ class MoneyRepository @Inject constructor(
             ),
         )
         changed()
+    }
+
+    /** Pasang atau hapus target tabungan pada kantong. */
+    suspend fun setTarget(pocketId: Long, target: Long?) {
+        val p = dao.pockets().firstOrNull { it.id == pocketId } ?: return
+        dao.upsertPockets(listOf(p.copy(target = target?.takeIf { it > 0 })))
+        changed()
+    }
+
+    /** Membuat kantong tabungan baru (0%) dengan target. Mengembalikan id-nya. */
+    suspend fun createGoal(name: String, emoji: String, color: Int?, target: Long): Long {
+        val order = dao.pockets().size
+        val id = dao.upsertPockets(
+            listOf(PocketEntity(name = name, emoji = emoji, percent = 0, kind = PocketKind.SAVE.name, tag = "SAVINGS", sortOrder = order, color = color, target = target)),
+        ).first()
+        changed()
+        return id
     }
 
     /** Menghapus semua data dan pengaturan. Aplikasi kembali ke awal. */

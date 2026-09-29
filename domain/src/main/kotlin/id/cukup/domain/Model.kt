@@ -16,6 +16,8 @@ data class Pocket(
     val sortOrder: Int = 0,
     /** Warna pilihan pengguna (ARGB). null = warna bawaan sesuai urutan. */
     val color: Int? = null,
+    /** Target tabungan (rupiah). null = tanpa target. */
+    val target: Long? = null,
 )
 
 /** ADJUST = penyesuaian saldo kantong (bukan belanja, bukan pemasukan). */
@@ -52,3 +54,13 @@ data class Allocation(
     val amount: Long,
     val percentAtTime: Int,
 )
+
+/**
+ * Cara menghitung jatah belanja per periode.
+ * - POCKETS: bagian kantong belanja dari uang yang masuk periode ini.
+ * - LAST_INCOME: [percent]% dari total uang masuk periode sebelumnya
+ *   (bila periode lalu kosong, memakai uang masuk periode ini).
+ */
+data class BudgetRule(val mode: Mode = Mode.POCKETS, val percent: Int = 50) {
+    enum class Mode { POCKETS, LAST_INCOME }
+}

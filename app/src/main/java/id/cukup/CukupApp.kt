@@ -4,4 +4,9 @@ import android.app.Application
 import dagger.hilt.android.HiltAndroidApp
 
 @HiltAndroidApp
-class CukupApp : Application()
+class CukupApp : Application() {
+    override fun onCreate() {
+        super.onCreate()
+        LockState.watchScreen(this)
+    }
+}

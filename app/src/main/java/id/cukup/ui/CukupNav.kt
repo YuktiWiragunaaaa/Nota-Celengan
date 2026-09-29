@@ -60,6 +60,8 @@ import id.cukup.ui.onboarding.OnboardingScreen
 import id.cukup.ui.pockets.PocketDetailScreen
 import id.cukup.ui.pockets.PocketsScreen
 import id.cukup.ui.pockets.SplitScreen
+import id.cukup.ui.settings.ProfileScreen
+import id.cukup.ui.goals.GoalsScreen
 import id.cukup.ui.review.InboxScreen
 import id.cukup.ui.review.TxDetailScreen
 import id.cukup.ui.settings.SettingsScreen
@@ -72,13 +74,15 @@ private object Routes {
     const val HISTORY = "history"
     const val POCKETS = "pockets"
     const val SETTINGS = "settings"
-    const val ADD = "add?type={type}&pocket={pocket}"
+    const val ADD = "add?type={type}&pocket={pocket}&to={to}"
+    const val PROFILE = "profile"
+    const val GOALS = "goals"
     const val POCKET = "pocket/{id}"
     const val TX = "tx/{id}"
     const val INBOX = "inbox"
     const val SPLIT = "split"
 
-    fun add(type: String = "EXPENSE", pocket: Long = 0) = "add?type=$type&pocket=$pocket"
+    fun add(type: String = "EXPENSE", pocket: Long = 0, to: Long = 0) = "add?type=$type&pocket=$pocket&to=$to"
 }
 
 private data class TabItem(val route: String, val label: String, val icon: ImageVector)
@@ -97,7 +101,7 @@ fun CukupNav(onboarded: Boolean, openAdd: Boolean, onAddHandled: () -> Unit) {
     val route = entry?.destination?.route
     val showBar = route in tabs.map { it.route }
     // Layar bergradien memakai ikon status bar terang.
-    LightStatusBarIcons(light = route in setOf(Routes.HOME, Routes.POCKETS, Routes.POCKET))
+    LightStatusBarIcons(light = route in setOf(Routes.HOME, Routes.POCKETS, Routes.POCKET, Routes.PROFILE))
     val c = colors
 
     LaunchedEffect(openAdd, onboarded) {
@@ -135,6 +139,7 @@ fun CukupNav(onboarded: Boolean, openAdd: Boolean, onAddHandled: () -> Unit) {
                     onOpenInbox = { nav.navigate(Routes.INBOX) },
                     onOpenTx = { nav.navigate("tx/$it") },
                     onOpenHistory = { nav.switchTab(Routes.HISTORY) },
+                    onOpenProfile = { nav.navigate(Routes.PROFILE) },
                 )
             }
             composable(Routes.HISTORY) { HistoryScreen(tabPadding, onOpenTx = { nav.navigate("tx/$it") }) }
@@ -144,6 +149,7 @@ fun CukupNav(onboarded: Boolean, openAdd: Boolean, onAddHandled: () -> Unit) {
                     onOpenPocket = { nav.navigate("pocket/$it") },
                     onEditSplit = { nav.navigate(Routes.SPLIT) },
                     onMove = { nav.navigate(Routes.add("MOVE")) },
+                    onOpenGoals = { nav.navigate(Routes.GOALS) },
                 )
             }
             composable(Routes.SETTINGS) { SettingsScreen(tabPadding, onEditSplit = { nav.navigate(Routes.SPLIT) }) }
@@ -152,6 +158,7 @@ fun CukupNav(onboarded: Boolean, openAdd: Boolean, onAddHandled: () -> Unit) {
                 arguments = listOf(
                     navArgument("type") { type = NavType.StringType; defaultValue = "EXPENSE" },
                     navArgument("pocket") { type = NavType.LongType; defaultValue = 0L },
+                    navArgument("to") { type = NavType.LongType; defaultValue = 0L },
                 ),
             ) { AddScreen(onClose = { nav.popBackStack() }) }
             composable(Routes.POCKET, arguments = listOf(navArgument("id") { type = NavType.LongType })) {
@@ -166,6 +173,20 @@ fun CukupNav(onboarded: Boolean, openAdd: Boolean, onAddHandled: () -> Unit) {
             }
             composable(Routes.INBOX) { InboxScreen(onBack = { nav.popBackStack() }) }
             composable(Routes.SPLIT) { SplitScreen(onBack = { nav.popBackStack() }) }
+            composable(Routes.PROFILE) {
+                ProfileScreen(
+                    onBack = { nav.popBackStack() },
+                    onOpenSettings = { nav.switchTab(Routes.SETTINGS) },
+                    onOpenGoals = { nav.navigate(Routes.GOALS) },
+                )
+            }
+            composable(Routes.GOALS) {
+                GoalsScreen(
+                    onBack = { nav.popBackStack() },
+                    onFill = { nav.navigate(Routes.add("MOVE", to = it)) },
+                    onEditSplit = { nav.navigate(Routes.SPLIT) },
+                )
+            }
         }
 
         if (showBar) {

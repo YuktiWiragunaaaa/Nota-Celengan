@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
+import id.cukup.domain.BudgetRule
 import id.cukup.domain.Frequency
 import id.cukup.domain.Schedule
 import kotlinx.coroutines.flow.Flow
@@ -28,6 +29,12 @@ data class Settings(
     val budgetAlerts: Boolean = true,
     /** Tanya dulu kalau satu kali belanja di atas nominal ini. 0 = mati. */
     val singleLimit: Long = 0,
+    /** Cara hitung jatah belanja. */
+    val budgetRule: BudgetRule = BudgetRule(),
+    /** Grafik di beranda: DONUT, BAR, atau BUBBLE. */
+    val chart: String = "DONUT",
+    /** Versi foto profil (0 = belum ada). Dipakai agar gambar dimuat ulang saat diganti. */
+    val avatarVersion: Long = 0,
     /** Peringatan terakhir yang sudah dikirim: "<awal periode>:<tingkat>", agar tidak berulang. */
     val lastAlert: String = "",
 )
@@ -49,6 +56,10 @@ class SettingsStore @Inject constructor(@ApplicationContext private val context:
         val budgetAlerts = booleanPreferencesKey("budget_alerts")
         val lastAlert = stringPreferencesKey("last_alert")
         val singleLimit = longPreferencesKey("single_limit")
+        val budgetMode = stringPreferencesKey("budget_mode")
+        val budgetPercent = intPreferencesKey("budget_percent")
+        val chart = stringPreferencesKey("chart")
+        val avatarVersion = longPreferencesKey("avatar_version")
     }
 
     private fun read(p: Preferences) = Settings(
@@ -65,6 +76,12 @@ class SettingsStore @Inject constructor(@ApplicationContext private val context:
         budgetAlerts = p[K.budgetAlerts] ?: true,
         lastAlert = p[K.lastAlert] ?: "",
         singleLimit = p[K.singleLimit] ?: 0,
+        budgetRule = BudgetRule(
+            mode = p[K.budgetMode]?.let { runCatching { BudgetRule.Mode.valueOf(it) }.getOrNull() } ?: BudgetRule.Mode.POCKETS,
+            percent = p[K.budgetPercent] ?: 50,
+        ),
+        chart = p[K.chart] ?: "DONUT",
+        avatarVersion = p[K.avatarVersion] ?: 0,
     )
 
     val settings: Flow<Settings> = context.dataStore.data.map(::read)
@@ -85,6 +102,10 @@ class SettingsStore @Inject constructor(@ApplicationContext private val context:
             p[K.budgetAlerts] = next.budgetAlerts
             p[K.lastAlert] = next.lastAlert
             p[K.singleLimit] = next.singleLimit
+            p[K.budgetMode] = next.budgetRule.mode.name
+            p[K.budgetPercent] = next.budgetRule.percent
+            p[K.chart] = next.chart
+            p[K.avatarVersion] = next.avatarVersion
         }
     }
 }
