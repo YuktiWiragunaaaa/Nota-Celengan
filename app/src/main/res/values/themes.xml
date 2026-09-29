@@ -1,0 +1,9 @@
+<resources>
+    <style name="Theme.Cukup" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/paper</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+    <color name="paper">#FBFAF7</color>
+    <color name="ink">#1F1E1C</color>
+</resources>
