@@ -160,7 +160,7 @@ fun SettingsScreen(contentPadding: PaddingValues, vm: SettingsViewModel = hiltVi
             text = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     TextButton({ day = if (day == 1) 31 else day - 1 }) { Text("−", style = Type.title, color = c.ink) }
-                    Text("$day", style = Type.display, color = c.ink, modifier = Modifier.padding(horizontal = 24.dp))
+                    Text("$day", style = Type.number.copy(fontSize = Type.display.fontSize), color = c.ink, modifier = Modifier.padding(horizontal = 24.dp))
                     TextButton({ day = if (day == 31) 1 else day + 1 }) { Text("+", style = Type.title, color = c.ink) }
                 }
             },
@@ -192,7 +192,7 @@ private fun Toggle(title: String, subtitle: String, checked: Boolean, enabled: B
         }
         Switch(
             checked = checked, onCheckedChange = onChange, enabled = enabled,
-            colors = SwitchDefaults.colors(checkedTrackColor = c.ink, checkedThumbColor = c.paper, uncheckedBorderColor = c.line),
+            colors = SwitchDefaults.colors(checkedTrackColor = c.ink, checkedThumbColor = c.paper, uncheckedBorderColor = c.faint, uncheckedThumbColor = c.faint, uncheckedTrackColor = c.paper),
         )
     }
     Hairline()

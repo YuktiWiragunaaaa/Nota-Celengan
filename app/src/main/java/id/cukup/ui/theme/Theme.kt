@@ -100,18 +100,22 @@ val Serif = FontFamily(
 
 @OptIn(androidx.compose.ui.text.ExperimentalTextApi::class)
 val Sans = FontFamily(
+    Font(R.font.inter, FontWeight.Light, variationSettings = FontVariation.Settings(FontVariation.weight(300))),
     Font(R.font.inter, FontWeight.Normal, variationSettings = FontVariation.Settings(FontVariation.weight(400))),
     Font(R.font.inter, FontWeight.Medium, variationSettings = FontVariation.Settings(FontVariation.weight(500))),
     Font(R.font.inter, FontWeight.SemiBold, variationSettings = FontVariation.Settings(FontVariation.weight(600))),
 )
 
 object Type {
+    // Angka memakai Inter Light dengan angka tabular: angka 1 di Instrument Serif mirip huruf l.
     /** Angka besar di beranda. */
-    val hero = TextStyle(fontFamily = Serif, fontSize = 52.sp, lineHeight = 56.sp, letterSpacing = (-0.01).em)
+    val hero = TextStyle(fontFamily = Sans, fontWeight = FontWeight.Light, fontSize = 46.sp, lineHeight = 52.sp, letterSpacing = (-0.02).em, fontFeatureSettings = "tnum")
+    /** Angka menengah (total, ringkasan). */
+    val number = TextStyle(fontFamily = Sans, fontWeight = FontWeight.Light, fontSize = 26.sp, lineHeight = 32.sp, letterSpacing = (-0.01).em, fontFeatureSettings = "tnum")
     val display = TextStyle(fontFamily = Serif, fontSize = 36.sp, lineHeight = 40.sp)
     val title = TextStyle(fontFamily = Serif, fontSize = 26.sp, lineHeight = 30.sp)
     val statement = TextStyle(fontFamily = Serif, fontStyle = FontStyle.Italic, fontSize = 20.sp, lineHeight = 26.sp)
-    val amount = TextStyle(fontFamily = Serif, fontSize = 20.sp, lineHeight = 24.sp)
+    val amount = TextStyle(fontFamily = Sans, fontWeight = FontWeight.Normal, fontSize = 16.sp, lineHeight = 22.sp, fontFeatureSettings = "tnum")
     val body = TextStyle(fontFamily = Sans, fontSize = 15.sp, lineHeight = 22.sp)
     val bodySmall = TextStyle(fontFamily = Sans, fontSize = 13.sp, lineHeight = 18.sp)
     val strong = TextStyle(fontFamily = Sans, fontSize = 15.sp, lineHeight = 22.sp, fontWeight = FontWeight.Medium)

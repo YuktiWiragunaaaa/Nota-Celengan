@@ -138,7 +138,7 @@ private fun PendingCard(tx: Transaction, pockets: List<Pocket>, onConfirm: (Long
             }
             Text(
                 (if (isIncome) "+" else "−") + Rupiah.format(tx.amount),
-                style = Type.title, color = c.ink,
+                style = Type.number, color = c.ink,
             )
         }
         Spacer(Modifier.height(14.dp))
@@ -154,7 +154,7 @@ private fun PendingCard(tx: Transaction, pockets: List<Pocket>, onConfirm: (Long
                 Text("Paylater", style = Type.bodySmall, color = c.mute, modifier = Modifier.weight(1f))
                 Switch(
                     checked = paylater, onCheckedChange = { paylater = it },
-                    colors = SwitchDefaults.colors(checkedTrackColor = c.ink, checkedThumbColor = c.paper, uncheckedBorderColor = c.line),
+                    colors = SwitchDefaults.colors(checkedTrackColor = c.ink, checkedThumbColor = c.paper, uncheckedBorderColor = c.faint, uncheckedThumbColor = c.faint, uncheckedTrackColor = c.paper),
                 )
             }
         }

@@ -53,6 +53,14 @@ class NotificationParserTest {
     }
 
     @Test
+    fun `paying a paylater bill is repayment not new debt`() {
+        val r = NotificationParser.parse("com.finaccel.android", "Pembayaran berhasil", "Pembayaran tagihan Rp450.000 berhasil. Terima kasih!")!!
+        assertEquals(TxType.EXPENSE, r.type)
+        assertEquals(false, r.isPaylater)
+        assertTrue(r.isDebtPayment)
+    }
+
+    @Test
     fun `otp and promo are ignored`() {
         assertNull(NotificationParser.parse("ovo.id", "OVO", "Kode OTP kamu 123456. Jangan berikan ke siapa pun."))
         assertNull(NotificationParser.parse("id.dana", "Promo!", "Dapatkan cashback hingga Rp50.000 hari ini, yuk bayar pakai DANA!"))

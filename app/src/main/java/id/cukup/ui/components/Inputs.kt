@@ -42,7 +42,7 @@ import id.cukup.ui.theme.colors
 
 /** Keypad angka besar. Nilai maksimal 12 digit (ratusan miliar). */
 @Composable
-fun Keypad(value: Long, onChange: (Long) -> Unit, modifier: Modifier = Modifier) {
+fun Keypad(value: Long, onChange: (Long) -> Unit, modifier: Modifier = Modifier, keyHeight: androidx.compose.ui.unit.Dp = 58.dp) {
     val haptic = LocalHapticFeedback.current
     val rows = listOf(listOf("1", "2", "3"), listOf("4", "5", "6"), listOf("7", "8", "9"), listOf("000", "0", "⌫"))
     Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -52,7 +52,7 @@ fun Keypad(value: Long, onChange: (Long) -> Unit, modifier: Modifier = Modifier)
                     Box(
                         Modifier
                             .weight(1f)
-                            .height(58.dp)
+                            .height(keyHeight)
                             .clip(RoundedCornerShape(2.dp))
                             .clickable(role = Role.Button) {
                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -66,7 +66,7 @@ fun Keypad(value: Long, onChange: (Long) -> Unit, modifier: Modifier = Modifier)
                             .semantics { if (key == "⌫") contentDescription = "Hapus" },
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text(key, style = Type.title, color = colors.ink)
+                        Text(key, style = Type.number, color = colors.ink)
                     }
                 }
             }
@@ -178,7 +178,7 @@ fun PocketEditor(
         ) {
             Column(Modifier.weight(1f)) {
                 Eyebrow("Total")
-                Text("$total%", style = Type.display, color = if (total == 100) c.ink else c.over)
+                Text("$total%", style = Type.number.copy(fontSize = Type.display.fontSize), color = if (total == 100) c.ink else c.over)
             }
             Text(
                 when {

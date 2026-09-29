@@ -58,20 +58,21 @@ fun AddScreen(onClose: () -> Unit, vm: AddViewModel = hiltViewModel()) {
             },
             onBack = onClose,
         )
+        Row(Modifier.padding(horizontal = Gutter), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Choice("Keluar", s.type == TxType.EXPENSE, { vm.onIntent(AddIntent.Type(TxType.EXPENSE)) })
+            Choice("Masuk", s.type == TxType.INCOME, { vm.onIntent(AddIntent.Type(TxType.INCOME)) })
+            Choice("Pindah", s.type == TxType.MOVE, { vm.onIntent(AddIntent.Type(TxType.MOVE)) })
+        }
+        // Nominal & keypad tetap di tempat; hanya detail di tengah yang bergulir.
+        Text(
+            Rupiah.format(s.amount),
+            style = Type.hero,
+            color = if (s.amount > 0) c.ink else c.faint,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = Gutter).padding(top = 16.dp, bottom = 4.dp),
+        )
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-            Row(Modifier.padding(horizontal = Gutter), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Choice("Keluar", s.type == TxType.EXPENSE, { vm.onIntent(AddIntent.Type(TxType.EXPENSE)) })
-                Choice("Masuk", s.type == TxType.INCOME, { vm.onIntent(AddIntent.Type(TxType.INCOME)) })
-                Choice("Pindah", s.type == TxType.MOVE, { vm.onIntent(AddIntent.Type(TxType.MOVE)) })
-            }
-            Text(
-                Rupiah.format(s.amount),
-                style = Type.hero,
-                color = if (s.amount > 0) c.ink else c.faint,
-                textAlign = TextAlign.Center,
-                maxLines = 1,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = Gutter).padding(top = 28.dp, bottom = 20.dp),
-            )
 
             when (s.type) {
                 TxType.EXPENSE -> {
@@ -103,7 +104,7 @@ fun AddScreen(onClose: () -> Unit, vm: AddViewModel = hiltViewModel()) {
                         Switch(
                             checked = s.isPaylater,
                             onCheckedChange = { vm.onIntent(AddIntent.Paylater(it)) },
-                            colors = SwitchDefaults.colors(checkedTrackColor = c.ink, checkedThumbColor = c.paper, uncheckedBorderColor = c.line),
+                            colors = SwitchDefaults.colors(checkedTrackColor = c.ink, checkedThumbColor = c.paper, uncheckedBorderColor = c.faint, uncheckedThumbColor = c.faint, uncheckedTrackColor = c.paper),
                         )
                     }
                 }
@@ -144,9 +145,9 @@ fun AddScreen(onClose: () -> Unit, vm: AddViewModel = hiltViewModel()) {
                 Choice("Kemarin", s.daysAgo == 1, { vm.onIntent(AddIntent.Day(1)) })
                 Choice("2 hari lalu", s.daysAgo == 2, { vm.onIntent(AddIntent.Day(2)) })
             }
-            Keypad(s.amount, { vm.onIntent(AddIntent.Amount(it)) }, Modifier.padding(horizontal = Gutter, vertical = 8.dp))
         }
         Hairline()
+        Keypad(s.amount, { vm.onIntent(AddIntent.Amount(it)) }, Modifier.padding(horizontal = Gutter, vertical = 4.dp), keyHeight = 50.dp)
         InkButton(
             "Simpan",
             onClick = { vm.onIntent(AddIntent.Save) },

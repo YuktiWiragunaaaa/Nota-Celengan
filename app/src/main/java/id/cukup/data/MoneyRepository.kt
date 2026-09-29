@@ -202,13 +202,13 @@ class MoneyRepository @Inject constructor(
         val fingerprint = NotificationParser.fingerprint(packageName, parsed.amount, postedAt, parsed.merchant)
         val similar = dao.countSimilar(parsed.amount, parsed.type.name, postedAt - 180_000, postedAt + 180_000)
         val auto = s.autoConfirm && similar == 0
-        val pocket = if (parsed.type == TxType.EXPENSE) suggestPocket(parsed.merchant) else null
+        val pocket = if (parsed.type == TxType.EXPENSE) suggestPocket(parsed.merchant, parsed.isDebtPayment) else null
 
         val tx = Transaction(
             type = parsed.type,
             amount = parsed.amount,
             pocketId = pocket?.id,
-            merchant = parsed.merchant,
+            merchant = parsed.merchant.ifBlank { if (parsed.isDebtPayment) "Bayar tagihan ${parsed.appLabel}" else "" },
             note = if (similar > 0) "Mungkin duplikat" else "",
             occurredAt = postedAt,
             source = TxSource.NOTIFICATION,

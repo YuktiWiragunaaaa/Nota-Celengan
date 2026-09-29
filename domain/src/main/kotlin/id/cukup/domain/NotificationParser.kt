@@ -7,6 +7,8 @@ data class ParsedNotification(
     val merchant: String,
     val appLabel: String,
     val isPaylater: Boolean,
+    /** Pembayaran tagihan/cicilan hutang (bukan hutang baru). */
+    val isDebtPayment: Boolean = false,
 )
 
 /** Aplikasi keuangan yang notifikasinya dibaca. */
@@ -55,6 +57,7 @@ object NotificationParser {
         "pembayaran", "bayar", "dibayar", "transfer ke", "kirim uang", "mengirim", "pembelian", "debit",
         "transaksi berhasil", "berhasil transfer", "tarik tunai", "belanja", "dipotong", "qris",
     )
+    private val debtPaymentWords = listOf("bayar tagihan", "pembayaran tagihan", "pelunasan", "angsuran", "bayar cicilan", "pembayaran cicilan", "tagihan berhasil dibayar", "tagihan kamu sudah lunas")
     private val paylaterWords = listOf("paylater", "pay later", "spaylater", "gopaylater", "cicilan", "kredivo", "akulaku")
 
     private val merchantRegexes = listOf(
@@ -88,7 +91,8 @@ object NotificationParser {
             else -> if (incomeHit < expenseHit) TxType.INCOME else TxType.EXPENSE
         }
 
-        val isPaylater = type == TxType.EXPENSE &&
+        val isDebtPayment = type == TxType.EXPENSE && debtPaymentWords.any { lower.contains(it) }
+        val isPaylater = type == TxType.EXPENSE && !isDebtPayment &&
             (app.isPaylater || paylaterWords.any { lower.contains(it) })
 
         return ParsedNotification(
@@ -97,6 +101,7 @@ object NotificationParser {
             merchant = extractMerchant(body, type),
             appLabel = app.label,
             isPaylater = isPaylater,
+            isDebtPayment = isDebtPayment,
         )
     }
 

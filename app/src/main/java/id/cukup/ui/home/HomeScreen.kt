@@ -119,7 +119,7 @@ fun HomeScreen(
                 Spacer(Modifier.width(20.dp))
                 Column(Modifier.weight(1f)) {
                     Eyebrow("Total uang")
-                    Text(Rupiah.format(summary.total), style = Type.title, color = c.ink, maxLines = 1)
+                    Text(Rupiah.format(summary.total), style = Type.number, color = c.ink, maxLines = 1)
                     Spacer(Modifier.height(10.dp))
                     MiniStat("Masuk siklus ini", summary.incomeThisCycle)
                     MiniStat("Keluar siklus ini", summary.spentThisCycle)

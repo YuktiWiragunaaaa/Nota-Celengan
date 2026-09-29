@@ -103,7 +103,7 @@ fun PocketsScreen(
                     )
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Eyebrow("Total")
-                        Text(Rupiah.short(summary.total), style = Type.display, color = c.ink)
+                        Text(Rupiah.short(summary.total), style = Type.number, color = c.ink)
                     }
                 }
             }

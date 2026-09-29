@@ -120,11 +120,11 @@ fun HistoryScreen(contentPadding: PaddingValues, onOpenTx: (Long) -> Unit, vm: H
                 Row {
                     Column(Modifier.weight(1f)) {
                         Eyebrow("Keluar siklus ini")
-                        Text(Rupiah.format(s.spent), style = Type.title, color = c.ink)
+                        Text(Rupiah.format(s.spent), style = Type.number, color = c.ink)
                     }
                     Column(Modifier.weight(1f)) {
                         Eyebrow("Rata-rata per hari")
-                        Text(Rupiah.format(s.average), style = Type.title, color = c.ink)
+                        Text(Rupiah.format(s.average), style = Type.number, color = c.ink)
                     }
                 }
             }

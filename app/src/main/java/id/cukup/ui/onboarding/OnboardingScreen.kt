@@ -267,7 +267,7 @@ private fun StartStep(s: OnboardingState, onAmount: (Long) -> Unit) {
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth().padding(horizontal = Gutter, vertical = 8.dp),
         )
-        if (s.startAmount > 0) SplitPreview(s.startAmount, s.previewPockets, Modifier.padding(vertical = 8.dp))
+        SplitPreview(s.startAmount, s.previewPockets, Modifier.padding(vertical = 8.dp))
         Keypad(s.startAmount, onAmount, Modifier.padding(horizontal = Gutter, vertical = 12.dp))
     }
 }
