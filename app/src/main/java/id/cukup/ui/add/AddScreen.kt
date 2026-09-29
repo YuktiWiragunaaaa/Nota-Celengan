@@ -54,7 +54,7 @@ fun AddScreen(onClose: () -> Unit, vm: AddViewModel = hiltViewModel()) {
             title = when (s.type) {
                 TxType.EXPENSE -> "Uang keluar"
                 TxType.INCOME -> "Uang masuk"
-                TxType.MOVE -> "Pindah pos"
+                TxType.MOVE -> "Pindah antar kantong"
             },
             onBack = onClose,
         )
@@ -76,20 +76,20 @@ fun AddScreen(onClose: () -> Unit, vm: AddViewModel = hiltViewModel()) {
 
             when (s.type) {
                 TxType.EXPENSE -> {
-                    Label("Dari pos")
+                    Label("Ambil dari kantong")
                     PocketPicker(s.pockets, s.pocketId, { vm.onIntent(AddIntent.From(it)) })
                     s.pocketId?.let { id ->
                         val bal = s.balances[id] ?: 0
                         val after = bal - if (s.isPaylater) 0 else s.amount
                         Text(
-                            "Sisa pos setelah ini: ${Rupiah.format(after)}",
+                            "Sisa kantong setelah ini: ${Rupiah.format(after)}",
                             style = Type.bodySmall,
                             color = if (after < 0) c.over else c.mute,
                             modifier = Modifier.padding(horizontal = Gutter, vertical = 8.dp),
                         )
                     }
                     Column(Modifier.padding(horizontal = Gutter).padding(top = 8.dp)) {
-                        LineField(s.merchant, { vm.onIntent(AddIntent.Merchant(it)) }, "Di mana? (mis. Indomaret, Kopi Kenangan)")
+                        LineField(s.merchant, { vm.onIntent(AddIntent.Merchant(it)) }, "Untuk apa? (mis. makan siang, bensin, Indomaret)")
                         Spacer(Modifier.height(8.dp))
                         LineField(s.note, { vm.onIntent(AddIntent.Note(it)) }, "Catatan (opsional)")
                     }
@@ -99,7 +99,7 @@ fun AddScreen(onClose: () -> Unit, vm: AddViewModel = hiltViewModel()) {
                     ) {
                         Column(Modifier.weight(1f)) {
                             Text("Pakai paylater", style = Type.strong, color = c.ink)
-                            Text("Dicatat sebagai hutang, tidak mengurangi pos sekarang.", style = Type.bodySmall, color = c.mute)
+                            Text("Bayar nanti. Dicatat sebagai hutang, isi kantong tidak berkurang sekarang.", style = Type.bodySmall, color = c.mute)
                         }
                         Switch(
                             checked = s.isPaylater,
@@ -109,10 +109,10 @@ fun AddScreen(onClose: () -> Unit, vm: AddViewModel = hiltViewModel()) {
                     }
                 }
                 TxType.INCOME -> {
-                    Label("Masuk ke")
+                    Label("Masukkan ke")
                     Row(Modifier.padding(horizontal = Gutter), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Choice("Bagi sesuai persen", s.split, { vm.onIntent(AddIntent.Split(true)) })
-                        Choice("Satu pos saja", !s.split, { vm.onIntent(AddIntent.Split(false)) })
+                        Choice("Bagi ke semua kantong", s.split, { vm.onIntent(AddIntent.Split(true)) })
+                        Choice("Satu kantong saja", !s.split, { vm.onIntent(AddIntent.Split(false)) })
                     }
                     Spacer(Modifier.height(10.dp))
                     if (s.split) {
@@ -123,13 +123,13 @@ fun AddScreen(onClose: () -> Unit, vm: AddViewModel = hiltViewModel()) {
                         PocketPicker(s.pockets, s.toPocketId, { vm.onIntent(AddIntent.To(it)) })
                     }
                     Column(Modifier.padding(horizontal = Gutter).padding(top = 12.dp)) {
-                        LineField(s.merchant, { vm.onIntent(AddIntent.Merchant(it)) }, "Dari mana? (mis. Gaji, Freelance)")
+                        LineField(s.merchant, { vm.onIntent(AddIntent.Merchant(it)) }, "Dari mana? (mis. gaji, uang saku, jualan)")
                     }
                 }
                 TxType.MOVE -> {
-                    Label("Dari")
+                    Label("Dari kantong")
                     PocketPicker(s.pockets, s.pocketId, { vm.onIntent(AddIntent.From(it)) })
-                    Label("Ke")
+                    Label("Ke kantong")
                     PocketPicker(s.pockets.filter { it.id != s.pocketId }, s.toPocketId, { vm.onIntent(AddIntent.To(it)) })
                     Column(Modifier.padding(horizontal = Gutter).padding(top = 12.dp)) {
                         LineField(s.note, { vm.onIntent(AddIntent.Note(it)) }, "Alasan (opsional)")

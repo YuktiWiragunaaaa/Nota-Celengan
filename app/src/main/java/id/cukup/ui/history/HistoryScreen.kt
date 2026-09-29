@@ -80,7 +80,7 @@ class HistoryViewModel @Inject constructor(repository: MoneyRepository) : ViewMo
 
     val state: StateFlow<HistoryState> = combine(repository.pockets, repository.transactions, repository.settings, filter) { pockets, txs, settings, f ->
         val today = LocalDate.now()
-        val cycle = repository.cycle(settings.payday, today)
+        val cycle = repository.cycle(settings.schedule, today)
         val shown = txs.filter { it.status == TxStatus.CONFIRMED && (f == null || it.pocketId == f || it.toPocketId == f) }
         val days = (ChronoUnit.DAYS.between(cycle.start, today).toInt() + 1).coerceAtLeast(1)
         val daily = LongArray(days)
@@ -119,7 +119,7 @@ fun HistoryScreen(contentPadding: PaddingValues, onOpenTx: (Long) -> Unit, vm: H
                 Spacer(Modifier.height(16.dp))
                 Row {
                     Column(Modifier.weight(1f)) {
-                        Eyebrow("Keluar siklus ini")
+                        Eyebrow("Keluar periode ini")
                         Text(Rupiah.format(s.spent), style = Type.number, color = c.ink)
                     }
                     Column(Modifier.weight(1f)) {

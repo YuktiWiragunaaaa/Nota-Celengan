@@ -15,6 +15,7 @@ import id.cukup.domain.PayCycle
 import id.cukup.domain.Pocket
 import id.cukup.domain.PocketKind
 import id.cukup.domain.Preset
+import id.cukup.domain.Schedule
 import id.cukup.domain.Summary
 import id.cukup.domain.Transaction
 import id.cukup.domain.TxSource
@@ -35,6 +36,7 @@ class MoneyRepository @Inject constructor(
     private val db: CukupDatabase,
     private val settingsStore: SettingsStore,
     private val widgets: WidgetRefresher,
+    private val alerts: BudgetAlerts,
 ) {
     private val dao = db.dao()
     private val zone: ZoneId get() = ZoneId.systemDefault()
@@ -46,20 +48,20 @@ class MoneyRepository @Inject constructor(
     val settings: Flow<Settings> = settingsStore.settings
 
     val summary: Flow<Summary> = combine(pockets, transactions, allocations, settings) { p, t, a, s ->
-        summarize(p, t, a, s.payday)
+        summarize(p, t, a, s.schedule)
     }
 
-    fun cycle(payday: Int, today: LocalDate = LocalDate.now(zone)): PayCycle = PayCycle.of(today, payday)
+    fun cycle(schedule: Schedule, today: LocalDate = LocalDate.now(zone)): PayCycle = PayCycle.of(today, schedule)
 
-    fun summarize(p: List<Pocket>, t: List<Transaction>, a: List<Allocation>, payday: Int): Summary {
+    fun summarize(p: List<Pocket>, t: List<Transaction>, a: List<Allocation>, schedule: Schedule): Summary {
         val today = LocalDate.now(zone)
-        val cycle = cycle(payday, today)
+        val cycle = cycle(schedule, today)
         val start = cycle.start.atStartOfDay(zone).toInstant().toEpochMilli()
         return Balances.compute(p, t, a, start, cycle.daysLeft(today))
     }
 
     suspend fun currentSummary(): Summary =
-        summarize(pockets.first(), transactions.first(), allocations.first(), settingsStore.current().payday)
+        summarize(pockets.first(), transactions.first(), allocations.first(), settingsStore.current().schedule)
 
     // ——— Pos ———
 
@@ -72,7 +74,7 @@ class MoneyRepository @Inject constructor(
             val removed = existing - keep
             if (removed.isNotEmpty()) dao.archivePockets(removed.toList())
         }
-        widgets.refresh()
+        changed()
     }
 
     suspend fun applyPreset(preset: Preset) {
@@ -85,7 +87,7 @@ class MoneyRepository @Inject constructor(
                 },
             )
         }
-        widgets.refresh()
+        changed()
     }
 
     // ——— Transaksi ———
@@ -100,7 +102,7 @@ class MoneyRepository @Inject constructor(
             ),
         )
         learn(merchant, pocketId)
-        widgets.refresh()
+        changed()
     }
 
     /** [toPocketId] null = dibagi ke semua pos sesuai persentase saat ini. */
@@ -108,7 +110,7 @@ class MoneyRepository @Inject constructor(
         saveIncome(
             Transaction(type = TxType.INCOME, amount = amount, toPocketId = toPocketId, merchant = merchant.trim(), note = note.trim(), occurredAt = at),
         )
-        widgets.refresh()
+        changed()
     }
 
     suspend fun move(fromPocketId: Long, toPocketId: Long, amount: Long, note: String, at: Long) {
@@ -117,7 +119,7 @@ class MoneyRepository @Inject constructor(
                 Transaction(type = TxType.MOVE, amount = amount, pocketId = fromPocketId, toPocketId = toPocketId, note = note.trim(), occurredAt = at),
             ),
         )
-        widgets.refresh()
+        changed()
     }
 
     /** Menyimpan pemasukan beserta alokasinya dalam satu transaksi database. */
@@ -153,19 +155,19 @@ class MoneyRepository @Inject constructor(
                 if (pocketId != null) learn(tx.merchant, pocketId)
             }
         }
-        widgets.refresh()
+        changed()
     }
 
     suspend fun dismiss(id: Long) {
         val tx = dao.transaction(id) ?: return
         dao.upsertTransaction(tx.copy(status = TxStatus.DISMISSED.name))
         dao.deleteAllocations(id)
-        widgets.refresh()
+        changed()
     }
 
     suspend fun delete(id: Long) {
         dao.deleteTransaction(id)
-        widgets.refresh()
+        changed()
     }
 
     /** Mengganti pos sebuah pengeluaran dan mengingat pilihan itu untuk merchant yang sama. */
@@ -174,7 +176,7 @@ class MoneyRepository @Inject constructor(
         if (tx.type != TxType.EXPENSE) return
         dao.upsertTransaction(TransactionEntity.from(tx.copy(pocketId = pocketId)))
         learn(tx.merchant, pocketId)
-        widgets.refresh()
+        changed()
     }
 
     private suspend fun learn(merchant: String, pocketId: Long) {
@@ -222,13 +224,19 @@ class MoneyRepository @Inject constructor(
         } else {
             dao.insertTransaction(TransactionEntity.from(tx)) > 0
         }
-        if (saved) widgets.refresh()
+        if (saved) changed()
         return saved
     }
 
     suspend fun hasPockets(): Boolean = dao.pocketCount() > 0
 
     suspend fun pendingCount(): Int = pending.first().size
+
+    /** Setelah data berubah: perbarui widget dan periksa jatah belanja. */
+    private suspend fun changed() {
+        widgets.refresh()
+        runCatching { alerts.check(currentSummary()) }
+    }
 
     fun spendPockets(all: List<Pocket>) = all.filter { it.kind != PocketKind.SAVE }
 }

@@ -1,9 +1,8 @@
 package id.cukup.ui.pockets
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -13,13 +12,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -33,19 +33,23 @@ import id.cukup.ui.components.Gutter
 import id.cukup.ui.components.Hairline
 import id.cukup.ui.components.InkButton
 import id.cukup.ui.components.LineButton
-import id.cukup.ui.components.PocketEditor
-import id.cukup.ui.components.PocketRing
-import id.cukup.ui.components.TextAction
+import id.cukup.ui.components.SplitBar
+import id.cukup.ui.components.SplitEditor
 import id.cukup.ui.components.TopBar
+import id.cukup.ui.components.dayLabel
+import id.cukup.ui.components.label
+import id.cukup.ui.components.localDate
 import id.cukup.ui.home.PocketRow
 import id.cukup.ui.onboarding.italicize
 import id.cukup.ui.theme.Type
 import id.cukup.ui.theme.colors
 
+/** Tab Kantong: semua kantong, pembagian persennya, dan pintasan untuk mengubah. */
 @Composable
 fun PocketsScreen(
     contentPadding: PaddingValues,
     onOpenPocket: (Long) -> Unit,
+    onEditSplit: () -> Unit,
     onMove: () -> Unit,
     vm: PocketsViewModel = hiltViewModel(),
 ) {
@@ -53,66 +57,28 @@ fun PocketsScreen(
     val c = colors
     val summary = s.summary ?: return
 
-    val editing = s.editing
-    if (editing != null) {
-        BackHandler { vm.cancel() }
-        Column(Modifier.fillMaxSize().background(c.paper).padding(contentPadding).imePadding()) {
-            TopBar("Atur persentase", onBack = vm::cancel)
-            Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-                Text(
-                    "Perubahan berlaku untuk pemasukan berikutnya. Pembagian yang sudah tercatat tidak berubah.",
-                    style = Type.bodySmall, color = c.mute,
-                    modifier = Modifier.padding(horizontal = Gutter),
-                )
-                PocketEditor(editing, onChange = vm::edit)
-                Text(
-                    "Menghapus pos hanya menyembunyikannya. Riwayatnya tetap tersimpan; pindahkan dulu saldonya ke pos lain.",
-                    style = Type.bodySmall, color = c.faint,
-                    modifier = Modifier.padding(horizontal = Gutter, vertical = 8.dp),
-                )
-            }
-            Hairline()
-            InkButton(
-                "Simpan",
-                onClick = vm::save,
-                enabled = s.canSave,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = Gutter, vertical = 12.dp),
-            )
-        }
-        return
-    }
-
     LazyColumn(Modifier.fillMaxSize().background(c.paper), contentPadding = contentPadding) {
         item {
             Column(Modifier.padding(horizontal = Gutter).padding(top = 24.dp)) {
-                Text(italicize("Semua pos, <i>dalam persen.</i>"), style = Type.display, color = c.ink)
+                Text(italicize("Kantong"), style = Type.display, color = c.ink)
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    "Setiap uang masuk dibagi ke pos sesuai persentase ini. Ketuk pos untuk melihat riwayatnya.",
+                    "Setiap uang masuk dibagi ke kantong sesuai persen di bawah.",
                     style = Type.body, color = c.mute,
                 )
-            }
-        }
-        item {
-            Box(Modifier.fillMaxWidth().padding(vertical = 28.dp), contentAlignment = Alignment.Center) {
-                Box(Modifier.size(200.dp), contentAlignment = Alignment.Center) {
-                    PocketRing(
-                        summary.pockets.mapIndexed { i, pb -> Triple(c.pocket(i), pb.pocket.percent / 100f, 1f - pb.usedRatio) },
-                        Modifier.fillMaxSize(),
-                        stroke = 14.dp,
-                    )
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Eyebrow("Total")
-                        Text(Rupiah.short(summary.total), style = Type.number, color = c.ink)
-                    }
+                Spacer(Modifier.height(20.dp))
+                SplitBar(summary.pockets.map { it.pocket.percent })
+                Spacer(Modifier.height(8.dp))
+                Row {
+                    Text("Total uang", style = Type.bodySmall, color = c.mute, modifier = Modifier.weight(1f))
+                    Text(Rupiah.format(summary.total), style = Type.amount, color = c.ink)
                 }
-            }
-        }
-        item {
-            Row(Modifier.padding(horizontal = Gutter).padding(bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                LineButton("Atur persentase", onClick = vm::startEditing, height = 44.dp)
-                Spacer(Modifier.size(8.dp))
-                LineButton("Pindah uang", onClick = onMove, height = 44.dp)
+                Spacer(Modifier.height(16.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    InkButton("Ubah pembagian", onClick = onEditSplit, modifier = Modifier.weight(1f))
+                    LineButton("Pindah uang", onClick = onMove, modifier = Modifier.weight(1f))
+                }
+                Spacer(Modifier.height(20.dp))
             }
         }
         item { Hairline() }
@@ -121,15 +87,48 @@ fun PocketsScreen(
             Hairline()
         }
         item {
-            val save = summary.pockets.filter { it.pocket.kind == PocketKind.SAVE }.sumOf { it.balance }
             Column(Modifier.padding(horizontal = Gutter, vertical = 24.dp)) {
-                Eyebrow("Keterangan")
+                Eyebrow("Arti label")
                 Spacer(Modifier.height(8.dp))
-                Text("Pakai: dihitung di \"aman dipakai hari ini\".", style = Type.bodySmall, color = c.mute)
-                Text("Simpan: tidak ikut dihitung. Sekarang terkumpul ${Rupiah.format(save)}.", style = Type.bodySmall, color = c.mute)
-                Text("Cicilan: untuk membayar hutang dan paylater.", style = Type.bodySmall, color = c.mute)
+                Text("Untuk belanja: dihitung sebagai jatah belanja.", style = Type.bodySmall, color = c.mute)
+                Text("Ditabung: disisihkan, tidak ikut jatah belanja.", style = Type.bodySmall, color = c.mute)
+                Text("Bayar hutang: untuk cicilan dan paylater.", style = Type.bodySmall, color = c.mute)
             }
         }
+    }
+}
+
+/** Layar khusus mengubah pembagian persen. */
+@Composable
+fun SplitScreen(onBack: () -> Unit, vm: PocketsViewModel = hiltViewModel()) {
+    val s by vm.state.collectAsStateWithLifecycle()
+    val c = colors
+    LaunchedEffect(Unit) { vm.startEditing() }
+    val editing = s.editing
+
+    Column(Modifier.fillMaxSize().background(c.paper).systemBarsPadding().imePadding()) {
+        TopBar("Ubah pembagian", onBack = onBack)
+        if (editing == null) return@Column
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+            Text(
+                "Geser persen tiap kantong. Berlaku untuk uang masuk berikutnya; yang sudah tercatat tidak berubah.",
+                style = Type.body, color = c.mute,
+                modifier = Modifier.padding(horizontal = Gutter),
+            )
+            SplitEditor(editing, onChange = vm::edit)
+            Text(
+                "Kantong yang dihapus disembunyikan, riwayatnya tetap ada. Pindahkan dulu sisa uangnya ke kantong lain.",
+                style = Type.bodySmall, color = c.faint,
+                modifier = Modifier.padding(horizontal = Gutter, vertical = 8.dp),
+            )
+        }
+        Hairline()
+        InkButton(
+            "Simpan",
+            onClick = { vm.save(onBack) },
+            enabled = s.canSave,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = Gutter, vertical = 12.dp),
+        )
     }
 }
 
@@ -143,41 +142,30 @@ fun PocketDetailScreen(
     val s by vm.state.collectAsStateWithLifecycle()
     val c = colors
     val pb = s.balance
-    Column(Modifier.fillMaxSize().background(c.paper)) {
-        TopBar(pb?.let { "${it.pocket.emoji} ${it.pocket.name}" } ?: "", onBack = onBack, modifier = Modifier.padding(top = 24.dp))
+    Column(Modifier.fillMaxSize().background(c.paper).systemBarsPadding()) {
+        TopBar(pb?.let { "${it.pocket.emoji} ${it.pocket.name}" } ?: "", onBack = onBack)
         if (pb == null) return@Column
         LazyColumn(Modifier.weight(1f)) {
             item {
                 Column(Modifier.padding(horizontal = Gutter).padding(top = 8.dp, bottom = 20.dp)) {
-                    Eyebrow("Saldo pos")
+                    Eyebrow("Isi kantong")
                     Text(Rupiah.format(pb.balance), style = Type.hero, color = if (pb.balance < 0) c.over else c.ink)
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        italicize(
-                            "<i>${pb.pocket.percent}%</i> dari setiap pemasukan · " +
-                                when (pb.pocket.kind) {
-                                    PocketKind.SPEND -> "pos pakai"
-                                    PocketKind.SAVE -> "pos simpan"
-                                    PocketKind.DEBT -> "pos cicilan"
-                                },
-                        ),
-                        style = Type.statement, color = c.mute,
+                        "Dapat ${pb.pocket.percent}% dari setiap uang masuk · ${pb.pocket.kind.label().lowercase()}",
+                        style = Type.body, color = c.mute,
                     )
                     Spacer(Modifier.height(16.dp))
                     Row {
-                        Stat("Masuk siklus ini", pb.inThisCycle, Modifier.weight(1f))
-                        Stat("Keluar siklus ini", pb.outThisCycle, Modifier.weight(1f))
+                        Stat("Masuk periode ini", pb.inThisCycle, Modifier.weight(1f))
+                        Stat("Keluar periode ini", pb.outThisCycle, Modifier.weight(1f))
                     }
                 }
             }
             item { Hairline() }
             if (s.entries.isEmpty()) {
                 item {
-                    Text(
-                        "Belum ada catatan untuk pos ini.",
-                        style = Type.body, color = c.faint,
-                        modifier = Modifier.padding(Gutter),
-                    )
+                    Text("Belum ada catatan di kantong ini.", style = Type.body, color = c.faint, modifier = Modifier.padding(Gutter))
                 }
             }
             items(s.entries, key = { it.tx.id }) { e ->
@@ -192,7 +180,7 @@ fun PocketDetailScreen(
                         Text(e.label, style = Type.strong, color = c.ink, maxLines = 1)
                         Text(
                             buildString {
-                                append(id.cukup.ui.components.dayLabel(id.cukup.ui.components.localDate(e.tx.occurredAt)))
+                                append(dayLabel(localDate(e.tx.occurredAt)))
                                 if (e.percent != null) append(" · ${e.percent}% dari ${Rupiah.format(e.tx.amount)}")
                                 if (e.tx.isPaylater) append(" · paylater")
                             },
@@ -209,8 +197,12 @@ fun PocketDetailScreen(
             }
         }
         Hairline()
-        Row(Modifier.padding(horizontal = Gutter, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            InkButton("Catat dari pos ini", onClick = { onAdd(pb.pocket.id) }, modifier = Modifier.weight(1f))
+        if (pb.pocket.kind != PocketKind.SAVE) {
+            InkButton(
+                "Catat uang keluar dari sini",
+                onClick = { onAdd(pb.pocket.id) },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = Gutter, vertical = 12.dp),
+            )
         }
     }
 }

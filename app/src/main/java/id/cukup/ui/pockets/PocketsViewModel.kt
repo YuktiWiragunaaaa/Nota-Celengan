@@ -43,7 +43,7 @@ class PocketsViewModel @Inject constructor(private val repository: MoneyReposito
 
     fun startEditing() {
         viewModelScope.launch {
-            editing.value = repository.pockets.first().map(EditablePocket::from)
+            editing.value = repository.pockets.first().mapIndexed { i, p -> EditablePocket.from(p, i) }
         }
     }
 
@@ -55,13 +55,14 @@ class PocketsViewModel @Inject constructor(private val repository: MoneyReposito
         editing.value = null
     }
 
-    fun save() {
+    fun save(onDone: () -> Unit = {}) {
         val list = editing.value ?: return
         val pockets = list.mapIndexed { i, p -> p.toPocket(i) }
         if (!Allocator.isValid(pockets)) return
         viewModelScope.launch {
             repository.savePockets(pockets)
             editing.value = null
+            onDone()
         }
     }
 }
@@ -116,8 +117,8 @@ class PocketDetailViewModel @Inject constructor(
                     null
                 }
                 TxType.MOVE -> when (id) {
-                    t.pocketId -> PocketEntry(t, -t.amount, "Pindah ke ${pockets[t.toPocketId]?.name ?: "pos lain"}")
-                    t.toPocketId -> PocketEntry(t, t.amount, "Pindah dari ${pockets[t.pocketId]?.name ?: "pos lain"}")
+                    t.pocketId -> PocketEntry(t, -t.amount, "Pindah ke ${pockets[t.toPocketId]?.name ?: "kantong lain"}")
+                    t.toPocketId -> PocketEntry(t, t.amount, "Pindah dari ${pockets[t.pocketId]?.name ?: "kantong lain"}")
                     else -> null
                 }
             }

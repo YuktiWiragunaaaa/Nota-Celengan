@@ -44,6 +44,7 @@ import id.cukup.domain.Rupiah
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -60,10 +61,12 @@ class CukupWidget : GlanceAppWidget() {
         val repo = EntryPointAccessors.fromApplication(context, WidgetEntryPoint::class.java).repository()
         val summary = runCatching { repo.currentSummary() }.getOrNull()
         val pending = runCatching { repo.pendingCount() }.getOrDefault(0)
+        val period = runCatching { repo.settings.first().schedule.periodName }.getOrDefault("ini")
         provideContent {
             GlanceTheme {
                 WidgetBody(
-                    safe = summary?.safeToSpendToday ?: 0,
+                    safe = summary?.budgetLeft ?: 0,
+                    period = period,
                     daysLeft = summary?.daysLeft ?: 0,
                     pending = pending,
                     ready = summary != null && summary.pockets.isNotEmpty(),
@@ -80,7 +83,7 @@ private val mute = ColorProvider(day = Color(0xFF77756F), night = Color(0xFFB9B6
 private val inkInverse = ColorProvider(day = Color(0xFFFBFAF7), night = Color(0xFF1F1E1C))
 
 @Composable
-private fun WidgetBody(safe: Long, daysLeft: Int, pending: Int, ready: Boolean, addIntent: Intent) {
+private fun WidgetBody(safe: Long, period: String, daysLeft: Int, pending: Int, ready: Boolean, addIntent: Intent) {
     Column(
         modifier = GlanceModifier
             .fillMaxSize()
@@ -89,7 +92,7 @@ private fun WidgetBody(safe: Long, daysLeft: Int, pending: Int, ready: Boolean, 
             .padding(16.dp)
             .clickable(actionStartActivity<MainActivity>()),
     ) {
-        Text("AMAN DIPAKAI HARI INI", style = TextStyle(color = mute, fontSize = 10.sp, fontWeight = FontWeight.Medium))
+        Text("SISA JATAH ${period.uppercase()}", style = TextStyle(color = mute, fontSize = 10.sp, fontWeight = FontWeight.Medium))
         Spacer(GlanceModifier.height(6.dp))
         Text(
             if (ready) Rupiah.format(safe) else "Belum diatur",

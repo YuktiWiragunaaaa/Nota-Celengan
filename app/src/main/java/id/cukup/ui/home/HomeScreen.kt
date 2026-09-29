@@ -1,5 +1,7 @@
 package id.cukup.ui.home
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -13,7 +15,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -32,17 +33,20 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import id.cukup.domain.PocketBalance
 import id.cukup.domain.PocketKind
 import id.cukup.domain.Rupiah
+import id.cukup.domain.Summary
+import id.cukup.domain.Warning
 import id.cukup.ui.components.Eyebrow
 import id.cukup.ui.components.Gutter
 import id.cukup.ui.components.Hairline
 import id.cukup.ui.components.Id
+import id.cukup.ui.components.InkButton
+import id.cukup.ui.components.LineButton
 import id.cukup.ui.components.PocketDot
-import id.cukup.ui.components.PocketRing
 import id.cukup.ui.components.SectionHeader
 import id.cukup.ui.components.TextAction
 import id.cukup.ui.components.TxRow
 import id.cukup.ui.components.UsageBar
-import id.cukup.ui.onboarding.italicize
+import id.cukup.ui.components.label
 import id.cukup.ui.theme.Type
 import id.cukup.ui.theme.colors
 import java.time.LocalDate
@@ -51,8 +55,10 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun HomeScreen(
     contentPadding: PaddingValues,
+    onIncome: () -> Unit,
+    onExpense: () -> Unit,
     onOpenPocket: (Long) -> Unit,
-    onOpenPockets: () -> Unit,
+    onEditSplit: () -> Unit,
     onOpenInbox: () -> Unit,
     onOpenTx: (Long) -> Unit,
     onOpenHistory: () -> Unit,
@@ -60,22 +66,29 @@ fun HomeScreen(
 ) {
     val s by vm.state.collectAsStateWithLifecycle()
     val c = colors
-    val summary = s.summary ?: return
+    val summary = s.summary
+    if (summary == null) {
+        Box(Modifier.fillMaxSize().background(c.paper))
+        return
+    }
 
     LazyColumn(Modifier.fillMaxSize().background(c.paper), contentPadding = contentPadding) {
         item {
-            Column(Modifier.padding(horizontal = Gutter).padding(top = 20.dp)) {
-                Eyebrow(greeting(s.name))
-                Spacer(Modifier.height(28.dp))
-                Eyebrow("Aman dipakai hari ini")
-                Spacer(Modifier.height(6.dp))
-                Text(Rupiah.format(summary.safeToSpendToday), style = Type.hero, color = c.ink, maxLines = 1)
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    italicize(statement(summary.daysLeft, s.nextPayday)),
-                    style = Type.statement,
-                    color = c.mute,
-                )
+            Text(
+                greeting(s.name),
+                style = Type.bodySmall, color = c.mute,
+                modifier = Modifier.padding(horizontal = Gutter).padding(top = 20.dp, bottom = 12.dp),
+            )
+        }
+        item { BudgetCard(summary, s.schedule.periodName, s.nextPayday) }
+
+        item {
+            Row(
+                Modifier.padding(horizontal = Gutter).padding(top = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                LineButton("+ Uang masuk", onClick = onIncome, modifier = Modifier.weight(1f))
+                InkButton("− Uang keluar", onClick = onExpense, modifier = Modifier.weight(1f))
             }
         }
 
@@ -84,64 +97,48 @@ fun HomeScreen(
                 Row(
                     Modifier
                         .padding(horizontal = Gutter)
-                        .padding(top = 24.dp)
+                        .padding(top = 16.dp)
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(2.dp))
                         .background(c.dark)
                         .clickable(role = Role.Button, onClick = onOpenInbox)
-                        .padding(horizontal = 18.dp, vertical = 16.dp),
+                        .padding(horizontal = 18.dp, vertical = 14.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Column(Modifier.weight(1f)) {
-                        Eyebrow("Perlu dicek", color = c.onDarkMute)
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            "${s.pendingCount} transaksi terbaca dari notifikasi",
-                            style = Type.body, color = c.onDark,
-                        )
-                    }
+                    Text(
+                        "${s.pendingCount} transaksi dari notifikasi, cek dulu",
+                        style = Type.body, color = c.onDark, modifier = Modifier.weight(1f),
+                    )
                     Text("→", style = Type.title, color = c.onDark)
                 }
             }
         }
 
         item {
-            Row(
-                Modifier.padding(horizontal = Gutter).padding(top = 32.dp).fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Box(Modifier.size(112.dp).clickable(onClick = onOpenPockets), contentAlignment = Alignment.Center) {
-                    PocketRing(
-                        summary.pockets.mapIndexed { i, pb -> Triple(c.pocket(i), pb.pocket.percent / 100f, 1f - pb.usedRatio) },
-                        Modifier.fillMaxSize(),
-                    )
-                }
-                Spacer(Modifier.width(20.dp))
-                Column(Modifier.weight(1f)) {
-                    Eyebrow("Total uang")
-                    Text(Rupiah.format(summary.total), style = Type.number, color = c.ink, maxLines = 1)
-                    Spacer(Modifier.height(10.dp))
-                    MiniStat("Masuk siklus ini", summary.incomeThisCycle)
-                    MiniStat("Keluar siklus ini", summary.spentThisCycle)
-                    if (summary.paylaterDebt > 0) MiniStat("Hutang paylater", summary.paylaterDebt, warn = true)
-                }
-            }
+            SectionHeader("Kantong", trailing = { TextAction("Ubah pembagian", onEditSplit, color = c.mute) })
         }
-
-        item { SectionHeader("Pos", trailing = { TextAction("Atur", onOpenPockets, color = c.mute) }) }
         item { Hairline() }
         items(summary.pockets, key = { "p" + it.pocket.id }) { pb ->
             PocketRow(pb, s.pocketIndex[pb.pocket.id] ?: 0, onClick = { onOpenPocket(pb.pocket.id) })
             Hairline()
         }
+        if (summary.paylaterDebt > 0) {
+            item {
+                Row(Modifier.fillMaxWidth().padding(horizontal = Gutter, vertical = 14.dp)) {
+                    Text("Hutang paylater", style = Type.body, color = c.mute, modifier = Modifier.weight(1f))
+                    Text(Rupiah.format(summary.paylaterDebt), style = Type.amount, color = c.over)
+                }
+                Hairline()
+            }
+        }
 
         item {
-            SectionHeader("Terakhir", trailing = { if (s.recent.isNotEmpty()) TextAction("Semua", onOpenHistory, color = c.mute) })
+            SectionHeader("Terakhir dicatat", trailing = { if (s.recent.isNotEmpty()) TextAction("Lihat semua", onOpenHistory, color = c.mute) })
         }
         if (s.recent.isEmpty()) {
             item {
                 Text(
-                    "Belum ada transaksi. Ketuk + untuk mencatat, atau aktifkan baca notifikasi di Setelan.",
+                    "Belum ada catatan. Pakai tombol \"Uang keluar\" setiap belanja, termasuk yang pakai uang tunai.",
                     style = Type.body, color = c.faint,
                     modifier = Modifier.padding(horizontal = Gutter, vertical = 8.dp),
                 )
@@ -162,47 +159,87 @@ fun HomeScreen(
     }
 }
 
+private val dayFmt = DateTimeFormatter.ofPattern("EEEE", Id)
+
+/** Kartu utama: jatah belanja periode ini, sisa, dan status dalam satu kalimat. */
 @Composable
-private fun MiniStat(label: String, amount: Long, warn: Boolean = false) {
+private fun BudgetCard(summary: Summary, periodName: String, nextPayday: LocalDate?) {
     val c = colors
-    Row(Modifier.fillMaxWidth().padding(vertical = 1.dp)) {
-        Text(label, style = Type.bodySmall, color = c.mute, modifier = Modifier.weight(1f))
-        Text(Rupiah.short(amount), style = Type.bodySmall, color = if (warn) c.over else c.ink)
+    val warning = summary.warning
+    val tone = when (warning) {
+        Warning.CALM -> c.ink
+        Warning.NEAR -> c.caution
+        Warning.OVER -> c.over
+    }
+    val progress by animateFloatAsState(summary.budgetRatio.coerceIn(0f, 1f), tween(700), label = "budget")
+    Column(
+        Modifier
+            .padding(horizontal = Gutter)
+            .fillMaxWidth()
+            .border(1.dp, c.line, RoundedCornerShape(2.dp))
+            .padding(18.dp),
+    ) {
+        Eyebrow("Jatah belanja $periodName")
+        Spacer(Modifier.height(6.dp))
+        if (summary.budget <= 0 && summary.budgetUsed == 0L) {
+            Text("Belum ada uang masuk", style = Type.number, color = c.faint)
+            Spacer(Modifier.height(6.dp))
+            Text("Catat gaji atau uang saku lewat \"Uang masuk\". Nanti otomatis dibagi ke kantong.", style = Type.bodySmall, color = c.mute)
+            return@Column
+        }
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(
+                Rupiah.format(summary.budgetLeft.coerceAtLeast(0)),
+                style = Type.hero, color = tone, maxLines = 1,
+                modifier = Modifier.weight(1f, fill = false),
+            )
+            Text(" sisa", style = Type.body, color = c.mute, modifier = Modifier.padding(bottom = 10.dp))
+        }
+        Spacer(Modifier.height(12.dp))
+        Box(Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)).background(c.line)) {
+            Box(Modifier.fillMaxWidth(progress).height(8.dp).clip(RoundedCornerShape(4.dp)).background(tone))
+        }
+        Spacer(Modifier.height(8.dp))
+        Row {
+            Text(
+                "Terpakai ${Rupiah.format(summary.budgetUsed)}",
+                style = Type.bodySmall, color = c.mute, modifier = Modifier.weight(1f),
+            )
+            Text("dari ${Rupiah.format(summary.budget)}", style = Type.bodySmall, color = c.mute)
+        }
+        Spacer(Modifier.height(12.dp))
+        val payday = nextPayday?.format(dayFmt)?.replaceFirstChar { it.titlecase(Id) } ?: ""
+        val perDay = summary.budgetLeft.coerceAtLeast(0) / summary.daysLeft.coerceAtLeast(1)
+        Text(
+            when (warning) {
+                Warning.CALM -> "Masih aman. Kira-kira ${Rupiah.format(perDay)} per hari sampai gajian ($payday, ${summary.daysLeft} hari lagi)."
+                Warning.NEAR -> "Hati-hati, sudah ${(summary.budgetRatio * 100).toInt()}% terpakai. Sisa ${Rupiah.format(perDay)} per hari sampai $payday."
+                Warning.OVER -> "Sudah lewat ${Rupiah.format(-summary.budgetLeft)} dari jatah. Coba tahan belanja sampai $payday."
+            },
+            style = Type.body, color = if (warning == Warning.CALM) c.ink else tone,
+        )
     }
 }
 
 @Composable
 internal fun PocketRow(pb: PocketBalance, index: Int, onClick: () -> Unit) {
     val c = colors
-    Column(
-        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = Gutter, vertical = 14.dp),
-    ) {
+    Column(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = Gutter, vertical = 14.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             PocketDot(c.pocket(index))
             Spacer(Modifier.width(12.dp))
-            Text(
-                "${pb.pocket.emoji}  ${pb.pocket.name}",
-                style = Type.strong, color = c.ink, modifier = Modifier.weight(1f),
-                maxLines = 1, overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                "${pb.pocket.percent}%",
-                style = Type.label, color = c.faint,
-                modifier = Modifier.padding(end = 12.dp).border(1.dp, c.line, RoundedCornerShape(2.dp)).padding(horizontal = 6.dp, vertical = 3.dp),
-            )
+            Column(Modifier.weight(1f)) {
+                Text(
+                    "${pb.pocket.emoji}  ${pb.pocket.name}",
+                    style = Type.strong, color = c.ink, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
+                Text("${pb.pocket.percent}% · ${pb.pocket.kind.label().lowercase(Id)}", style = Type.bodySmall, color = c.faint)
+            }
             Text(Rupiah.format(pb.balance), style = Type.amount, color = if (pb.balance < 0) c.over else c.ink)
         }
-        Spacer(Modifier.height(10.dp))
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            UsageBar(pb.usedRatio, c.pocket(index), Modifier.weight(1f).padding(start = 20.dp))
-            Text(
-                when (pb.pocket.kind) {
-                    PocketKind.SAVE -> "disimpan"
-                    PocketKind.DEBT -> "cicilan · terpakai ${(pb.usedRatio * 100).toInt()}%"
-                    PocketKind.SPEND -> "terpakai ${(pb.usedRatio * 100).toInt()}%"
-                },
-                style = Type.bodySmall, color = c.faint,
-            )
+        if (pb.pocket.kind == PocketKind.SPEND) {
+            Spacer(Modifier.height(10.dp))
+            UsageBar(pb.usedRatio, c.pocket(index), Modifier.padding(start = 20.dp))
         }
     }
 }
@@ -215,15 +252,5 @@ private fun greeting(name: String): String {
         in 15..17 -> "Selamat sore"
         else -> "Selamat malam"
     }
-    return if (name.isBlank()) time else "$time, $name"
-}
-
-private val paydayFmt = DateTimeFormatter.ofPattern("d MMMM", Id)
-
-private fun statement(daysLeft: Int, next: LocalDate?): String {
-    val date = next?.format(paydayFmt) ?: ""
-    return when (daysLeft) {
-        1 -> "Besok <i>gajian</i> ($date)."
-        else -> "<i>$daysLeft hari</i> lagi sampai gajian, $date."
-    }
+    return if (name.isBlank()) "$time." else "$time, $name."
 }

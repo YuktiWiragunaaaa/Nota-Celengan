@@ -47,6 +47,7 @@ import id.cukup.ui.home.HomeScreen
 import id.cukup.ui.onboarding.OnboardingScreen
 import id.cukup.ui.pockets.PocketDetailScreen
 import id.cukup.ui.pockets.PocketsScreen
+import id.cukup.ui.pockets.SplitScreen
 import id.cukup.ui.review.InboxScreen
 import id.cukup.ui.review.TxDetailScreen
 import id.cukup.ui.settings.SettingsScreen
@@ -63,11 +64,12 @@ private object Routes {
     const val POCKET = "pocket/{id}"
     const val TX = "tx/{id}"
     const val INBOX = "inbox"
+    const val SPLIT = "split"
 
     fun add(type: String = "EXPENSE", pocket: Long = 0) = "add?type=$type&pocket=$pocket"
 }
 
-private val tabs = listOf(Routes.HOME to "Beranda", Routes.HISTORY to "Riwayat", Routes.POCKETS to "Pos", Routes.SETTINGS to "Setelan")
+private val tabs = listOf(Routes.HOME to "Beranda", Routes.HISTORY to "Riwayat", Routes.POCKETS to "Kantong", Routes.SETTINGS to "Setelan")
 
 @Composable
 fun CukupNav(onboarded: Boolean, openAdd: Boolean, onAddHandled: () -> Unit) {
@@ -104,8 +106,10 @@ fun CukupNav(onboarded: Boolean, openAdd: Boolean, onAddHandled: () -> Unit) {
             composable(Routes.HOME) {
                 HomeScreen(
                     contentPadding = tabPadding,
+                    onIncome = { nav.navigate(Routes.add("INCOME")) },
+                    onExpense = { nav.navigate(Routes.add()) },
                     onOpenPocket = { nav.navigate("pocket/$it") },
-                    onOpenPockets = { nav.switchTab(Routes.POCKETS) },
+                    onEditSplit = { nav.navigate(Routes.SPLIT) },
                     onOpenInbox = { nav.navigate(Routes.INBOX) },
                     onOpenTx = { nav.navigate("tx/$it") },
                     onOpenHistory = { nav.switchTab(Routes.HISTORY) },
@@ -116,10 +120,11 @@ fun CukupNav(onboarded: Boolean, openAdd: Boolean, onAddHandled: () -> Unit) {
                 PocketsScreen(
                     tabPadding,
                     onOpenPocket = { nav.navigate("pocket/$it") },
+                    onEditSplit = { nav.navigate(Routes.SPLIT) },
                     onMove = { nav.navigate(Routes.add("MOVE")) },
                 )
             }
-            composable(Routes.SETTINGS) { SettingsScreen(tabPadding) }
+            composable(Routes.SETTINGS) { SettingsScreen(tabPadding, onEditSplit = { nav.navigate(Routes.SPLIT) }) }
             composable(
                 Routes.ADD,
                 arguments = listOf(
@@ -138,6 +143,7 @@ fun CukupNav(onboarded: Boolean, openAdd: Boolean, onAddHandled: () -> Unit) {
                 TxDetailScreen(onBack = { nav.popBackStack() })
             }
             composable(Routes.INBOX) { InboxScreen(onBack = { nav.popBackStack() }) }
+            composable(Routes.SPLIT) { SplitScreen(onBack = { nav.popBackStack() }) }
         }
 
         if (showBar) {

@@ -215,13 +215,13 @@ fun TxRow(
         tx.merchant.isNotBlank() -> tx.merchant
         tx.note.isNotBlank() -> tx.note
         tx.type == TxType.INCOME -> "Pemasukan"
-        tx.type == TxType.MOVE -> "Pindah pos"
+        tx.type == TxType.MOVE -> "Pindah kantong"
         else -> "Pengeluaran"
     }
     val subtitle = buildList {
         when (tx.type) {
             TxType.EXPENSE -> pocket?.let { add("${it.emoji} ${it.name}") }
-            TxType.INCOME -> add(if (toPocket != null) "→ ${toPocket.emoji} ${toPocket.name}" else "Dibagi ke semua pos")
+            TxType.INCOME -> add(if (toPocket != null) "→ ${toPocket.emoji} ${toPocket.name}" else "Dibagi ke semua kantong")
             TxType.MOVE -> add("${pocket?.name ?: "?"} → ${toPocket?.name ?: "?"}")
         }
         if (tx.isPaylater) add("Paylater")

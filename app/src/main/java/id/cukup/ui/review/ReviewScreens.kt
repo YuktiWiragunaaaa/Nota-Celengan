@@ -100,7 +100,7 @@ fun InboxScreen(onBack: () -> Unit, vm: InboxViewModel = hiltViewModel()) {
             return@Column
         }
         Text(
-            "Terbaca dari notifikasi. Pastikan nominal dan posnya, lalu simpan.",
+            "Terbaca dari notifikasi HP. Pastikan nominal dan kantongnya benar, lalu simpan.",
             style = Type.bodySmall, color = c.mute,
             modifier = Modifier.padding(horizontal = Gutter).padding(bottom = 12.dp),
         )
@@ -144,7 +144,7 @@ private fun PendingCard(tx: Transaction, pockets: List<Pocket>, onConfirm: (Long
         Spacer(Modifier.height(14.dp))
         if (isIncome) {
             Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Choice("Bagi ke semua pos", pocketId == null, { pocketId = null })
+                Choice("Bagi ke semua kantong", pocketId == null, { pocketId = null })
             }
             Spacer(Modifier.height(8.dp))
             PocketPicker(pockets, pocketId, { pocketId = it }, Modifier.padding(start = 0.dp))
@@ -222,7 +222,7 @@ fun TxDetailScreen(onBack: () -> Unit, vm: TxDetailViewModel = hiltViewModel()) 
                     when (tx.type) {
                         TxType.EXPENSE -> if (tx.isPaylater) "Pengeluaran · paylater" else "Pengeluaran"
                         TxType.INCOME -> "Pemasukan"
-                        TxType.MOVE -> "Pindah pos"
+                        TxType.MOVE -> "Pindah kantong"
                     },
                 )
                 Text(Rupiah.format(tx.amount), style = Type.hero, color = c.ink)
@@ -239,10 +239,10 @@ fun TxDetailScreen(onBack: () -> Unit, vm: TxDetailViewModel = hiltViewModel()) 
 
             when (tx.type) {
                 TxType.EXPENSE -> {
-                    Eyebrow("Pos", Modifier.padding(horizontal = Gutter).padding(top = 20.dp, bottom = 10.dp))
+                    Eyebrow("Kantong", Modifier.padding(horizontal = Gutter).padding(top = 20.dp, bottom = 10.dp))
                     PocketPicker(s.pockets, tx.pocketId, vm::changePocket)
                     Text(
-                        "Mengganti pos juga mengajari Cukup untuk transaksi berikutnya di tempat yang sama.",
+                        "Cukup akan ingat pilihan ini untuk transaksi berikutnya di tempat yang sama.",
                         style = Type.bodySmall, color = c.faint,
                         modifier = Modifier.padding(horizontal = Gutter, vertical = 10.dp),
                     )
@@ -250,14 +250,14 @@ fun TxDetailScreen(onBack: () -> Unit, vm: TxDetailViewModel = hiltViewModel()) 
                 TxType.INCOME -> {
                     Eyebrow("Dibagi ke", Modifier.padding(horizontal = Gutter).padding(top = 20.dp, bottom = 6.dp))
                     if (tx.toPocketId != null) {
-                        Info("Satu pos", pocketsById[tx.toPocketId]?.let { "${it.emoji} ${it.name}" } ?: "Pos terhapus")
+                        Info("Satu kantong", pocketsById[tx.toPocketId]?.let { "${it.emoji} ${it.name}" } ?: "Kantong terhapus")
                     } else {
                         s.allocations.forEach { a ->
                             val p = pocketsById[a.pocketId]
                             Row(Modifier.fillMaxWidth().padding(horizontal = Gutter, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                                 PocketDot(c.pocket(index[a.pocketId] ?: 0))
                                 Text(
-                                    "  ${p?.emoji ?: ""} ${p?.name ?: "Pos terhapus"}",
+                                    "  ${p?.emoji ?: ""} ${p?.name ?: "Kantong terhapus"}",
                                     style = Type.body, color = c.ink, modifier = Modifier.weight(1f),
                                 )
                                 Text("${a.percentAtTime}%  ", style = Type.bodySmall, color = c.faint)
@@ -281,7 +281,7 @@ fun TxDetailScreen(onBack: () -> Unit, vm: TxDetailViewModel = hiltViewModel()) 
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
             title = { Text("Hapus transaksi?", style = Type.title) },
-            text = { Text("Saldo pos akan dihitung ulang. Tidak bisa dibatalkan.", style = Type.body) },
+            text = { Text("Isi kantong akan dihitung ulang. Tidak bisa dibatalkan.", style = Type.body) },
             confirmButton = { TextButton({ confirmDelete = false; vm.delete(onBack) }) { Text("Hapus", color = c.over) } },
             dismissButton = { TextButton({ confirmDelete = false }) { Text("Batal", color = c.ink) } },
             containerColor = c.paper,

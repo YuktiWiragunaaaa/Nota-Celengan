@@ -6,7 +6,14 @@ data class Preset(val id: String, val title: String, val subtitle: String, val p
 object Presets {
     val all = listOf(
         Preset(
-            "balanced", "Seimbang 50/30/20", "Kebutuhan, keinginan, tabungan. Panduan umum literasi keuangan.",
+            "half", "50 : 50", "Setengah dipakai, setengah ditabung.",
+            listOf(
+                PresetPocket("Belanja", "🛍️", 50, PocketKind.SPEND, PocketTag.NEEDS),
+                PresetPocket("Tabungan", "🌱", 50, PocketKind.SAVE, PocketTag.SAVINGS),
+            ),
+        ),
+        Preset(
+            "balanced", "50 : 30 : 20", "Kebutuhan, keinginan, tabungan.",
             listOf(
                 PresetPocket("Kebutuhan", "🏠", 50, PocketKind.SPEND, PocketTag.NEEDS),
                 PresetPocket("Keinginan", "☕", 30, PocketKind.SPEND, PocketTag.WANTS),
@@ -14,22 +21,18 @@ object Presets {
             ),
         ),
         Preset(
-            "debt", "Lunasi hutang", "Untuk yang sedang punya cicilan atau paylater.",
+            "debt", "Lunasi hutang", "Ada cicilan atau paylater.",
             listOf(
                 PresetPocket("Kebutuhan", "🏠", 40, PocketKind.SPEND, PocketTag.NEEDS),
-                PresetPocket("Cicilan", "🧾", 30, PocketKind.DEBT, PocketTag.DEBT),
+                PresetPocket("Bayar hutang", "🧾", 30, PocketKind.DEBT, PocketTag.DEBT),
                 PresetPocket("Tabungan", "🌱", 20, PocketKind.SAVE, PocketTag.SAVINGS),
                 PresetPocket("Keinginan", "☕", 10, PocketKind.SPEND, PocketTag.WANTS),
             ),
         ),
         Preset(
-            "kos", "Anak kos", "Dipilah lebih detail untuk hidup sendiri.",
+            "custom", "Atur sendiri", "Buat kantong sendiri.",
             listOf(
-                PresetPocket("Makan", "🍜", 35, PocketKind.SPEND, PocketTag.FOOD),
-                PresetPocket("Kos & tagihan", "🔌", 30, PocketKind.SPEND, PocketTag.BILLS),
-                PresetPocket("Transport", "🛵", 10, PocketKind.SPEND, PocketTag.TRANSPORT),
-                PresetPocket("Nongkrong", "🎧", 10, PocketKind.SPEND, PocketTag.FUN),
-                PresetPocket("Tabungan", "🌱", 15, PocketKind.SAVE, PocketTag.SAVINGS),
+                PresetPocket("Belanja", "🛍️", 100, PocketKind.SPEND, PocketTag.NEEDS),
             ),
         ),
     )

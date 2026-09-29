@@ -89,4 +89,21 @@ class BalancesTest {
         assertEquals(1_000_000L, s.pockets[0].inThisCycle)
         assertEquals(1_500_000L, s.pockets[0].balance)
     }
+
+    @Test
+    fun `budget is spend share of this period income and warns`() {
+        val spend = Pocket(1, "Belanja", "x", 50, PocketKind.SPEND, sortOrder = 0)
+        val save = Pocket(2, "Tabungan", "x", 50, PocketKind.SAVE, sortOrder = 1)
+        val two = listOf(spend, save)
+        fun inc(id: Long, amount: Long, at: Long) = Transaction(id = id, type = TxType.INCOME, amount = amount, occurredAt = at) to
+            Allocator.split(amount, two).map { (p, v) -> Allocation(id, p.id, v, p.percent) }
+        val (lastWeek, a1) = inc(1, 1_000_000, 10)
+        val (thisWeek, a2) = inc(2, 1_000_000, 1_000)
+        fun spent(v: Long) = Transaction(id = 9, type = TxType.EXPENSE, amount = v, pocketId = 1, occurredAt = 1_100)
+        val calm = Balances.compute(two, listOf(lastWeek, thisWeek, spent(100_000)), a1 + a2, 500, 7)
+        assertEquals(500_000L, calm.budget) // sisa minggu lalu tidak ikut
+        assertEquals(Warning.CALM, calm.warning)
+        assertEquals(Warning.NEAR, Balances.compute(two, listOf(lastWeek, thisWeek, spent(400_000)), a1 + a2, 500, 7).warning)
+        assertEquals(Warning.OVER, Balances.compute(two, listOf(lastWeek, thisWeek, spent(500_001)), a1 + a2, 500, 7).warning)
+    }
 }
