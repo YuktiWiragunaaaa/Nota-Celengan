@@ -1,5 +1,7 @@
 package id.cukup.ui.plan
 
+import id.cukup.ui.components.Pill
+import androidx.compose.foundation.layout.fillMaxHeight
 import id.cukup.ui.components.GlassIcon
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -109,7 +111,7 @@ fun PlanScreen(contentPadding: PaddingValues, onEditPlan: () -> Unit, vm: AppVie
                     Text(p.title, style = Type.title, color = c.ink)
                     Text(p.subtitle, style = Type.bodySmall, color = c.mute)
                     Spacer(Modifier.height(8.dp))
-                    Text(p.pos.joinToString("  ·  ") { "${it.emoji} ${it.name} ${it.percent}%" }, style = Type.bodySmall, color = c.ink)
+                    PresetParts(p)
                 }
             }
         } else {
@@ -181,7 +183,7 @@ private fun Totals(o: Overview) {
     Row(Modifier.padding(horizontal = Gutter).padding(top = 10.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         Stat("Batas belanja", Rupiah.short(s.spendLimit), c.ink, Modifier.weight(1f))
         Stat("Terpakai", Rupiah.short(s.spendUsed), if (s.spendLeft < 0) c.over else c.ink, Modifier.weight(1f))
-        Stat("Aman per hari", Rupiah.short(s.perDay), c.good, Modifier.weight(1f))
+        Stat("Aman per hari", Rupiah.short(s.perDay), if (s.perDay <= 0) c.over else c.good, Modifier.weight(1f))
     }
 }
 
@@ -233,7 +235,7 @@ private fun PosRow(row: PosStatus, o: Overview) {
                 } else if (cats.isEmpty()) {
                     "Belum ada kategori yang dihitung di sini. Ketuk Ubah untuk memilih."
                 } else {
-                    "Dihitung dari kategori: ${cats.joinToString { "${it.emoji} ${it.name}" }}"
+                    "Dihitung dari kategori: ${cats.joinToString { it.name }}"
                 },
                 style = Type.bodySmall, color = c.mute,
             )
@@ -382,3 +384,23 @@ private fun GoalDialog(g: Goal, o: Overview, onDismiss: () -> Unit, onDelete: ()
 /** Dipakai layar lain yang butuh tombol utama menuju rencana. */
 @Composable
 fun PlanCta(onClick: () -> Unit, modifier: Modifier = Modifier) = InkButton("Buat rencana", onClick, modifier)
+
+/** Isi template: batang proporsi berwarna + ikon kaca tiap pos. */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun PresetParts(p: id.cukup.domain.PlanPreset) {
+    val c = colors
+    Row(Modifier.fillMaxWidth().height(8.dp).clip(Pill), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+        p.pos.forEachIndexed { i, s -> Box(Modifier.weight(s.percent.coerceAtLeast(1).toFloat()).fillMaxHeight().background(c.pocket(i))) }
+    }
+    Spacer(Modifier.height(10.dp))
+    androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        p.pos.forEachIndexed { i, s ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                GlassIcon(s.emoji, c.pocket(i), size = 26.dp)
+                Spacer(Modifier.width(6.dp))
+                Text("${s.name} ${s.percent}%", style = Type.bodySmall, color = c.ink)
+            }
+        }
+    }
+}

@@ -65,6 +65,16 @@ object Presets {
             ),
         ),
         PlanPreset(
+            "ojk", "Pola Sikapi Uangmu (OJK)",
+            "Mengikuti prinsip literasi keuangan OJK: cicilan maksimal 30% penghasilan, rutin menabung. Persennya anjuran, bukan aturan resmi.",
+            listOf(
+                PlanSeed("Kebutuhan", "🏠", 40, PlanKind.SPEND, needs - Tag.FAMILY + wants),
+                PlanSeed("Cicilan (maks.)", "🧾", 30, PlanKind.SPEND, setOf(Tag.DEBT)),
+                PlanSeed("Tabungan & investasi", "🌱", 20, PlanKind.SAVE, setOf(Tag.SAVINGS)),
+                PlanSeed("Sosial & keluarga", "🙏", 10, PlanKind.SPEND, setOf(Tag.FAMILY)),
+            ),
+        ),
+        PlanPreset(
             "half", "Setengah saja", "Belanja maksimal 50%, sisanya ditabung.",
             listOf(
                 PlanSeed("Belanja", "🛍️", 50, PlanKind.SPEND, needs + wants + Tag.DEBT),

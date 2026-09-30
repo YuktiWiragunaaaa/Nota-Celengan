@@ -1,5 +1,6 @@
 package id.cukup.ui.onboarding
 
+import id.cukup.ui.components.GlassIcon
 import android.Manifest
 import android.content.Intent
 import android.os.Build
@@ -174,7 +175,11 @@ private fun WalletsStep(s: OnboardingState, onIntent: (OnboardingIntent) -> Unit
     Spacer(Modifier.height(20.dp))
     s.accounts.forEach { a ->
         Column(Modifier.padding(horizontal = Gutter, vertical = 6.dp).fillMaxWidth().clip(CardShape).background(c.card).padding(14.dp)) {
-            Text("${a.emoji}  ${a.name}", style = Type.strong, color = c.ink)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                GlassIcon(a.emoji, Presets.accounts.firstOrNull { it.name == a.name }?.color?.let { androidx.compose.ui.graphics.Color(it) } ?: c.accent, size = 32.dp, mark = id.cukup.domain.Brands.forAccountName(a.name)?.mark)
+                Spacer(Modifier.width(10.dp))
+                Text(a.name, style = Type.strong, color = c.ink)
+            }
             Text(if (a.kind == AccountKind.PAYLATER) "Hutang sekarang" else "Saldo sekarang", style = Type.label, color = c.mute, modifier = Modifier.padding(top = 4.dp, bottom = 6.dp))
             LineField(
                 if (a.amount > 0) a.amount.toString() else "",
@@ -222,8 +227,8 @@ private fun PlanStep(s: OnboardingState, onIntent: (OnboardingIntent) -> Unit) {
                     "Hasilnya",
                     s.preset.pos.mapIndexed { i, p ->
                         val v = parts.getOrNull(i)?.second ?: 0
-                        if (p.kind == id.cukup.domain.PlanKind.SAVE) "${p.emoji} ${p.name}: sisihkan ${Rupiah.format(v)}"
-                        else "${p.emoji} ${p.name}: belanja maksimal ${Rupiah.format(v)}"
+                        if (p.kind == id.cukup.domain.PlanKind.SAVE) "${p.name}: sisihkan ${Rupiah.format(v)}"
+                        else "${p.name}: belanja maksimal ${Rupiah.format(v)}"
                     },
                 )
             }

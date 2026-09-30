@@ -343,7 +343,7 @@ private fun Hero(
                         reading.forEach { line -> Text(line, style = Type.bodySmall, color = soft, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                     } else {
                         val share = p.amount * 100 / parts.sumOf { it.amount }.coerceAtLeast(1)
-                        Text("${p.category?.emoji ?: "🧾"} ${p.category?.name ?: "Tanpa kategori"}", style = Type.strong, color = white)
+                        Text(p.category?.name ?: "Tanpa kategori", style = Type.strong, color = white)
                         Text("${Rupiah.format(p.amount)} · $share% dari semua pengeluaran", style = Type.bodySmall, color = soft)
                     }
                 }

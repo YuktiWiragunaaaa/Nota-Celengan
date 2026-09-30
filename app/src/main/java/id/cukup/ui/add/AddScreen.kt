@@ -1,5 +1,8 @@
 package id.cukup.ui.add
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.layout.isImeVisible
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -49,6 +52,7 @@ import id.cukup.ui.components.colorOf
 import id.cukup.ui.theme.Type
 import id.cukup.ui.theme.colors
 
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun AddScreen(onClose: () -> Unit, onNewAccount: () -> Unit, vm: AddViewModel = hiltViewModel()) {
     val s by vm.state.collectAsStateWithLifecycle()
@@ -128,7 +132,11 @@ fun AddScreen(onClose: () -> Unit, onNewAccount: () -> Unit, vm: AddViewModel = 
             }
         }
         Hairline()
-        Keypad(s.amount, { vm.onIntent(AddIntent.Amount(it)) }, Modifier.padding(horizontal = Gutter, vertical = 4.dp), keyHeight = 48.dp)
+        // Saat keyboard HP terbuka (mengetik nama/catatan), keypad angka disembunyikan supaya kolom teks tidak tertutup.
+        val typing = WindowInsets.isImeVisible
+        AnimatedVisibility(!typing) {
+            Keypad(s.amount, { vm.onIntent(AddIntent.Amount(it)) }, Modifier.padding(horizontal = Gutter, vertical = 4.dp), keyHeight = 48.dp)
+        }
         InkButton(
             if (s.editingId > 0) "Simpan perubahan" else "Simpan",
             onClick = { vm.onIntent(AddIntent.Save) },

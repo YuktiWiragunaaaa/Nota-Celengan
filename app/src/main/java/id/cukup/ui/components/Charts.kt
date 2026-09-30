@@ -1,5 +1,6 @@
 ﻿package id.cukup.ui.components
 
+import id.cukup.ui.theme.colors
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.StrokeCap
@@ -260,7 +261,7 @@ fun ChartSwitch(options: List<Pair<String, androidx.compose.ui.graphics.vector.I
                     .padding(horizontal = 12.dp, vertical = 6.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                androidx.compose.material3.Icon(icon, id, tint = if (on) Color(0xFF8C1C07) else Color.White, modifier = Modifier.width(18.dp).height(18.dp))
+                androidx.compose.material3.Icon(icon, id, tint = if (on) colors.accent else Color.White, modifier = Modifier.width(18.dp).height(18.dp))
             }
         }
     }

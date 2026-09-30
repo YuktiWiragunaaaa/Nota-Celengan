@@ -159,7 +159,7 @@ fun HistoryScreen(contentPadding: PaddingValues, onOpenTx: (Long) -> Unit, vm: H
             if (o != null && o.accounts.size > 1) {
                 LazyRow(contentPadding = PaddingValues(horizontal = Gutter), horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
                     item { Choice("Semua dompet", account == null, { account = null }) }
-                    items(o.accounts) { ab -> Choice("${ab.account.emoji} ${ab.account.name}", account == ab.account.id, { account = ab.account.id }) }
+                    items(o.accounts) { ab -> Choice(ab.account.name, account == ab.account.id, { account = ab.account.id }) }
                 }
             }
         }

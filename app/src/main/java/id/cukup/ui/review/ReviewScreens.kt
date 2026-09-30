@@ -169,15 +169,15 @@ fun TxDetailScreen(id: Long, onBack: () -> Unit, onEdit: (Long) -> Unit, vm: App
             Info("Waktu", "${dayLabel(localDate(tx.occurredAt))}, ${time(tx.occurredAt)}")
             when (tx.type) {
                 TxType.TRANSFER -> {
-                    Info("Dari", from?.let { "${it.emoji} ${it.name}" } ?: "—")
-                    Info("Ke", to?.let { "${it.emoji} ${it.name}" } ?: "—")
+                    Info("Dari", from?.let { it.name } ?: "—")
+                    Info("Ke", to?.let { it.name } ?: "—")
                 }
                 else -> {
-                    Info(if (tx.type == TxType.EXPENSE) "Dompet" else "Masuk ke", from?.let { "${it.emoji} ${it.name}" } ?: "Dompet terhapus")
-                    Info("Kategori", cat?.let { "${it.emoji} ${it.name}" } ?: "Tanpa kategori")
+                    Info(if (tx.type == TxType.EXPENSE) "Dompet" else "Masuk ke", from?.let { it.name } ?: "Dompet terhapus")
+                    Info("Kategori", cat?.let { it.name } ?: "Tanpa kategori")
                     if (tx.type == TxType.EXPENSE) {
                         val pos = data.plan.firstOrNull { it.id == cat?.planId }
-                        Info("Dihitung di rencana", pos?.let { "${it.emoji} ${it.name}" } ?: "Tidak")
+                        Info("Dihitung di rencana", pos?.let { it.name } ?: "Tidak")
                     }
                 }
             }

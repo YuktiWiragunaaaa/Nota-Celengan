@@ -37,7 +37,10 @@ android {
             applicationIdSuffix = ".debug"
         }
         release {
-            isMinifyEnabled = false
+            // Dioptimalkan R8 (sama seperti build "fast" yang sudah teruji) supaya lancar di HP siapa pun.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.findByName("sideload") ?: signingConfigs.getByName("debug")
         }
         // Build cepat untuk dipakai sehari-hari di HP: dioptimalkan R8 dan tidak debuggable (Compose jauh

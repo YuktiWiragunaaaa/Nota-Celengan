@@ -176,12 +176,16 @@ fun PlanEditScreen(onBack: () -> Unit, vm: AppViewModel = hiltViewModel()) {
             )
             data.expenseCategories().forEach { cat ->
                 Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-                    Text("${cat.emoji}  ${cat.name}", style = Type.strong, color = c.ink, modifier = Modifier.padding(horizontal = Gutter))
+                    Row(Modifier.padding(horizontal = Gutter), verticalAlignment = Alignment.CenterVertically) {
+                        GlassIcon(cat.emoji, colorOf(cat), size = 30.dp)
+                        Spacer(Modifier.width(10.dp))
+                        Text(cat.name, style = Type.strong, color = c.ink)
+                    }
                     Row(
                         Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = Gutter, vertical = 6.dp),
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
-                        pos.forEach { p -> Choice("${p.emoji} ${p.name}", links[cat.id] == p.id, { links[cat.id] = p.id }) }
+                        pos.forEach { p -> Choice(p.name, links[cat.id] == p.id, { links[cat.id] = p.id }) }
                         Choice("Tidak dihitung", links[cat.id] == null, { links[cat.id] = null })
                     }
                 }

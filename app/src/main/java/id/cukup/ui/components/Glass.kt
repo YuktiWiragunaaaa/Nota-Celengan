@@ -1,5 +1,6 @@
 package id.cukup.ui.components
 
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -132,7 +133,12 @@ fun GlassIcon(
         listOf(Color.White.copy(alpha = if (c.isDark) 0.35f else 0.9f), base.copy(alpha = 0.25f), Color.White.copy(alpha = 0.15f)),
     )
     // Ikon sedikit lebih gelap dari warna aslinya supaya kontras di atas kaca terang.
-    val ink = if (onDark) Color.White else if (c.isDark) lerp(tint, Color.White, 0.25f) else lerp(tint, Color.Black, 0.28f)
+    // Di tema gelap, warna brand yang sangat gelap (mis. ungu OVO) dicerahkan lebih banyak supaya tetap terbaca.
+    val ink = when {
+        onDark -> Color.White
+        c.isDark -> lerp(tint, Color.White, if (tint.luminance() < 0.15f) 0.55f else 0.25f)
+        else -> lerp(tint, Color.Black, 0.28f)
+    }
     Box(
         modifier.size(size).clip(shape).background(fill).border(1.dp, rim, shape),
         contentAlignment = Alignment.Center,
