@@ -66,8 +66,14 @@ class MainActivity : FragmentActivity() {
         addCategory = intent?.getLongExtra(EXTRA_CATEGORY, 0L) ?: 0L
 
         setContent {
-            CukupTheme {
-                val settings by settingsStore.settings.collectAsState(initial = null as Settings?)
+            val settings by settingsStore.settings.collectAsState(initial = null as Settings?)
+            val systemDark = androidx.compose.foundation.isSystemInDarkTheme()
+            val dark = when (settings?.theme) {
+                "LIGHT" -> false
+                "SYSTEM" -> systemDark
+                else -> true
+            }
+            CukupTheme(dark = dark) {
                 val s = settings
                 when {
                     s == null -> Box(Modifier.fillMaxSize().background(colors.paper))

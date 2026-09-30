@@ -1,5 +1,8 @@
 ﻿package id.cukup.ui.components
 
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
@@ -58,8 +61,17 @@ fun DonutChart(
     center: @Composable () -> Unit = {},
 ) {
     val sweep = remember { Animatable(0f) }
-    LaunchedEffect(Unit) { sweep.animateTo(1f, tween(900, easing = FastOutSlowInEasing)) }
+    LaunchedEffect(Unit) { sweep.animateTo(1f, tween(1100, easing = FastOutSlowInEasing)) }
     val total = slices.sumOf { it.value.toDouble() }.toFloat().takeIf { it > 0f } ?: 1f
+    // Tiap irisan punya animasi pilih sendiri (pegas) supaya menebal/meredup dengan halus.
+    val lift = slices.map { s ->
+        key(s.key) {
+            animateFloatAsState(
+                if (s.key == selected) 1f else if (selected != null) -1f else 0f,
+                spring(dampingRatio = 0.6f, stiffness = 300f), label = "lift",
+            ).value
+        }
+    }
 
     Box(modifier, contentAlignment = Alignment.Center) {
         Canvas(
@@ -91,17 +103,19 @@ fun DonutChart(
             val box = Size((r - thick / 2) * 2, (r - thick / 2) * 2)
             val tl = Offset(size.width / 2 - box.width / 2, size.height / 2 - box.height / 2)
             drawArc(track, 0f, 360f, false, tl, box, style = Stroke(thick))
+            // Celah antar irisan dalam derajat, termasuk ruang untuk ujung membulat.
+            val gap = if (slices.size > 1) Math.toDegrees((thick / (r - thick / 2)).toDouble()).toFloat() * 1.2f else 0f
             var start = -90f
-            for (s in slices) {
+            slices.forEachIndexed { i, s ->
                 val full = s.value / total * 360f
-                val isSel = s.key == selected
-                val dim = selected != null && !isSel
-                val w = if (isSel) thick * 1.25f else thick
+                val l = lift[i]
+                val w = thick * (1f + 0.22f * l.coerceAtLeast(0f))
+                val alpha = 1f - 0.6f * (-l).coerceAtLeast(0f)
+                val sweepDeg = ((full - gap).coerceAtLeast(0.5f)) * sweep.value
                 if (full > 0.5f) {
-                    drawArc(
-                        s.color.copy(alpha = if (dim) 0.35f else 1f),
-                        start + 1f, (full - 2f).coerceAtLeast(0.5f) * sweep.value, false, tl, box, style = Stroke(w),
-                    )
+                    // Cahaya lembut di belakang irisan.
+                    drawArc(s.color.copy(alpha = 0.18f * alpha), start + gap / 2, sweepDeg, false, tl, box, style = Stroke(w * 1.7f, cap = StrokeCap.Round))
+                    drawArc(s.color.copy(alpha = alpha), start + gap / 2, sweepDeg, false, tl, box, style = Stroke(w, cap = StrokeCap.Round))
                 }
                 start += full
             }
@@ -124,8 +138,9 @@ fun HBarChart(
     Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
         slices.forEach { s ->
             key(s.key) {
-                val grow by animateFloatAsState(s.value / max, tween(800), label = "bar")
+                val grow by animateFloatAsState(s.value / max, spring(dampingRatio = 0.75f, stiffness = 120f), label = "bar")
                 val dim = selected != null && selected != s.key
+                val fade by animateFloatAsState(if (dim) 0.35f else 1f, tween(250), label = "fade")
                 Row(
                     Modifier.fillMaxWidth().clip(Pill).clickable { onSelect(if (selected == s.key) null else s.key) }.padding(horizontal = 6.dp, vertical = 2.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -144,7 +159,7 @@ fun HBarChart(
                         Box(Modifier.fillMaxWidth().height(10.dp).clip(Pill).background(track)) {
                             Box(
                                 Modifier.fillMaxWidth(grow.coerceIn(0.02f, 1f)).height(10.dp).clip(Pill)
-                                    .background(s.color.copy(alpha = if (dim) 0.35f else 1f)),
+                                    .background(Brush.horizontalGradient(listOf(s.color.copy(alpha = 0.55f * fade), s.color.copy(alpha = fade)))),
                             )
                         }
                     }
@@ -170,7 +185,7 @@ fun DayBarChart(
     limitColor: Color = Color.Gray,
 ) {
     val grow = remember { Animatable(0f) }
-    LaunchedEffect(values) { grow.snapTo(0f); grow.animateTo(1f, tween(700, easing = FastOutSlowInEasing)) }
+    LaunchedEffect(values) { grow.snapTo(0f); grow.animateTo(1f, spring(dampingRatio = 0.7f, stiffness = 90f)) }
     val max = (values.maxOrNull() ?: 0L).coerceAtLeast(limitPerDay).coerceAtLeast(1L)
     Column(modifier) {
         Box(Modifier.fillMaxWidth().weight(1f)) {
@@ -204,7 +219,11 @@ fun DayBarChart(
                         selected != null && !isSel -> barColor.copy(alpha = 0.35f)
                         else -> barColor
                     }
-                    drawRoundRect(color, Offset(left, topPad + h - bh), Size(barW, bh), CornerRadius(barW / 2, barW / 2))
+                    val top = topPad + h - bh
+                    drawRoundRect(
+                        Brush.verticalGradient(listOf(color, color.copy(alpha = color.alpha * 0.45f)), startY = top, endY = top + bh),
+                        Offset(left, top), Size(barW, bh), CornerRadius(barW / 2, barW / 2),
+                    )
                 }
             }
         }

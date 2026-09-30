@@ -11,6 +11,7 @@ import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.automirrored.rounded.TrendingUp
 import androidx.compose.material.icons.rounded.AccountBalance
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.CloudDownload
 import androidx.compose.material.icons.rounded.CloudUpload
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
@@ -102,7 +103,7 @@ private val glyphs: Map<String, ImageVector> = mapOf(
     "🟢" to Icons.Rounded.AccountBalanceWallet, "🟣" to Icons.Rounded.AccountBalanceWallet,
     "🔵" to Icons.Rounded.AccountBalanceWallet, "🟠" to Icons.Rounded.AccountBalanceWallet,
     "🐷" to Icons.Rounded.Savings, "💼" to Icons.Rounded.Work, "💌" to Icons.Rounded.Mail,
-    "➕" to Icons.Rounded.Add, "💾" to Icons.Rounded.CloudUpload, "📂" to Icons.Rounded.CloudDownload,
+    "⚡" to Icons.Rounded.Bolt, "➕" to Icons.Rounded.Add, "💾" to Icons.Rounded.CloudUpload, "📂" to Icons.Rounded.CloudDownload,
 )
 
 fun glyphOf(emoji: String): ImageVector? = glyphs[emoji]

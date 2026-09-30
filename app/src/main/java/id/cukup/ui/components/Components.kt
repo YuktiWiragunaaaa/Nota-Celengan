@@ -358,6 +358,7 @@ fun LightStatusBarIcons(light: Boolean) {
     DisposableEffect(light, isDarkTheme) {
         val controller = WindowCompat.getInsetsController(activity.window, activity.window.decorView)
         controller.isAppearanceLightStatusBars = !light && !isDarkTheme
+        controller.isAppearanceLightNavigationBars = !isDarkTheme
         onDispose { }
     }
 }

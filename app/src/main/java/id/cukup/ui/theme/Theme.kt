@@ -86,14 +86,16 @@ private val Light = CukupColors(
 )
 
 private val Dark = Light.copy(
-    paper = Color(0xFF0F0B0A),
-    card = Color(0xFF1B1513),
-    surface = Color(0xFF241D1A),
-    ink = Color(0xFFF6F0EC),
-    mute = Color(0xFFB4AAA4),
-    faint = Color(0xFF7A716C),
-    line = Color(0xFF2D2522),
+    // Gelap netral sedikit ungu: kartu terasa seperti kaca di atas latar pekat.
+    paper = Color(0xFF0B0A0D),
+    card = Color(0xFF16141B),
+    surface = Color(0xFF211E27),
+    ink = Color(0xFFF4F1F6),
+    mute = Color(0xFFA8A2AE),
+    faint = Color(0xFF6E6875),
+    line = Color(0xFF29252F),
     dark = Color(0xFF000000),
+    brand = listOf(Color(0xFF1A0503), Color(0xFF5E1405), Color(0xFFB63A12), Color(0xFFF2782E)),
     isDark = true,
 )
 

@@ -1,7 +1,18 @@
 package id.cukup.ui.help
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -9,109 +20,301 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
-import id.cukup.ui.components.Bullet
+import id.cukup.domain.Rupiah
 import id.cukup.ui.components.CardShape
+import id.cukup.ui.components.Choice
 import id.cukup.ui.components.Eyebrow
+import id.cukup.ui.components.GlassIcon
 import id.cukup.ui.components.Gutter
-import id.cukup.ui.components.SectionHeader
+import id.cukup.ui.components.InkButton
+import id.cukup.ui.components.Pill
 import id.cukup.ui.components.TopBar
 import id.cukup.ui.theme.Type
 import id.cukup.ui.theme.colors
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlin.math.roundToLong
 
-/** Panduan singkat: apa bedanya Catatan dan Rencana, dan apa efek tiap tombol. */
+private class Page(val eyebrow: String, val title: String, val body: String, val demo: @Composable () -> Unit)
+
+/** Panduan interaktif: kartu geser, tiap kartu punya simulasi yang bisa dicoba. */
 @Composable
 fun HelpScreen(onBack: () -> Unit) {
     val c = colors
+    val pages = remember {
+        listOf(
+            Page("1 · Dua bagian", "Catatan vs Rencana", "Catatan = uang sungguhan. Rencana = batas yang kamu buat sendiri. Ketuk untuk bandingkan.") { SidesDemo() },
+            Page("2 · Tiga tombol", "Keluar, Masuk, Pindah", "Coba ketuk tombolnya dan lihat saldo dompet berubah. Pindah tidak mengubah total.") { ButtonsDemo() },
+            Page("3 · Rencana", "Bagi gaji otomatis", "Geser gajimu. Cukup membagi ke pos 50/30/20 tanpa memindahkan uang.") { PlanDemo() },
+            Page("4 · Aman per hari", "Berapa boleh jajan hari ini?", "Sisa batas belanja dibagi sisa hari sampai gajian. Geser dan lihat angkanya.") { DailyDemo() },
+            Page("5 · Catat otomatis", "Notifikasi jadi catatan", "Transfer dan bayar dari bank/e-wallet langsung tercatat ke dompet yang benar.") { NotifDemo() },
+            Page("6 · Serba cepat", "Trik biar makin praktis", "Ketuk tiap trik untuk lihat caranya.") { TipsDemo() },
+        )
+    }
+    val pager = rememberPagerState { pages.size }
+    val scope = rememberCoroutineScope()
+
     Column(Modifier.fillMaxSize().background(c.paper).systemBarsPadding()) {
         TopBar("Cara pakai Cukup", onBack)
-        Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 32.dp)) {
-            Text(
-                "Cukup punya dua bagian yang terpisah. Catatan berisi uang yang sungguhan ada. Rencana berisi batas yang kamu buat sendiri.",
-                style = Type.statement, color = c.ink, modifier = Modifier.padding(horizontal = Gutter),
+        // Penanda halaman seperti story.
+        Row(Modifier.fillMaxWidth().padding(horizontal = Gutter, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            pages.indices.forEach { i ->
+                val on by animateColorAsState(if (i <= pager.currentPage) c.accent else c.line, label = "dot")
+                Box(Modifier.weight(1f).height(4.dp).clip(Pill).background(on))
+            }
+        }
+        HorizontalPager(pager, Modifier.weight(1f), contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = Gutter), pageSpacing = 12.dp) { i ->
+            val p = pages[i]
+            val focus by animateFloatAsState(if (pager.currentPage == i) 1f else 0.94f, spring(stiffness = 300f), label = "focus")
+            Column(
+                Modifier.fillMaxSize().padding(vertical = 8.dp)
+                    .graphicsLayer { scaleX = focus; scaleY = focus }
+                    .clip(CardShape).background(c.card).border(1.dp, c.line, CardShape)
+                    .verticalScroll(rememberScrollState()).padding(20.dp),
+            ) {
+                Eyebrow(p.eyebrow, color = c.accent)
+                Spacer(Modifier.height(6.dp))
+                Text(p.title, style = Type.display, color = c.ink)
+                Spacer(Modifier.height(8.dp))
+                Text(p.body, style = Type.body, color = c.mute)
+                Spacer(Modifier.height(20.dp))
+                p.demo()
+            }
+        }
+        Row(Modifier.fillMaxWidth().padding(horizontal = Gutter, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (pager.currentPage > 0) {
+                Text(
+                    "Kembali", style = Type.strong, color = c.mute,
+                    modifier = Modifier.clip(Pill).clickable { scope.launch { pager.animateScrollToPage(pager.currentPage - 1) } }.padding(12.dp),
+                )
+            }
+            Spacer(Modifier.weight(1f))
+            val last = pager.currentPage == pages.lastIndex
+            InkButton(
+                if (last) "Siap pakai" else "Lanjut",
+                onClick = { if (last) onBack() else scope.launch { pager.animateScrollToPage(pager.currentPage + 1) } },
+                modifier = Modifier.width(160.dp),
             )
-            Row(Modifier.padding(Gutter).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Side(
-                    "📒 CATATAN", "Apa yang terjadi",
-                    listOf("Dompet & saldonya", "Uang masuk / keluar", "Pindah antar dompet", "Mengubah saldo"),
-                    Modifier.weight(1f),
-                )
-                Side(
-                    "🎯 RENCANA", "Apa yang kamu mau",
-                    listOf("Pembagian 50/30/20", "Batas belanja", "Target tabungan", "Tidak mengubah saldo"),
-                    Modifier.weight(1f),
-                )
-            }
-
-            SectionHeader("1. Dompet")
-            Para("Dompet adalah tempat uangmu berada: tunai, rekening bank, GoPay, OVO, dan seterusnya. Isi saldonya sekali di awal.")
-            Para("\"Uangmu sekarang\" di halaman Catatan = jumlah saldo semua dompet (paylater tidak dihitung karena itu hutang).")
-            Para("Kalau angkanya beda dengan aplikasi bank, buka dompetnya lalu ketuk Samakan saldo.")
-
-            SectionHeader("2. Tiga tombol")
-            Effect("Keluar", "Saldo dompet yang dipilih berkurang. Kategorinya menentukan grafik \"Keluar ke mana?\".")
-            Effect("Masuk", "Saldo dompet yang dipilih bertambah. Tidak dibagi ke mana-mana.")
-            Effect("Pindah", "Uang pindah dari satu dompet ke dompet lain, misalnya top up GoPay dari BCA atau tarik tunai. Total uangmu tetap sama.")
-            Para("Sebelum menyimpan, kotak \"Dampaknya\" selalu menunjukkan saldo sebelum → sesudah.")
-
-            SectionHeader("3. Kategori")
-            Para("Kategori (Makan, Transport, Gaji, dan lainnya) cuma label supaya kamu tahu uang habis ke mana. Bisa diubah di Setelan › Kategori.")
-
-            SectionHeader("4. Rencana (opsional)")
-            Para("Rencana membagi uang masuk menjadi beberapa pos, misalnya 50/30/20:")
-            Column(Modifier.padding(horizontal = Gutter).fillMaxWidth().clip(CardShape).background(c.card).padding(14.dp)) {
-                Text("Gaji Rp4.000.000", style = Type.strong, color = c.ink)
-                Bullet("Kebutuhan 50% → batas belanja Rp2.000.000")
-                Bullet("Keinginan 30% → batas belanja Rp1.200.000")
-                Bullet("Tabungan 20% → target sisihan Rp800.000")
-            }
-            Spacer(Modifier.height(8.dp))
-            Para("Pembagian ini tidak memindahkan uang. Uangnya tetap di dompet. Tiap kamu mencatat uang keluar, Cukup mengurangi sisa batas pos yang sesuai kategori itu (Makan → Kebutuhan, Jajan → Keinginan).")
-            Para("\"Uang yang dibagi\" bisa angka tetap, uang masuk periode lalu (contoh: belanja maksimal 50% dari gaji minggu kemarin), atau uang masuk periode ini.")
-            Para("\"Aman per hari\" = sisa batas belanja dibagi sisa hari sampai gajian.")
-            Para("Pos Tabungan terisi saat kamu Pindah uang ke dompet berjenis Tabungan.")
-
-            SectionHeader("5. Target tabungan")
-            Para("Buat target (mis. HP baru Rp3 jt). Terkumpulnya bisa diisi sendiri, atau mengikuti saldo satu dompet khusus. Cukup memperkirakan kapan tercapai dari rencana tabunganmu.")
-
-            SectionHeader("6. Batas & peringatan")
-            Effect("Batas sekali belanja", "Per transaksi. Kalau satu kali belanja di atas angka ini, Cukup tanya dulu.")
-            Effect("Peringatan rencana", "Untuk total periode. Muncul saat 80% batas belanja terpakai, dan saat lewat.")
-
-            SectionHeader("7. Catat otomatis")
-            Para("Kalau izin baca notifikasi dinyalakan, pembayaran dari e-wallet dan m-banking terbaca otomatis dan masuk \"Perlu dicek\" (ikon lonceng). Saldo baru berubah setelah kamu simpan.")
         }
     }
 }
 
 @Composable
-private fun Side(title: String, subtitle: String, items: List<String>, modifier: Modifier) {
+private fun SidesDemo() {
     val c = colors
-    Column(modifier.clip(CardShape).background(c.card).padding(14.dp)) {
-        Eyebrow(title, color = c.accent)
-        Text(subtitle, style = Type.strong, color = c.ink)
-        Spacer(Modifier.height(6.dp))
-        items.forEach { Text("• $it", style = Type.bodySmall, color = c.mute, modifier = Modifier.padding(vertical = 2.dp)) }
+    var rencana by remember { mutableStateOf(false) }
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Choice("Catatan", !rencana, { rencana = false })
+        Choice("Rencana", rencana, { rencana = true })
+    }
+    Spacer(Modifier.height(14.dp))
+    val items = if (!rencana) {
+        listOf("💵" to "Dompet & saldonya", "📈" to "Uang masuk & keluar", "🏦" to "Pindah antar dompet", "✨" to "Mengubah saldo")
+    } else {
+        listOf("🏠" to "Pembagian 50/30/20", "🛍️" to "Batas belanja", "🌱" to "Target tabungan", "🛟" to "Tidak mengubah saldo")
+    }
+    items.forEachIndexed { i, (e, t) ->
+        var shown by remember(rencana) { mutableStateOf(false) }
+        LaunchedEffect(rencana) { delay(70L * i); shown = true }
+        AnimatedVisibility(shown, enter = fadeIn() + slideInVertically { it / 2 }) {
+            Row(Modifier.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                GlassIcon(e, if (rencana) c.pocket(i) else c.accent, size = 38.dp)
+                Spacer(Modifier.width(12.dp))
+                Text(t, style = Type.strong, color = c.ink)
+            }
+        }
     }
 }
 
 @Composable
-private fun Para(text: String) {
-    Text(text, style = Type.body, color = colors.mute, modifier = Modifier.padding(horizontal = Gutter, vertical = 4.dp))
+private fun ButtonsDemo() {
+    val c = colors
+    var bca by remember { mutableLongStateOf(500_000) }
+    var tunai by remember { mutableLongStateOf(100_000) }
+    var last by remember { mutableStateOf("Ketuk salah satu tombol.") }
+    val total = bca + tunai
+    Wallet("🏦", "BCA", bca, Color(0xFF005EB8))
+    Wallet("💵", "Tunai", tunai, c.good)
+    Row(Modifier.padding(vertical = 10.dp)) {
+        Text("Total", style = Type.strong, color = c.mute, modifier = Modifier.weight(1f))
+        Text(Rupiah.format(total), style = Type.amount, color = c.ink)
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Choice("Keluar 25 rb", false, { if (tunai >= 25_000) { tunai -= 25_000; last = "Tunai berkurang 25 rb. Total ikut turun." } else last = "Tunai tidak cukup." })
+        Choice("Masuk 100 rb", false, { bca += 100_000; last = "BCA bertambah 100 rb. Total ikut naik." })
+    }
+    Spacer(Modifier.height(8.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Choice("Pindah 50 rb BCA → Tunai", false, {
+            if (bca >= 50_000) { bca -= 50_000; tunai += 50_000; last = "Uang pindah dompet. Total tetap sama." } else last = "Saldo BCA tidak cukup."
+        })
+        Choice("Ulang", false, { bca = 500_000; tunai = 100_000; last = "Kembali ke awal." })
+    }
+    Spacer(Modifier.height(12.dp))
+    Text(last, style = Type.bodySmall, color = c.accent)
 }
 
 @Composable
-private fun Effect(name: String, effect: String) {
+private fun Wallet(emoji: String, name: String, amount: Long, tint: Color) {
     val c = colors
-    Column(Modifier.padding(horizontal = Gutter, vertical = 6.dp)) {
-        Text(name, style = Type.strong, color = c.ink)
-        Text(effect, style = Type.body, color = c.mute)
+    val shown by animateFloatAsState(amount.toFloat(), spring(stiffness = 120f), label = "saldo")
+    Row(Modifier.padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+        GlassIcon(emoji, tint, size = 38.dp, mark = if (name == "BCA") "BCA" else null)
+        Spacer(Modifier.width(12.dp))
+        Text(name, style = Type.strong, color = c.ink, modifier = Modifier.weight(1f))
+        Text(Rupiah.format(shown.roundToLong()), style = Type.amount, color = c.ink)
+    }
+}
+
+@Composable
+private fun PlanDemo() {
+    val c = colors
+    var gaji by remember { mutableFloatStateOf(4_000_000f) }
+    val step = (gaji / 100_000).roundToLong() * 100_000
+    Text(Rupiah.format(step), style = Type.number, color = c.ink)
+    Slider(
+        gaji, { gaji = it }, valueRange = 1_000_000f..15_000_000f,
+        colors = SliderDefaults.colors(thumbColor = c.accent, activeTrackColor = c.accent, inactiveTrackColor = c.line),
+    )
+    listOf(Triple("🏠", "Kebutuhan", 50), Triple("☕", "Keinginan", 30), Triple("🌱", "Tabungan", 20)).forEachIndexed { i, (e, n, pct) ->
+        val part = step * pct / 100
+        val w by animateFloatAsState(pct / 50f, spring(stiffness = 200f), label = "w")
+        Row(Modifier.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            GlassIcon(e, c.pocket(i), size = 36.dp)
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Row {
+                    Text("$n $pct%", style = Type.strong, color = c.ink, modifier = Modifier.weight(1f))
+                    Text(Rupiah.short(part), style = Type.amount, color = c.ink)
+                }
+                Box(Modifier.padding(top = 4.dp).fillMaxWidth(w.coerceIn(0f, 1f)).height(6.dp).clip(Pill).background(c.pocket(i)))
+            }
+        }
+    }
+    Text("Uangnya tetap di dompet. Cukup hanya mengingatkan kalau pos hampir habis.", style = Type.bodySmall, color = c.faint, modifier = Modifier.padding(top = 8.dp))
+}
+
+@Composable
+private fun DailyDemo() {
+    val c = colors
+    var sisa by remember { mutableFloatStateOf(1_500_000f) }
+    var hari by remember { mutableFloatStateOf(15f) }
+    val perDay = (sisa / hari.coerceAtLeast(1f)).roundToLong()
+    val tone by animateColorAsState(if (perDay < 50_000) c.over else if (perDay < 100_000) c.caution else c.good, label = "tone")
+    val size by animateDpAsState(if (perDay < 50_000) 150.dp else 170.dp, label = "size")
+    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(size).clip(androidx.compose.foundation.shape.CircleShape).background(tone.copy(alpha = 0.15f)).border(2.dp, tone, androidx.compose.foundation.shape.CircleShape), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(Rupiah.short(perDay), style = Type.number, color = tone)
+                Text("aman/hari", style = Type.label, color = c.mute)
+            }
+        }
+    }
+    Spacer(Modifier.height(12.dp))
+    Text("Sisa batas belanja: ${Rupiah.short((sisa / 50_000).roundToLong() * 50_000)}", style = Type.bodySmall, color = c.mute)
+    Slider(sisa, { sisa = it }, valueRange = 100_000f..4_000_000f, colors = SliderDefaults.colors(thumbColor = tone, activeTrackColor = tone, inactiveTrackColor = c.line))
+    Text("Sisa hari sampai gajian: ${hari.toInt()}", style = Type.bodySmall, color = c.mute)
+    Slider(hari, { hari = it }, valueRange = 1f..30f, steps = 28, colors = SliderDefaults.colors(thumbColor = tone, activeTrackColor = tone, inactiveTrackColor = c.line))
+}
+
+@Composable
+private fun NotifDemo() {
+    val c = colors
+    var step by remember { mutableStateOf(0) }
+    LaunchedEffect(step) {
+        if (step in 1..2) { delay(900); step++ }
+    }
+    // Notifikasi contoh.
+    Column(Modifier.fillMaxWidth().clip(CardShape).background(c.surface).padding(14.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            GlassIcon("🏦", Color(0xFF005EB8), size = 30.dp, mark = "BCA")
+            Spacer(Modifier.width(10.dp))
+            Text("myBCA · sekarang", style = Type.label, color = c.mute)
+        }
+        Spacer(Modifier.height(6.dp))
+        Text("Pengeluaran sebesar IDR 45,000.00 ke GOFOOD", style = Type.bodySmall, color = c.ink)
+    }
+    Spacer(Modifier.height(10.dp))
+    val labels = listOf("Dibaca: Rp45.000 keluar", "Dompet: BCA (dari nama aplikasi)", "Kategori: Makan (dari GOFOOD)")
+    labels.forEachIndexed { i, l ->
+        AnimatedVisibility(step > i, enter = fadeIn() + expandVertically()) {
+            Row(Modifier.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(8.dp).clip(Pill).background(c.good))
+                Spacer(Modifier.width(10.dp))
+                Text(l, style = Type.bodySmall, color = c.ink)
+            }
+        }
+    }
+    AnimatedVisibility(step >= 3, enter = fadeIn() + slideInVertically { it }) {
+        Row(Modifier.padding(top = 10.dp).fillMaxWidth().clip(CardShape).background(c.surface).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            GlassIcon("🍜", c.pocket(0), size = 38.dp)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text("GOFOOD", style = Type.strong, color = c.ink)
+                Text("BCA · tercatat otomatis", style = Type.bodySmall, color = c.mute)
+            }
+            Text("−Rp45.000", style = Type.amount, color = c.ink)
+        }
+    }
+    Spacer(Modifier.height(12.dp))
+    Choice(if (step == 0) "▶  Coba" else "Ulang", false, { step = if (step == 0) 1 else 0 })
+    Text(
+        "Transfer ke dompetmu sendiri (mis. BCA → Krom) otomatis jadi Pindah, bukan pengeluaran. Nyalakan di Setelan › Baca notifikasi.",
+        style = Type.bodySmall, color = c.faint, modifier = Modifier.padding(top = 10.dp),
+    )
+}
+
+@Composable
+private fun TipsDemo() {
+    val c = colors
+    val tips = listOf(
+        Triple("⚡", "Catat cepat", "Di Beranda, ketuk ikon kategori → isi nominal → Simpan. Urutannya menyesuaikan kebiasaanmu."),
+        Triple("📱", "Tombol di widget", "Belanja yang sering diulang (mis. ☕ 18 rb) jadi tombol sekali ketuk di widget, tanpa buka aplikasi."),
+        Triple("💾", "Cadangan", "Setelan › Simpan cadangan ke Drive. Ganti HP? Pulihkan di layar pertama."),
+        Triple("🏦", "Dompet bermerek", "Beri nama dompet sesuai bank (BCA, Krom, OVO) supaya notifikasinya masuk ke dompet yang tepat."),
+        Triple("🛟", "Kunci PIN", "Setelan › Kunci pakai PIN. Sidik jari juga bisa."),
+    )
+    var open by remember { mutableStateOf<Int?>(null) }
+    tips.forEachIndexed { i, (e, t, d) ->
+        Column(
+            Modifier.fillMaxWidth().padding(vertical = 4.dp).clip(CardShape)
+                .background(if (open == i) c.surface else Color.Transparent)
+                .clickable { open = if (open == i) null else i }.padding(10.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                GlassIcon(e, c.pocket(i + 2), size = 36.dp)
+                Spacer(Modifier.width(12.dp))
+                Text(t, style = Type.strong, color = c.ink, modifier = Modifier.weight(1f))
+                Text(if (open == i) "−" else "+", style = Type.title, color = c.mute)
+            }
+            AnimatedVisibility(open == i) {
+                Text(d, style = Type.bodySmall, color = c.mute, modifier = Modifier.padding(top = 8.dp, start = 48.dp))
+            }
+        }
     }
 }

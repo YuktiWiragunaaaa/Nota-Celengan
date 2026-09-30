@@ -1,5 +1,7 @@
 package id.cukup.ui.settings
 
+import androidx.compose.foundation.layout.Arrangement
+import id.cukup.ui.components.Choice
 import id.cukup.ui.components.colorOf
 import android.Manifest
 import android.content.Intent
@@ -149,6 +151,14 @@ fun SettingsScreen(
         Link("Profil", s.name.ifBlank { "Nama & foto" }, onClick = onOpenProfile)
         Link("Cara pakai Cukup", "Beda Catatan dan Rencana, dan apa efeknya", onClick = onOpenHelp)
 
+        Group("Tampilan")
+        Row(Modifier.padding(horizontal = Gutter, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf("DARK" to "Gelap", "LIGHT" to "Terang", "SYSTEM" to "Ikuti HP").forEach { (key, label) ->
+                Choice(label, s.theme == key, { vm.settings { it.copy(theme = key) } })
+            }
+        }
+        Hairline()
+
         Group("Catatan (uang sungguhan)")
         data.accounts.forEach { ab ->
             Link(
@@ -243,7 +253,7 @@ fun SettingsScreen(
             Bullet("Cukup nggak pakai internet, jadi datamu nggak ke mana-mana.")
             Bullet("Datanya nggak ikut backup Google. Kalau aplikasinya dihapus, datanya ikut hilang.")
         }
-        Text("Cukup 0.8", style = Type.bodySmall, color = c.faint, modifier = Modifier.padding(horizontal = Gutter, vertical = 20.dp))
+        Text("Cukup 0.9", style = Type.bodySmall, color = c.faint, modifier = Modifier.padding(horizontal = Gutter, vertical = 20.dp))
     }
 
     if (confirmErase) {
