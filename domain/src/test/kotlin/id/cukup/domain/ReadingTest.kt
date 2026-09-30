@@ -39,4 +39,13 @@ class ReadingTest {
         assertNull(GoalProgress.of(0, 100, 0).periodsLeft)
         assertTrue(GoalProgress.of(100, 100, 0).reached)
     }
+
+    @Test
+    fun `income reading names the biggest source`() {
+        val gaji = Category(13, "Gaji", "💼", CategoryKind.INCOME)
+        val kiriman = Category(15, "Kiriman", "💌", CategoryKind.INCOME)
+        val lines = ChartReader.readIncome(listOf(CategoryAmount(gaji, 4_000_000), CategoryAmount(kiriman, 1_000_000)), "bulan ini")
+        org.junit.Assert.assertEquals("Gaji paling besar: 80% dari 5 jt.", lines[0])
+        org.junit.Assert.assertEquals("Belum ada uang masuk bulan ini.", ChartReader.readIncome(emptyList(), "bulan ini")[0])
+    }
 }

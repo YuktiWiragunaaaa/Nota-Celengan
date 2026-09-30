@@ -88,6 +88,8 @@ data class HistoryState(
     val income: Long = 0,
     val byCategory: List<CategoryAmount> = emptyList(),
     val reading: String = "",
+    val incomeByCategory: List<CategoryAmount> = emptyList(),
+    val incomeReading: String = "",
     val limitPerDay: Long = 0,
 )
 
@@ -112,6 +114,7 @@ class HistoryViewModel @Inject constructor(repository: MoneyRepository) : ViewMo
             if (i in 0 until n) daily[i] += t.amount
         }
         val byCategory = Ledger.byCategory(inRange, o.categoryById.values.toList(), TxType.EXPENSE)
+        val incomeByCategory = Ledger.byCategory(inRange, o.categoryById.values.toList(), TxType.INCOME)
         val income = inRange.filter { it.type == TxType.INCOME }.sumOf { it.amount }
         HistoryState(
             loaded = true,
@@ -124,6 +127,8 @@ class HistoryViewModel @Inject constructor(repository: MoneyRepository) : ViewMo
             income = income,
             byCategory = byCategory,
             reading = ChartReader.readSpending(byCategory, Totals(income, daily.sum()), r.label.lowercase()).firstOrNull() ?: "",
+            incomeByCategory = incomeByCategory,
+            incomeReading = ChartReader.readIncome(incomeByCategory, r.label.lowercase()).firstOrNull() ?: "",
             limitPerDay = if (r == Range.THIS && o.planStatus.active) o.planStatus.spendLimit / o.cycle.length.coerceAtLeast(1) else 0,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HistoryState())
@@ -140,6 +145,7 @@ fun HistoryScreen(contentPadding: PaddingValues, onOpenTx: (Long) -> Unit, vm: H
     var day by rememberSaveable(s.range) { mutableStateOf<Int?>(null) }
     var picked by rememberSaveable(s.range) { mutableStateOf<Long?>(null) }
     var breakdown by rememberSaveable { mutableStateOf("DONUT") }
+    var incomeView by rememberSaveable { mutableStateOf(false) }
     var account by rememberSaveable { mutableStateOf<Long?>(null) }
     val o = s.overview
 
@@ -212,35 +218,40 @@ fun HistoryScreen(contentPadding: PaddingValues, onOpenTx: (Long) -> Unit, vm: H
             }
         }
 
-        // Pengeluaran per kategori.
-        if (s.byCategory.isNotEmpty()) {
+        // Uang keluar atau masuk per kategori.
+        val cats = if (incomeView) s.incomeByCategory else s.byCategory
+        if (s.byCategory.isNotEmpty() || s.incomeByCategory.isNotEmpty()) {
             item {
                 Column(Modifier.padding(horizontal = Gutter).fillMaxWidth().clip(CardShape).background(c.card).padding(18.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Ke mana saja", style = Type.title, color = c.ink, modifier = Modifier.weight(1f))
+                        Text(if (incomeView) "Dari mana saja" else "Ke mana saja", style = Type.title, color = c.ink, modifier = Modifier.weight(1f))
                         RoundIcon(
                             if (breakdown == "DONUT") Icons.Rounded.BarChart else Icons.Rounded.DonutLarge,
                             "Ganti grafik", { breakdown = if (breakdown == "DONUT") "BAR" else "DONUT" },
                             background = c.surface, size = 38.dp,
                         )
                     }
-                    Text(s.reading, style = Type.bodySmall, color = c.mute, modifier = Modifier.padding(top = 4.dp, bottom = 12.dp))
-                    val slices = s.byCategory.map { p -> Slice(p.category?.id ?: -1L, p.category?.name ?: "Tanpa kategori", p.category?.emoji ?: "🧾", p.amount.toFloat(), colorOf(p.category), Rupiah.short(p.amount)) }
+                    Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Choice("Keluar", !incomeView, { incomeView = false; picked = null })
+                        Choice("Masuk", incomeView, { incomeView = true; picked = null })
+                    }
+                    Text(if (incomeView) s.incomeReading else s.reading, style = Type.bodySmall, color = c.mute, modifier = Modifier.padding(top = 8.dp, bottom = 12.dp))
+                    val slices = cats.map { p -> Slice(p.category?.id ?: -1L, p.category?.name ?: "Tanpa kategori", p.category?.emoji ?: "🧾", p.amount.toFloat(), colorOf(p.category), Rupiah.short(p.amount)) }
                     AnimatedContent(breakdown, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "bd") { type ->
                         if (type == "BAR") {
                             HBarChart(slices, picked, { picked = it }, textColor = c.ink, track = c.line)
                         } else {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 DonutChart(slices, picked, { picked = it }, Modifier.height(150.dp).weight(1f), track = c.line) {
-                                    val p = s.byCategory.firstOrNull { (it.category?.id ?: -1L) == picked }
-                                    val total = s.byCategory.sumOf { it.amount }.coerceAtLeast(1)
+                                    val p = cats.firstOrNull { (it.category?.id ?: -1L) == picked }
+                                    val total = cats.sumOf { it.amount }.coerceAtLeast(1)
                                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                         Text(if (p == null) "100%" else "${p.amount * 100 / total}%", style = Type.amount, color = c.ink)
                                         Text(p?.category?.name ?: "semua", style = Type.label, color = c.faint, textAlign = TextAlign.Center)
                                     }
                                 }
                                 Column(Modifier.weight(1f).padding(start = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    s.byCategory.take(5).forEach { p ->
+                                    cats.take(5).forEach { p ->
                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                             Box(Modifier.padding(end = 8.dp).size(10.dp).clip(Pill).background(colorOf(p.category)))
                                             Text(p.category?.name ?: "Tanpa kategori", style = Type.label, color = c.ink, modifier = Modifier.weight(1f), maxLines = 1)

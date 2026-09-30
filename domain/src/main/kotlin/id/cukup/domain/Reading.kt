@@ -30,6 +30,20 @@ object ChartReader {
         return out.take(2)
     }
 
+    /** Satu–dua kalimat tentang uang masuk per kategori. */
+    fun readIncome(parts: List<CategoryAmount>, periodName: String): List<String> {
+        val total = parts.sumOf { it.amount }
+        if (total <= 0) return listOf("Belum ada uang masuk $periodName.")
+        val top = parts.first()
+        val name = top.category?.name ?: "Tanpa kategori"
+        val out = mutableListOf(
+            if (parts.size == 1) "Semua uang masuk $periodName dari $name."
+            else "$name paling besar: ${top.amount * 100 / total}% dari ${Rupiah.short(total)}.",
+        )
+        if (parts.size >= 2) out += "Disusul ${parts[1].category?.name ?: "tanpa kategori"} (${Rupiah.short(parts[1].amount)})."
+        return out
+    }
+
     /** Satu kalimat tentang rencana. */
     fun readPlan(status: PlanStatus, periodName: String): String {
         if (!status.active) return "Belum ada rencana. Atur di tab Rencana kalau mau dibantu jaga belanja."

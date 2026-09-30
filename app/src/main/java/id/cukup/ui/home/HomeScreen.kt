@@ -235,8 +235,14 @@ private fun Hero(
     }
     val soft = Color.White.copy(alpha = 0.72f)
     var selected by rememberSaveable { mutableStateOf<Long?>(null) }
-    val parts = remember(o) { Ledger.byCategory(o.transactions, o.categoryById.values.toList(), TxType.EXPENSE, o.cycleStart, o.cycleEnd) }
-    val reading = remember(o) { ChartReader.readSpending(parts, o.totals, o.periodName) }
+    // Grafik bisa menampilkan uang keluar atau uang masuk per kategori.
+    var incomeView by rememberSaveable { mutableStateOf(false) }
+    val parts = remember(o, incomeView) {
+        Ledger.byCategory(o.transactions, o.categoryById.values.toList(), if (incomeView) TxType.INCOME else TxType.EXPENSE, o.cycleStart, o.cycleEnd)
+    }
+    val reading = remember(o, incomeView) {
+        if (incomeView) ChartReader.readIncome(parts, o.periodName) else ChartReader.readSpending(parts, o.totals, o.periodName)
+    }
 
     Column(
         Modifier
@@ -322,7 +328,9 @@ private fun Hero(
         var chart by rememberSaveable { mutableStateOf(o.settings.chart) }
         Spacer(Modifier.height(18.dp))
         Row(Modifier.fillMaxWidth().padding(horizontal = Gutter), verticalAlignment = Alignment.CenterVertically) {
-            Text("Pengeluaran ${o.periodName}", style = Type.strong, color = white, modifier = Modifier.weight(1f))
+            Row(Modifier.weight(1f)) {
+                FlowToggle(incomeView) { incomeView = it; selected = null }
+            }
             ChartSwitch(
                 listOf("DONUT" to Icons.Rounded.DonutLarge, "BAR" to Icons.Rounded.BarChart, "BUBBLE" to Icons.Rounded.BubbleChart),
                 current = chart, onPick = { chart = it; onChart(it) },
@@ -335,7 +343,7 @@ private fun Hero(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 28.dp, vertical = 36.dp),
             )
         } else {
-            SpendingChart(o, parts, chart, selected) { selected = if (selected == it) null else it }
+            SpendingChart(o, parts, chart, selected, incomeView) { selected = if (selected == it) null else it }
             val pick = parts.firstOrNull { (it.category?.id ?: -1L) == selected }
             AnimatedContent(pick, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "pick") { p ->
                 Column(Modifier.fillMaxWidth().padding(horizontal = 28.dp).height(44.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -344,7 +352,7 @@ private fun Hero(
                     } else {
                         val share = p.amount * 100 / parts.sumOf { it.amount }.coerceAtLeast(1)
                         Text(p.category?.name ?: "Tanpa kategori", style = Type.strong, color = white)
-                        Text("${Rupiah.format(p.amount)} · $share% dari semua pengeluaran", style = Type.bodySmall, color = soft)
+                        Text("${Rupiah.format(p.amount)} · $share% dari semua ${if (incomeView) "uang masuk" else "pengeluaran"}", style = Type.bodySmall, color = soft)
                     }
                 }
             }
@@ -353,7 +361,7 @@ private fun Hero(
 }
 
 @Composable
-private fun SpendingChart(o: Overview, parts: List<CategoryAmount>, type: String, selected: Long?, onSelect: (Long) -> Unit) {
+private fun SpendingChart(o: Overview, parts: List<CategoryAmount>, type: String, selected: Long?, income: Boolean, onSelect: (Long) -> Unit) {
     val colorsOf = parts.map { colorOf(it.category) }
     val slices = remember(parts, colorsOf) {
         parts.mapIndexed { i, p -> Slice(p.category?.id ?: -1L, p.category?.name ?: "Tanpa kategori", p.category?.emoji ?: "🧾", p.amount.toFloat(), colorsOf[i], Rupiah.short(p.amount)) }
@@ -377,8 +385,8 @@ private fun SpendingChart(o: Overview, parts: List<CategoryAmount>, type: String
                 val p = parts.firstOrNull { (it.category?.id ?: -1L) == selected }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     GlassIcon(p?.category?.emoji ?: "🧾", Color.White, size = 36.dp, onDark = true)
-                    Text(p?.category?.name ?: "Total keluar", style = Type.label, color = Color.White.copy(alpha = 0.72f))
-                    Text(Rupiah.short(p?.amount ?: o.totals.expense), style = Type.title, color = Color.White)
+                    Text(p?.category?.name ?: if (income) "Total masuk" else "Total keluar", style = Type.label, color = Color.White.copy(alpha = 0.72f))
+                    Text(Rupiah.short(p?.amount ?: if (income) o.totals.income else o.totals.expense), style = Type.title, color = Color.White)
                 }
             }
         }
@@ -642,5 +650,22 @@ private fun SheetTitle(title: String, amount: String, sub: String) {
         Text(title, style = Type.bodySmall, color = c.mute)
         Text(amount, style = Type.number, color = c.ink)
         Text(sub, style = Type.bodySmall, color = c.faint)
+    }
+}
+
+/** Pengalih kecil Keluar | Masuk di atas grafik. */
+@Composable
+private fun FlowToggle(income: Boolean, onChange: (Boolean) -> Unit) {
+    Row(Modifier.clip(Pill).background(Color.White.copy(alpha = 0.14f)).padding(3.dp)) {
+        listOf(false to "Keluar", true to "Masuk").forEach { (value, label) ->
+            val on = value == income
+            Text(
+                label,
+                style = Type.strong,
+                color = if (on) colors.accent else Color.White,
+                modifier = Modifier.clip(Pill).background(if (on) Color.White else Color.Transparent)
+                    .clickable { onChange(value) }.padding(horizontal = 14.dp, vertical = 6.dp),
+            )
+        }
     }
 }
