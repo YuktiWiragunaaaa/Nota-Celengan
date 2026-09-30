@@ -19,7 +19,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import id.cukup.R
-import id.cukup.domain.Pocket
 
 /**
  * Cukup v0.4: hangat dan hidup. Gradien oranye ke merah tua untuk bagian utama,
@@ -46,8 +45,8 @@ data class CukupColors(
 ) {
     fun pocket(index: Int): Color = pockets[((index % pockets.size) + pockets.size) % pockets.size]
 
-    /** Warna kantong: pilihan pengguna, atau warna bawaan sesuai urutan. */
-    fun of(p: Pocket, index: Int): Color = p.color?.let { Color(it) } ?: pocket(index)
+    /** Warna pilihan pengguna, atau warna bawaan sesuai urutan. */
+    fun of(color: Int?, index: Int): Color = color?.let { Color(it) } ?: pocket(index)
 
     val brandBrush: Brush get() = Brush.verticalGradient(brand)
     val accent: Color get() = brand.last()

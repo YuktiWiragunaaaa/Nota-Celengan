@@ -1,80 +1,79 @@
 package id.cukup.domain
 
-data class PresetPocket(val name: String, val emoji: String, val percent: Int, val kind: PocketKind, val tag: PocketTag)
-data class Preset(val id: String, val title: String, val subtitle: String, val pockets: List<PresetPocket>)
+data class CategorySeed(val name: String, val emoji: String, val kind: CategoryKind, val tag: Tag)
+data class AccountSeed(val name: String, val emoji: String, val kind: AccountKind)
+data class PlanSeed(val name: String, val emoji: String, val percent: Int, val kind: PlanKind, val tags: Set<Tag>)
+data class PlanPreset(val id: String, val title: String, val subtitle: String, val pos: List<PlanSeed>)
 
 object Presets {
-    val all = listOf(
-        Preset(
-            "half", "50 : 50", "Setengah dipakai, setengah ditabung.",
+
+    /** Kategori bawaan. Bisa diubah, ditambah, dihapus. */
+    val categories = listOf(
+        CategorySeed("Makan", "🍜", CategoryKind.EXPENSE, Tag.FOOD),
+        CategorySeed("Jajan & kopi", "☕", CategoryKind.EXPENSE, Tag.FUN),
+        CategorySeed("Transport", "🛵", CategoryKind.EXPENSE, Tag.TRANSPORT),
+        CategorySeed("Tagihan & kos", "🏠", CategoryKind.EXPENSE, Tag.BILLS),
+        CategorySeed("Belanja", "🛍️", CategoryKind.EXPENSE, Tag.SHOPPING),
+        CategorySeed("Hiburan", "🎬", CategoryKind.EXPENSE, Tag.FUN),
+        CategorySeed("Kesehatan", "💊", CategoryKind.EXPENSE, Tag.HEALTH),
+        CategorySeed("Pendidikan", "📚", CategoryKind.EXPENSE, Tag.EDUCATION),
+        CategorySeed("Keluarga", "👨‍👩‍👧", CategoryKind.EXPENSE, Tag.FAMILY),
+        CategorySeed("Cicilan", "🧾", CategoryKind.EXPENSE, Tag.DEBT),
+        CategorySeed("Investasi", "📈", CategoryKind.EXPENSE, Tag.SAVINGS),
+        CategorySeed("Lainnya", "✨", CategoryKind.EXPENSE, Tag.OTHER),
+        CategorySeed("Gaji", "💼", CategoryKind.INCOME, Tag.SALARY),
+        CategorySeed("Freelance", "💻", CategoryKind.INCOME, Tag.SALARY),
+        CategorySeed("Kiriman", "💌", CategoryKind.INCOME, Tag.FAMILY),
+        CategorySeed("Lainnya", "💰", CategoryKind.INCOME, Tag.OTHER),
+    )
+
+    /** Pilihan cepat saat membuat dompet. */
+    val accounts = listOf(
+        AccountSeed("Tunai", "💵", AccountKind.CASH),
+        AccountSeed("Rekening bank", "🏦", AccountKind.BANK),
+        AccountSeed("GoPay", "🟢", AccountKind.EWALLET),
+        AccountSeed("OVO", "🟣", AccountKind.EWALLET),
+        AccountSeed("DANA", "🔵", AccountKind.EWALLET),
+        AccountSeed("ShopeePay", "🟠", AccountKind.EWALLET),
+        AccountSeed("Tabungan", "🐷", AccountKind.SAVINGS),
+        AccountSeed("Paylater", "🧾", AccountKind.PAYLATER),
+    )
+
+    private val needs = setOf(Tag.FOOD, Tag.TRANSPORT, Tag.BILLS, Tag.HEALTH, Tag.EDUCATION, Tag.FAMILY, Tag.OTHER)
+    private val wants = setOf(Tag.FUN, Tag.SHOPPING)
+
+    /** Rencana siap pakai. Kategori diarahkan ke pos berdasarkan [Tag]. */
+    val plans = listOf(
+        PlanPreset(
+            "balanced", "50 / 30 / 20", "Kebutuhan, keinginan, tabungan.",
             listOf(
-                PresetPocket("Belanja", "🛍️", 50, PocketKind.SPEND, PocketTag.NEEDS),
-                PresetPocket("Tabungan", "🌱", 50, PocketKind.SAVE, PocketTag.SAVINGS),
+                PlanSeed("Kebutuhan", "🏠", 50, PlanKind.SPEND, needs + Tag.DEBT),
+                PlanSeed("Keinginan", "☕", 30, PlanKind.SPEND, wants),
+                PlanSeed("Tabungan", "🌱", 20, PlanKind.SAVE, setOf(Tag.SAVINGS)),
             ),
         ),
-        Preset(
-            "balanced", "50 : 30 : 20", "Kebutuhan, keinginan, tabungan.",
-            listOf(
-                PresetPocket("Kebutuhan", "🏠", 50, PocketKind.SPEND, PocketTag.NEEDS),
-                PresetPocket("Keinginan", "☕", 30, PocketKind.SPEND, PocketTag.WANTS),
-                PresetPocket("Tabungan", "🌱", 20, PocketKind.SAVE, PocketTag.SAVINGS),
-            ),
-        ),
-        Preset(
+        PlanPreset(
             "debt", "Lunasi hutang", "Ada cicilan atau paylater.",
             listOf(
-                PresetPocket("Kebutuhan", "🏠", 40, PocketKind.SPEND, PocketTag.NEEDS),
-                PresetPocket("Bayar hutang", "🧾", 30, PocketKind.DEBT, PocketTag.DEBT),
-                PresetPocket("Tabungan", "🌱", 20, PocketKind.SAVE, PocketTag.SAVINGS),
-                PresetPocket("Keinginan", "☕", 10, PocketKind.SPEND, PocketTag.WANTS),
+                PlanSeed("Kebutuhan", "🏠", 40, PlanKind.SPEND, needs),
+                PlanSeed("Cicilan", "🧾", 30, PlanKind.SPEND, setOf(Tag.DEBT)),
+                PlanSeed("Tabungan", "🌱", 20, PlanKind.SAVE, setOf(Tag.SAVINGS)),
+                PlanSeed("Keinginan", "☕", 10, PlanKind.SPEND, wants),
             ),
         ),
-        Preset(
-            "custom", "Atur sendiri", "Buat kantong sendiri.",
+        PlanPreset(
+            "half", "Setengah saja", "Belanja maksimal 50%, sisanya ditabung.",
             listOf(
-                PresetPocket("Belanja", "🛍️", 100, PocketKind.SPEND, PocketTag.NEEDS),
+                PlanSeed("Belanja", "🛍️", 50, PlanKind.SPEND, needs + wants + Tag.DEBT),
+                PlanSeed("Tabungan", "🌱", 50, PlanKind.SAVE, setOf(Tag.SAVINGS)),
             ),
         ),
     )
-}
 
-/** Kategori siap pakai untuk kantong baru. Nama dan ikon tetap bisa diubah. */
-object Templates {
-    val all = listOf(
-        PresetPocket("Makan", "🍜", 0, PocketKind.SPEND, PocketTag.FOOD),
-        PresetPocket("Jajan & kopi", "☕", 0, PocketKind.SPEND, PocketTag.FUN),
-        PresetPocket("Belanja bulanan", "🛒", 0, PocketKind.SPEND, PocketTag.NEEDS),
-        PresetPocket("Transport", "🛵", 0, PocketKind.SPEND, PocketTag.TRANSPORT),
-        PresetPocket("Bensin", "⛽", 0, PocketKind.SPEND, PocketTag.TRANSPORT),
-        PresetPocket("Kos & sewa", "🏠", 0, PocketKind.SPEND, PocketTag.BILLS),
-        PresetPocket("Listrik & air", "🔌", 0, PocketKind.SPEND, PocketTag.BILLS),
-        PresetPocket("Pulsa & internet", "📶", 0, PocketKind.SPEND, PocketTag.BILLS),
-        PresetPocket("Langganan", "📺", 0, PocketKind.SPEND, PocketTag.BILLS),
-        PresetPocket("Belanja online", "🛍️", 0, PocketKind.SPEND, PocketTag.SHOPPING),
-        PresetPocket("Fashion", "👕", 0, PocketKind.SPEND, PocketTag.SHOPPING),
-        PresetPocket("Skincare", "🧴", 0, PocketKind.SPEND, PocketTag.SHOPPING),
-        PresetPocket("Nongkrong", "🎧", 0, PocketKind.SPEND, PocketTag.FUN),
-        PresetPocket("Hiburan", "🎬", 0, PocketKind.SPEND, PocketTag.FUN),
-        PresetPocket("Olahraga", "🏋️", 0, PocketKind.SPEND, PocketTag.FUN),
-        PresetPocket("Kesehatan", "💊", 0, PocketKind.SPEND, PocketTag.NEEDS),
-        PresetPocket("Pendidikan", "📚", 0, PocketKind.SPEND, PocketTag.NEEDS),
-        PresetPocket("Keluarga", "👨‍👩‍👧", 0, PocketKind.SPEND, PocketTag.NEEDS),
-        PresetPocket("Hewan peliharaan", "🐾", 0, PocketKind.SPEND, PocketTag.NEEDS),
-        PresetPocket("Hadiah", "🎁", 0, PocketKind.SPEND, PocketTag.WANTS),
-        PresetPocket("Gadget", "💻", 0, PocketKind.SPEND, PocketTag.WANTS),
-        PresetPocket("Sedekah", "🙏", 0, PocketKind.SPEND, PocketTag.OTHER),
-        PresetPocket("Tabungan", "🌱", 0, PocketKind.SAVE, PocketTag.SAVINGS),
-        PresetPocket("Dana darurat", "🛟", 0, PocketKind.SAVE, PocketTag.SAVINGS),
-        PresetPocket("Liburan", "✈️", 0, PocketKind.SAVE, PocketTag.SAVINGS),
-        PresetPocket("Investasi", "📈", 0, PocketKind.SAVE, PocketTag.SAVINGS),
-        PresetPocket("Bayar hutang", "🧾", 0, PocketKind.DEBT, PocketTag.DEBT),
-        PresetPocket("Lainnya", "✨", 0, PocketKind.SPEND, PocketTag.OTHER),
-    )
-
-    /** Ikon tambahan untuk kantong buatan sendiri. */
     val emojis = listOf(
         "🍜", "🍔", "🍱", "☕", "🧋", "🛒", "🛵", "🚗", "⛽", "🚌", "🏠", "🔌", "📶", "📺", "🎮", "🛍️",
         "👕", "👟", "🧴", "💄", "🎧", "🎬", "🎤", "🏋️", "⚽", "💊", "🩺", "📚", "✏️", "👶", "👨‍👩‍👧", "🐾",
         "🎁", "💍", "💻", "📱", "🙏", "🕌", "⛪", "🌱", "🛟", "✈️", "🏝️", "📈", "💰", "🧾", "💳", "✨",
+        "💵", "🏦", "🟢", "🟣", "🔵", "🟠", "🐷", "💼", "💌",
     )
 }

@@ -41,7 +41,11 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import id.cukup.data.MoneyRepository
 import id.cukup.domain.ChartReader
-import id.cukup.domain.Pocket
+import id.cukup.data.Overview
+import id.cukup.domain.CategoryAmount
+import id.cukup.domain.Ledger
+import id.cukup.domain.Totals
+import id.cukup.ui.components.colorOf
 import id.cukup.domain.Rupiah
 import id.cukup.domain.Transaction
 import id.cukup.domain.TxStatus
@@ -76,13 +80,13 @@ enum class Range(val label: String) { THIS("Periode ini"), LAST("Periode lalu"),
 data class HistoryState(
     val loaded: Boolean = false,
     val range: Range = Range.THIS,
-    val pockets: List<Pocket> = emptyList(),
+    val overview: Overview? = null,
     val days: List<LocalDate> = emptyList(),
     val daily: List<Long> = emptyList(),
     val txs: List<Transaction> = emptyList(),
     val spent: Long = 0,
     val income: Long = 0,
-    val byPocket: List<Pair<Pocket, Long>> = emptyList(),
+    val byCategory: List<CategoryAmount> = emptyList(),
     val reading: String = "",
     val limitPerDay: Long = 0,
 )
@@ -91,36 +95,36 @@ data class HistoryState(
 class HistoryViewModel @Inject constructor(repository: MoneyRepository) : ViewModel() {
     private val range = MutableStateFlow(Range.THIS)
 
-    val state: StateFlow<HistoryState> = combine(repository.pockets, repository.transactions, repository.settings, repository.summary, range) { pockets, all, settings, summary, r ->
+    val state: StateFlow<HistoryState> = combine(repository.overview, range) { o, r ->
         val today = LocalDate.now()
-        val cycle = repository.cycle(settings.schedule, today)
         val (from, toExclusive) = when (r) {
-            Range.THIS -> cycle.start to cycle.nextPayday
-            Range.LAST -> repository.previousCycle(settings.schedule).start to cycle.start
+            Range.THIS -> o.cycle.start to o.cycle.nextPayday
+            Range.LAST -> o.previous.start to o.cycle.start
             Range.DAYS30 -> today.minusDays(29) to today.plusDays(1)
         }
         val shownEnd = if (toExclusive.isAfter(today.plusDays(1))) today.plusDays(1) else toExclusive
         val n = ChronoUnit.DAYS.between(from, shownEnd).toInt().coerceIn(1, 62)
         val days = (0 until n).map { from.plusDays(it.toLong()) }
-        val inRange = all.filter { it.status == TxStatus.CONFIRMED && localDate(it.occurredAt).let { d -> !d.isBefore(from) && d.isBefore(toExclusive) } }
+        val inRange = o.confirmed.filter { localDate(it.occurredAt).let { d -> !d.isBefore(from) && d.isBefore(toExclusive) } }
         val daily = LongArray(n)
-        inRange.filter { it.type == TxType.EXPENSE && !it.isPaylater }.forEach { t ->
+        inRange.filter { it.type == TxType.EXPENSE }.forEach { t ->
             val i = ChronoUnit.DAYS.between(from, localDate(t.occurredAt)).toInt()
             if (i in 0 until n) daily[i] += t.amount
         }
-        val byPocket = ChartReader.spendingByPocket(inRange, pockets)
+        val byCategory = Ledger.byCategory(inRange, o.categoryById.values.toList(), TxType.EXPENSE)
+        val income = inRange.filter { it.type == TxType.INCOME }.sumOf { it.amount }
         HistoryState(
             loaded = true,
             range = r,
-            pockets = pockets,
+            overview = o,
             days = days,
             daily = daily.toList(),
             txs = inRange,
             spent = daily.sum(),
-            income = inRange.filter { it.type == TxType.INCOME }.sumOf { it.amount },
-            byPocket = byPocket,
-            reading = ChartReader.readSpending(byPocket),
-            limitPerDay = if (r == Range.THIS && summary.budget > 0) summary.budget / cycle.length.coerceAtLeast(1) else 0,
+            income = income,
+            byCategory = byCategory,
+            reading = ChartReader.readSpending(byCategory, Totals(income, daily.sum()), r.label.lowercase()).firstOrNull() ?: "",
+            limitPerDay = if (r == Range.THIS && o.planStatus.active) o.planStatus.spendLimit / o.cycle.length.coerceAtLeast(1) else 0,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HistoryState())
 
@@ -136,14 +140,14 @@ fun HistoryScreen(contentPadding: PaddingValues, onOpenTx: (Long) -> Unit, vm: H
     var day by rememberSaveable(s.range) { mutableStateOf<Int?>(null) }
     var picked by rememberSaveable(s.range) { mutableStateOf<Long?>(null) }
     var breakdown by rememberSaveable { mutableStateOf("DONUT") }
-    val byId = s.pockets.associateBy { it.id }
-    val index = s.pockets.mapIndexed { i, p -> p.id to i }.toMap()
-    fun colorOf(p: Pocket) = c.of(p, index[p.id] ?: 0)
+    var account by rememberSaveable { mutableStateOf<Long?>(null) }
+    val o = s.overview
 
     val selectedDay = day?.let { s.days.getOrNull(it) }
     val list = s.txs
         .filter { selectedDay == null || localDate(it.occurredAt) == selectedDay }
-        .filter { picked == null || it.pocketId == picked }
+        .filter { picked == null || (it.categoryId ?: -1L) == picked }
+        .filter { account == null || it.accountId == account || it.toAccountId == account }
     val groups = list.groupBy { localDate(it.occurredAt) }.toList().sortedByDescending { it.first }
 
     LazyColumn(Modifier.fillMaxSize().background(c.paper), contentPadding = contentPadding) {
@@ -151,6 +155,12 @@ fun HistoryScreen(contentPadding: PaddingValues, onOpenTx: (Long) -> Unit, vm: H
             Text("Riwayat", style = Type.display, color = c.ink, modifier = Modifier.padding(horizontal = Gutter).padding(top = 16.dp))
             LazyRow(contentPadding = PaddingValues(horizontal = Gutter), horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 12.dp)) {
                 items(Range.entries) { r -> Choice(r.label, s.range == r, { vm.setRange(r) }) }
+            }
+            if (o != null && o.accounts.size > 1) {
+                LazyRow(contentPadding = PaddingValues(horizontal = Gutter), horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
+                    item { Choice("Semua dompet", account == null, { account = null }) }
+                    items(o.accounts) { ab -> Choice("${ab.account.emoji} ${ab.account.name}", account == ab.account.id, { account = ab.account.id }) }
+                }
             }
         }
 
@@ -195,15 +205,15 @@ fun HistoryScreen(contentPadding: PaddingValues, onOpenTx: (Long) -> Unit, vm: H
                 )
                 if (s.limitPerDay > 0) {
                     Text(
-                        "Garis putus-putus = jatah per hari (${Rupiah.short(s.limitPerDay)}). Sentuh batang untuk lihat harinya.",
+                        "Garis putus-putus = batas rencana per hari (${Rupiah.short(s.limitPerDay)}). Sentuh batang untuk lihat harinya.",
                         style = Type.label, color = c.faint, modifier = Modifier.padding(top = 10.dp),
                     )
                 }
             }
         }
 
-        // Pengeluaran per kantong.
-        if (s.byPocket.isNotEmpty()) {
+        // Pengeluaran per kategori.
+        if (s.byCategory.isNotEmpty()) {
             item {
                 Column(Modifier.padding(horizontal = Gutter).fillMaxWidth().clip(CardShape).background(c.card).padding(18.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -215,26 +225,26 @@ fun HistoryScreen(contentPadding: PaddingValues, onOpenTx: (Long) -> Unit, vm: H
                         )
                     }
                     Text(s.reading, style = Type.bodySmall, color = c.mute, modifier = Modifier.padding(top = 4.dp, bottom = 12.dp))
-                    val slices = s.byPocket.map { (p, v) -> Slice(p.id, p.name, p.emoji, v.toFloat(), colorOf(p), Rupiah.short(v)) }
+                    val slices = s.byCategory.map { p -> Slice(p.category?.id ?: -1L, p.category?.name ?: "Tanpa kategori", p.category?.emoji ?: "🧾", p.amount.toFloat(), colorOf(p.category), Rupiah.short(p.amount)) }
                     AnimatedContent(breakdown, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "bd") { type ->
                         if (type == "BAR") {
                             HBarChart(slices, picked, { picked = it }, textColor = c.ink, track = c.line)
                         } else {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 DonutChart(slices, picked, { picked = it }, Modifier.height(150.dp).weight(1f), track = c.line) {
-                                    val p = s.byPocket.firstOrNull { it.first.id == picked }
-                                    val total = s.byPocket.sumOf { it.second }.coerceAtLeast(1)
+                                    val p = s.byCategory.firstOrNull { (it.category?.id ?: -1L) == picked }
+                                    val total = s.byCategory.sumOf { it.amount }.coerceAtLeast(1)
                                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Text(if (p == null) "100%" else "${p.second * 100 / total}%", style = Type.amount, color = c.ink)
-                                        Text(p?.first?.name ?: "semua", style = Type.label, color = c.faint, textAlign = TextAlign.Center)
+                                        Text(if (p == null) "100%" else "${p.amount * 100 / total}%", style = Type.amount, color = c.ink)
+                                        Text(p?.category?.name ?: "semua", style = Type.label, color = c.faint, textAlign = TextAlign.Center)
                                     }
                                 }
                                 Column(Modifier.weight(1f).padding(start = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    s.byPocket.take(5).forEach { (p, v) ->
+                                    s.byCategory.take(5).forEach { p ->
                                         Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Box(Modifier.padding(end = 8.dp).size(10.dp).clip(Pill).background(colorOf(p)))
-                                            Text(p.name, style = Type.label, color = c.ink, modifier = Modifier.weight(1f), maxLines = 1)
-                                            Text(Rupiah.short(v), style = Type.label, color = c.mute)
+                                            Box(Modifier.padding(end = 8.dp).size(10.dp).clip(Pill).background(colorOf(p.category)))
+                                            Text(p.category?.name ?: "Tanpa kategori", style = Type.label, color = c.ink, modifier = Modifier.weight(1f), maxLines = 1)
+                                            Text(Rupiah.short(p.amount), style = Type.label, color = c.mute)
                                         }
                                     }
                                 }
@@ -249,7 +259,7 @@ fun HistoryScreen(contentPadding: PaddingValues, onOpenTx: (Long) -> Unit, vm: H
         item {
             Row(Modifier.padding(horizontal = Gutter).padding(top = 24.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("Transaksi", style = Type.title, color = c.ink, modifier = Modifier.weight(1f))
-                if (day != null || picked != null) Choice("Tampilkan semua", false, { day = null; picked = null })
+                if (day != null || picked != null || account != null) Choice("Tampilkan semua", false, { day = null; picked = null; account = null })
             }
         }
         if (s.loaded && groups.isEmpty()) {
@@ -260,8 +270,8 @@ fun HistoryScreen(contentPadding: PaddingValues, onOpenTx: (Long) -> Unit, vm: H
                 Text(dayLabel(date), style = Type.label, color = c.faint, modifier = Modifier.padding(horizontal = Gutter).padding(top = 14.dp, bottom = 2.dp))
             }
             items(txs, key = { it.id }) { tx ->
-                val p = tx.pocketId?.let(byId::get)
-                TxRow(tx, p, tx.toPocketId?.let(byId::get), p?.let(::colorOf) ?: Color.Gray, onClick = { onOpenTx(tx.id) })
+                val cat = tx.categoryId?.let { o?.categoryById?.get(it) }
+                TxRow(tx, cat, tx.accountId?.let { o?.accountById?.get(it) }, tx.toAccountId?.let { o?.accountById?.get(it) }, colorOf(cat), onClick = { onOpenTx(tx.id) })
             }
         }
         item { Spacer(Modifier.height(24.dp)) }

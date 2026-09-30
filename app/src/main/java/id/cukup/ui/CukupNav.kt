@@ -22,7 +22,15 @@ import androidx.compose.material3.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ReceiptLong
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.DonutLarge
+import androidx.compose.material.icons.rounded.Flag
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.width
+import id.cukup.domain.TxType
+import id.cukup.ui.accounts.AccountScreen
+import id.cukup.ui.help.HelpScreen
+import id.cukup.ui.plan.PlanEditScreen
+import id.cukup.ui.plan.PlanScreen
+import id.cukup.ui.settings.CategoriesScreen
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Icon
@@ -57,11 +65,7 @@ import id.cukup.ui.components.Id
 import id.cukup.ui.history.HistoryScreen
 import id.cukup.ui.home.HomeScreen
 import id.cukup.ui.onboarding.OnboardingScreen
-import id.cukup.ui.pockets.PocketDetailScreen
-import id.cukup.ui.pockets.PocketsScreen
-import id.cukup.ui.pockets.SplitScreen
 import id.cukup.ui.settings.ProfileScreen
-import id.cukup.ui.goals.GoalsScreen
 import id.cukup.ui.review.InboxScreen
 import id.cukup.ui.review.TxDetailScreen
 import id.cukup.ui.settings.SettingsScreen
@@ -72,25 +76,28 @@ private object Routes {
     const val ONBOARDING = "onboarding"
     const val HOME = "home"
     const val HISTORY = "history"
-    const val POCKETS = "pockets"
+    const val PLAN = "plan"
     const val SETTINGS = "settings"
-    const val ADD = "add?type={type}&pocket={pocket}&to={to}"
-    const val PROFILE = "profile"
-    const val GOALS = "goals"
-    const val POCKET = "pocket/{id}"
+    const val ADD = "add?type={type}&account={account}&edit={edit}"
+    const val ACCOUNT = "account/{id}"
     const val TX = "tx/{id}"
     const val INBOX = "inbox"
-    const val SPLIT = "split"
+    const val PLAN_EDIT = "plan/edit"
+    const val PROFILE = "profile"
+    const val CATEGORIES = "categories"
+    const val HELP = "help"
 
-    fun add(type: String = "EXPENSE", pocket: Long = 0, to: Long = 0) = "add?type=$type&pocket=$pocket&to=$to"
+    fun add(type: TxType = TxType.EXPENSE, account: Long = 0, edit: Long = 0) = "add?type=${type.name}&account=$account&edit=$edit"
+    fun account(id: Long) = "account/$id"
+    fun tx(id: Long) = "tx/$id"
 }
 
 private data class TabItem(val route: String, val label: String, val icon: ImageVector)
 
 private val tabs = listOf(
-    TabItem(Routes.HOME, "Beranda", Icons.Rounded.Home),
+    TabItem(Routes.HOME, "Catatan", Icons.Rounded.Home),
     TabItem(Routes.HISTORY, "Riwayat", Icons.AutoMirrored.Rounded.ReceiptLong),
-    TabItem(Routes.POCKETS, "Kantong", Icons.Rounded.DonutLarge),
+    TabItem(Routes.PLAN, "Rencana", Icons.Rounded.Flag),
     TabItem(Routes.SETTINGS, "Setelan", Icons.Rounded.Tune),
 )
 
@@ -101,7 +108,7 @@ fun CukupNav(onboarded: Boolean, openAdd: Boolean, onAddHandled: () -> Unit) {
     val route = entry?.destination?.route
     val showBar = route in tabs.map { it.route }
     // Layar bergradien memakai ikon status bar terang.
-    LightStatusBarIcons(light = route in setOf(Routes.HOME, Routes.POCKETS, Routes.POCKET, Routes.PROFILE))
+    LightStatusBarIcons(light = route == Routes.HOME || route == Routes.PROFILE)
     val c = colors
 
     LaunchedEffect(openAdd, onboarded) {
@@ -114,7 +121,9 @@ fun CukupNav(onboarded: Boolean, openAdd: Boolean, onAddHandled: () -> Unit) {
     val density = LocalDensity.current
     val top = with(density) { WindowInsets.statusBars.getTop(this).toDp() }
     val bottom = with(density) { WindowInsets.navigationBars.getBottom(this).toDp() }
-    val tabPadding = PaddingValues(top = top, bottom = bottom + 96.dp)
+    val tabPadding = PaddingValues(top = top, bottom = bottom + 104.dp)
+    val openTx: (Long) -> Unit = { nav.navigate(Routes.tx(it)) }
+    val openAccount: (Long) -> Unit = { nav.navigate(Routes.account(it)) }
 
     Box(Modifier.fillMaxSize().background(c.paper)) {
         NavHost(
@@ -131,60 +140,61 @@ fun CukupNav(onboarded: Boolean, openAdd: Boolean, onAddHandled: () -> Unit) {
             composable(Routes.HOME) {
                 HomeScreen(
                     contentPadding = tabPadding,
-                    onIncome = { nav.navigate(Routes.add("INCOME")) },
-                    onExpense = { nav.navigate(Routes.add()) },
-                    onMove = { nav.navigate(Routes.add("MOVE")) },
-                    onOpenPocket = { nav.navigate("pocket/$it") },
-                    onEditSplit = { nav.navigate(Routes.SPLIT) },
+                    onAdd = { nav.navigate(Routes.add(it)) },
+                    onOpenAccount = openAccount,
+                    onNewAccount = { openAccount(0) },
                     onOpenInbox = { nav.navigate(Routes.INBOX) },
-                    onOpenTx = { nav.navigate("tx/$it") },
+                    onOpenTx = openTx,
                     onOpenHistory = { nav.switchTab(Routes.HISTORY) },
                     onOpenProfile = { nav.navigate(Routes.PROFILE) },
+                    onOpenPlan = { nav.switchTab(Routes.PLAN) },
+                    onOpenHelp = { nav.navigate(Routes.HELP) },
                 )
             }
-            composable(Routes.HISTORY) { HistoryScreen(tabPadding, onOpenTx = { nav.navigate("tx/$it") }) }
-            composable(Routes.POCKETS) {
-                PocketsScreen(
+            composable(Routes.HISTORY) { HistoryScreen(tabPadding, onOpenTx = openTx) }
+            composable(Routes.PLAN) { PlanScreen(tabPadding, onEditPlan = { nav.navigate(Routes.PLAN_EDIT) }) }
+            composable(Routes.SETTINGS) {
+                SettingsScreen(
                     tabPadding,
-                    onOpenPocket = { nav.navigate("pocket/$it") },
-                    onEditSplit = { nav.navigate(Routes.SPLIT) },
-                    onMove = { nav.navigate(Routes.add("MOVE")) },
-                    onOpenGoals = { nav.navigate(Routes.GOALS) },
+                    onOpenAccount = openAccount,
+                    onOpenCategories = { nav.navigate(Routes.CATEGORIES) },
+                    onOpenPlan = { nav.switchTab(Routes.PLAN) },
+                    onOpenProfile = { nav.navigate(Routes.PROFILE) },
+                    onOpenHelp = { nav.navigate(Routes.HELP) },
                 )
             }
-            composable(Routes.SETTINGS) { SettingsScreen(tabPadding, onEditSplit = { nav.navigate(Routes.SPLIT) }) }
             composable(
                 Routes.ADD,
                 arguments = listOf(
-                    navArgument("type") { type = NavType.StringType; defaultValue = "EXPENSE" },
-                    navArgument("pocket") { type = NavType.LongType; defaultValue = 0L },
-                    navArgument("to") { type = NavType.LongType; defaultValue = 0L },
+                    navArgument("type") { type = NavType.StringType; defaultValue = TxType.EXPENSE.name },
+                    navArgument("account") { type = NavType.LongType; defaultValue = 0L },
+                    navArgument("edit") { type = NavType.LongType; defaultValue = 0L },
                 ),
-            ) { AddScreen(onClose = { nav.popBackStack() }) }
-            composable(Routes.POCKET, arguments = listOf(navArgument("id") { type = NavType.LongType })) {
-                PocketDetailScreen(
+            ) { AddScreen(onClose = { nav.popBackStack() }, onNewAccount = { openAccount(0) }) }
+            composable(Routes.ACCOUNT, arguments = listOf(navArgument("id") { type = NavType.LongType })) { e ->
+                AccountScreen(
+                    id = e.arguments?.getLong("id") ?: 0,
                     onBack = { nav.popBackStack() },
-                    onOpenTx = { nav.navigate("tx/$it") },
-                    onAdd = { nav.navigate(Routes.add(pocket = it)) },
+                    onOpenTx = openTx,
+                    onAdd = { type, account -> nav.navigate(Routes.add(type, account)) },
                 )
             }
-            composable(Routes.TX, arguments = listOf(navArgument("id") { type = NavType.LongType })) {
-                TxDetailScreen(onBack = { nav.popBackStack() })
+            composable(Routes.TX, arguments = listOf(navArgument("id") { type = NavType.LongType })) { e ->
+                TxDetailScreen(
+                    id = e.arguments?.getLong("id") ?: 0,
+                    onBack = { nav.popBackStack() },
+                    onEdit = { nav.navigate(Routes.add(edit = it)) { popUpTo(Routes.TX) { inclusive = true } } },
+                )
             }
             composable(Routes.INBOX) { InboxScreen(onBack = { nav.popBackStack() }) }
-            composable(Routes.SPLIT) { SplitScreen(onBack = { nav.popBackStack() }) }
+            composable(Routes.PLAN_EDIT) { PlanEditScreen(onBack = { nav.popBackStack() }) }
+            composable(Routes.CATEGORIES) { CategoriesScreen(onBack = { nav.popBackStack() }) }
+            composable(Routes.HELP) { HelpScreen(onBack = { nav.popBackStack() }) }
             composable(Routes.PROFILE) {
                 ProfileScreen(
                     onBack = { nav.popBackStack() },
                     onOpenSettings = { nav.switchTab(Routes.SETTINGS) },
-                    onOpenGoals = { nav.navigate(Routes.GOALS) },
-                )
-            }
-            composable(Routes.GOALS) {
-                GoalsScreen(
-                    onBack = { nav.popBackStack() },
-                    onFill = { nav.navigate(Routes.add("MOVE", to = it)) },
-                    onEditSplit = { nav.navigate(Routes.SPLIT) },
+                    onOpenPlan = { nav.switchTab(Routes.PLAN) },
                 )
             }
         }
@@ -216,7 +226,7 @@ private fun BottomBar(current: String?, onTab: (String) -> Unit, onAdd: () -> Un
             .windowInsetsPadding(WindowInsets.navigationBars)
             .padding(horizontal = 20.dp, vertical = 12.dp)
             .fillMaxWidth()
-            .height(64.dp)
+            .height(72.dp)
             .shadow(16.dp, Pill, ambientColor = Color.Black.copy(alpha = 0.25f), spotColor = Color.Black.copy(alpha = 0.25f))
             .clip(Pill)
             .background(c.card)
@@ -231,7 +241,7 @@ private fun BottomBar(current: String?, onTab: (String) -> Unit, onAdd: () -> Un
                 .clip(CircleShape)
                 .background(c.brandBrush)
                 .clickable(role = Role.Button, onClick = onAdd)
-                .semantics { contentDescription = "Catat uang keluar" },
+                .semantics { contentDescription = "Catat" },
             contentAlignment = Alignment.Center,
         ) { Icon(Icons.Rounded.Add, null, tint = Color.White) }
         tabs.drop(2).forEach { t -> Tab(t, t.route == current) { onTab(t.route) } }
@@ -241,15 +251,18 @@ private fun BottomBar(current: String?, onTab: (String) -> Unit, onAdd: () -> Un
 @Composable
 private fun Tab(tab: TabItem, selected: Boolean, onClick: () -> Unit) {
     val c = colors
-    Box(
+    Column(
         Modifier
-            .size(48.dp)
-            .clip(CircleShape)
-            .background(if (selected) c.ink else Color.Transparent)
+            .clip(Pill)
             .clickable(role = Role.Tab, onClick = onClick)
+            .padding(horizontal = 6.dp, vertical = 6.dp)
             .semantics { contentDescription = tab.label },
-        contentAlignment = Alignment.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Icon(tab.icon, null, tint = if (selected) c.card else c.mute, modifier = Modifier.size(22.dp))
+        Box(
+            Modifier.height(30.dp).width(46.dp).clip(Pill).background(if (selected) c.ink else Color.Transparent),
+            contentAlignment = Alignment.Center,
+        ) { Icon(tab.icon, null, tint = if (selected) c.card else c.mute, modifier = Modifier.size(20.dp)) }
+        Text(tab.label, style = Type.label.copy(fontSize = 10.sp), color = if (selected) c.ink else c.mute)
     }
 }

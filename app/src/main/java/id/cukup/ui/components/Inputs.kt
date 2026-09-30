@@ -35,8 +35,6 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import id.cukup.domain.Pocket
-import id.cukup.domain.PocketKind
 import id.cukup.ui.theme.Type
 import id.cukup.ui.theme.colors
 
@@ -74,37 +72,45 @@ fun Keypad(value: Long, onChange: (Long) -> Unit, modifier: Modifier = Modifier,
     }
 }
 
-/** Deretan pos yang bisa dipilih, bergulir horizontal. */
+/** Satu pilihan di [ChipPicker]. */
+data class PickItem(val id: Long, val label: String, val emoji: String, val color: androidx.compose.ui.graphics.Color, val detail: String = "")
+
+/** Deretan pilihan (kategori, dompet) yang bergulir horizontal. */
 @Composable
-fun PocketPicker(
-    pockets: List<Pocket>,
+fun ChipPicker(
+    items: List<PickItem>,
     selectedId: Long?,
     onSelect: (Long) -> Unit,
     modifier: Modifier = Modifier,
-    extra: (@Composable () -> Unit)? = null,
+    trailing: (@Composable () -> Unit)? = null,
 ) {
     val c = colors
     Row(
         modifier.horizontalScroll(rememberScrollState()).padding(horizontal = Gutter),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        extra?.invoke()
-        pockets.forEachIndexed { i, p ->
+        items.forEach { p ->
             val selected = p.id == selectedId
             Row(
                 Modifier
                     .clip(RoundedCornerShape(100))
-                    .background(if (selected) c.ink else c.paper)
+                    .background(if (selected) c.ink else c.card)
                     .border(1.dp, if (selected) c.ink else c.line, RoundedCornerShape(100))
                     .clickable(role = Role.RadioButton) { onSelect(p.id) }
                     .padding(horizontal = 14.dp, vertical = 9.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                PocketDot(c.pocket(i))
+                PocketDot(p.color)
                 Spacer(Modifier.width(8.dp))
-                Text("${p.emoji} ${p.name}", style = Type.bodySmall, color = if (selected) c.paper else c.ink, maxLines = 1)
+                Column {
+                    Text("${p.emoji} ${p.label}", style = Type.bodySmall, color = if (selected) c.card else c.ink, maxLines = 1)
+                    if (p.detail.isNotBlank()) {
+                        Text(p.detail, style = Type.label, color = if (selected) c.card.copy(alpha = 0.7f) else c.faint, maxLines = 1)
+                    }
+                }
             }
         }
+        trailing?.invoke()
     }
 }
 

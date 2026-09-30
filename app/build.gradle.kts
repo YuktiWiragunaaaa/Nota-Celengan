@@ -14,8 +14,22 @@ android {
         applicationId = "id.cukup"
         minSdk = 26
         targetSdk = 36
-        versionCode = 5
-        versionName = "0.5.0"
+        // CI mengisi CUKUP_BUILD dengan nomor build supaya tiap APK terbaca sebagai pembaruan.
+        versionCode = 600 + (System.getenv("CUKUP_BUILD")?.toIntOrNull() ?: 0)
+        versionName = "0.6.0"
+    }
+
+    signingConfigs {
+        // Kunci tanda tangan dari lingkungan (GitHub Secrets di CI). Tidak pernah disimpan di repo.
+        val store = System.getenv("CUKUP_KEYSTORE")?.let(::file)?.takeIf { it.exists() }
+        if (store != null) {
+            create("sideload") {
+                storeFile = store
+                storePassword = System.getenv("CUKUP_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("CUKUP_KEY_ALIAS") ?: "cukup"
+                keyPassword = System.getenv("CUKUP_KEYSTORE_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
@@ -23,11 +37,8 @@ android {
             applicationIdSuffix = ".debug"
         }
         release {
-            isMinifyEnabled = true
-            isShrinkResources = true
-            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            // Belum ada keystore rilis: pakai kunci debug agar APK rilis tetap bisa dipasang untuk uji.
-            signingConfig = signingConfigs.getByName("debug")
+            isMinifyEnabled = false
+            signingConfig = signingConfigs.findByName("sideload") ?: signingConfigs.getByName("debug")
         }
     }
 

@@ -16,15 +16,15 @@ import id.cukup.MainActivity
 import id.cukup.R
 import id.cukup.domain.PayCycle
 import id.cukup.domain.Rupiah
-import id.cukup.domain.Summary
+import id.cukup.domain.PlanStatus
 import id.cukup.domain.Warning
 import java.time.LocalDate
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Notifikasi pop-up (heads-up) soal jatah belanja:
- * - 80% jatah terpakai, dan saat jatah terlewati (masing-masing sekali per periode);
+ * Notifikasi pop-up (heads-up) soal rencana belanja:
+ * - 80% batas rencana terpakai, dan saat batas terlewati (masing-masing sekali per periode);
  * - satu kali belanja di atas batas yang diatur pengguna.
  */
 @Singleton
@@ -32,10 +32,10 @@ class BudgetAlerts @Inject constructor(
     @ApplicationContext private val context: Context,
     private val settings: SettingsStore,
 ) {
-    suspend fun check(summary: Summary) {
+    suspend fun check(plan: PlanStatus) {
         val s = settings.current()
-        if (!s.budgetAlerts || !s.onboarded || summary.budget <= 0) return
-        val level = summary.warning
+        if (!s.budgetAlerts || !s.onboarded || !plan.active || plan.spendLimit <= 0) return
+        val level = plan.warning
         if (level == Warning.CALM) return
 
         val period = PayCycle.of(LocalDate.now(), s.schedule).start.toString()
@@ -47,13 +47,13 @@ class BudgetAlerts @Inject constructor(
         when (level) {
             Warning.NEAR -> post(
                 ID_BUDGET,
-                "Jatah $period_ tinggal ${Rupiah.format(summary.budgetLeft)}",
-                "Sudah kepakai ${Rupiah.format(summary.budgetUsed)} dari ${Rupiah.format(summary.budget)}. Pelan-pelan dulu ya.",
+                "Batas belanja $period_ tinggal ${Rupiah.format(plan.spendLeft)}",
+                "Sudah kepakai ${Rupiah.format(plan.spendUsed)} dari rencana ${Rupiah.format(plan.spendLimit)}. Pelan-pelan dulu ya.",
             )
             else -> post(
                 ID_BUDGET,
-                "Jatah $period_ sudah habis",
-                "Kelebihan ${Rupiah.format(-summary.budgetLeft)}. Kalau bisa, tahan dulu sampai gajian.",
+                "Belanja $period_ sudah lewat rencana",
+                "Kelebihan ${Rupiah.format(-plan.spendLeft)}. Kalau bisa, tahan dulu sampai gajian.",
             )
         }
     }

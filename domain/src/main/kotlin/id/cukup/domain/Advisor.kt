@@ -21,9 +21,9 @@ object Advisor {
     private val id = Locale.forLanguageTag("id-ID")
 
     fun insights(
-        summary: Summary,
+        plan: PlanStatus,
         transactions: List<Transaction>,
-        pockets: List<Pocket>,
+        debt: Long,
         cycle: PayCycle,
         previousCycle: PayCycle,
         today: LocalDate,
@@ -32,24 +32,21 @@ object Advisor {
     ): List<Insight> {
         val out = mutableListOf<Pair<Int, Insight>>()
         fun date(t: Transaction) = Instant.ofEpochMilli(t.occurredAt).atZone(zone).toLocalDate()
-        val spendIds = pockets.filter { it.kind == PocketKind.SPEND }.map { it.id }.toSet()
-        val expenses = transactions.filter {
-            it.status == TxStatus.CONFIRMED && it.type == TxType.EXPENSE && !it.isPaylater && it.pocketId in spendIds
-        }
+        val expenses = transactions.filter { it.status == TxStatus.CONFIRMED && it.type == TxType.EXPENSE }
         val thisPeriod = expenses.filter { !date(it).isBefore(cycle.start) && date(it).isBefore(cycle.nextPayday) }
         val elapsed = (ChronoUnit.DAYS.between(cycle.start, today) + 1).toInt().coerceAtLeast(1)
 
-        // 1. Laju belanja: kapan jatah habis kalau terus begini.
-        if (summary.budget > 0 && summary.budgetUsed > 0 && summary.budgetLeft > 0 && elapsed >= 2) {
-            val perDay = summary.budgetUsed / elapsed
+        // 1. Laju belanja: kapan batas rencana habis kalau terus begini.
+        if (plan.active && plan.spendUsed > 0 && plan.spendLeft > 0 && elapsed >= 2) {
+            val perDay = plan.spendUsed / elapsed
             if (perDay > 0) {
-                val daysUntilEmpty = summary.budgetLeft / perDay
-                if (daysUntilEmpty < summary.daysLeft) {
+                val daysUntilEmpty = plan.spendLeft / perDay
+                if (daysUntilEmpty < plan.daysLeft) {
                     val day = today.plusDays(daysUntilEmpty)
                     val text = if (daysUntilEmpty == 0L) {
-                        "Rata-rata belanjamu ${Rupiah.format(perDay)} sehari. Sisa jatahnya cuma cukup untuk hari ini, padahal gajian masih ${summary.daysLeft} hari lagi."
+                        "Rata-rata belanjamu ${Rupiah.format(perDay)} sehari. Sisa batasnya cuma cukup untuk hari ini, padahal gajian masih ${plan.daysLeft} hari lagi."
                     } else {
-                        "Kalau belanjanya terus segini, jatahmu habis hari ${dayName(day)}. Gajian masih ${summary.daysLeft} hari lagi."
+                        "Kalau belanjanya terus segini, batas rencanamu habis hari ${dayName(day)}. Gajian masih ${plan.daysLeft} hari lagi."
                     }
                     out += 100 to Insight(
                         text,
@@ -100,26 +97,23 @@ object Advisor {
         }
 
         // 5. Belum ada uang masuk.
-        if (summary.incomeThisCycle == 0L && elapsed >= 2) {
+        val incomeNow = transactions.any {
+            it.status == TxStatus.CONFIRMED && it.type == TxType.INCOME && !date(it).isBefore(cycle.start)
+        }
+        if (!incomeNow && elapsed >= 2) {
             out += 70 to Insight("Belum ada uang masuk periode ini. Kalau sudah gajian, jangan lupa dicatat ya.", Insight.Tone.INFO, "noincome")
         }
 
         // 6. Hutang paylater.
-        if (summary.paylaterDebt > 0) {
-            out += 65 to Insight("Masih ada hutang paylater ${Rupiah.format(summary.paylaterDebt)}.", Insight.Tone.WARN, "debt")
+        if (debt > 0) {
+            out += 65 to Insight("Masih ada hutang paylater ${Rupiah.format(debt)}.", Insight.Tone.WARN, "debt")
         }
 
-        // 7. Tabungan bertambah.
-        val saved = summary.pockets.filter { it.pocket.kind == PocketKind.SAVE }
-        val savedIn = saved.sumOf { it.inThisCycle }
-        if (savedIn > 0) {
-            val total = saved.sumOf { it.balance }
+        // 7. Tabungan sesuai rencana.
+        plan.rows.filter { it.pos.kind == PlanKind.SAVE && it.used > 0 }.forEach { row ->
             out += 40 to Insight(
-                if (total > savedIn) {
-                    "Periode ini ${Rupiah.format(savedIn)} masuk ke tabungan. Totalnya sekarang ${Rupiah.format(total)}."
-                } else {
-                    "Periode ini ${Rupiah.format(savedIn)} sudah masuk ke tabungan."
-                },
+                if (row.used >= row.limit && row.limit > 0) "Target sisihan ${row.pos.name} periode ini sudah tercapai. Keren."
+                else "Sudah menyisihkan ${Rupiah.format(row.used)} ke ${row.pos.name} periode ini.",
                 Insight.Tone.GOOD, "saved",
             )
         }

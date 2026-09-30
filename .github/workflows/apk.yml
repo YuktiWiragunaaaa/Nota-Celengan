@@ -1,0 +1,81 @@
+name: APK
+
+# Setiap push membangun APK dan menerbitkannya di halaman Releases.
+# Di HP: buka Releases (atau pakai Obtainium) lalu pasang versi terbaru — data tetap aman.
+#
+# Kunci tanda tangan diambil dari GitHub Secrets (lihat docs/UPDATE-NIRKABEL.md):
+#   CUKUP_KEYSTORE_B64       isi file .jks dalam base64
+#   CUKUP_KEYSTORE_PASSWORD  kata sandinya
+# Tanpa secret, APK tetap dibuat tetapi ditandatangani kunci sementara,
+# sehingga tidak bisa dipasang menimpa versi sebelumnya.
+on:
+  push:
+    branches: [main, "claude/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Tes logika
+        run: bash ./gradlew :domain:test --console=plain
+
+      - name: Siapkan kunci tanda tangan
+        env:
+          KEYSTORE_B64: ${{ secrets.CUKUP_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/cukup.jks"
+            echo "CUKUP_KEYSTORE=$RUNNER_TEMP/cukup.jks" >> "$GITHUB_ENV"
+          else
+            echo "::warning::Secret CUKUP_KEYSTORE_B64 belum diisi. APK memakai kunci sementara dan tidak bisa menimpa versi lama."
+          fi
+
+      - name: Bangun APK
+        env:
+          CUKUP_BUILD: ${{ github.run_number }}
+          CUKUP_KEYSTORE_PASSWORD: ${{ secrets.CUKUP_KEYSTORE_PASSWORD }}
+        run: bash ./gradlew :app:assembleRelease --console=plain
+
+      - name: Beri nama APK
+        id: apk
+        run: |
+          VERSION=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
+          NAME="Cukup-${VERSION}-b${{ github.run_number }}.apk"
+          cp app/build/outputs/apk/release/app-release.apk "$NAME"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.apk.outputs.name }}
+          path: ${{ steps.apk.outputs.name }}
+
+      - name: Terbitkan di Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.apk.outputs.version }}-b${{ github.run_number }}
+          name: Cukup ${{ steps.apk.outputs.version }} (build ${{ github.run_number }})
+          target_commitish: ${{ github.sha }}
+          make_latest: true
+          files: ${{ steps.apk.outputs.name }}
+          body: |
+            Pasang APK di bawah langsung dari HP. Kalau Cukup sudah terpasang, pilih **Update**, data tidak hilang.
+            Commit: ${{ github.sha }}

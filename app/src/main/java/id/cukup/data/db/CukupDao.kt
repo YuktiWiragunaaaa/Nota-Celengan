@@ -10,21 +10,41 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface CukupDao {
 
-    // Pos
-    @Query("SELECT * FROM pockets WHERE archived = 0 ORDER BY sortOrder")
-    fun observePockets(): Flow<List<PocketEntity>>
+    // Dompet
+    @Query("SELECT * FROM accounts WHERE archived = 0 ORDER BY sortOrder")
+    fun observeAccounts(): Flow<List<AccountEntity>>
 
-    @Query("SELECT * FROM pockets WHERE archived = 0 ORDER BY sortOrder")
-    suspend fun pockets(): List<PocketEntity>
+    @Query("SELECT * FROM accounts WHERE archived = 0 ORDER BY sortOrder")
+    suspend fun accounts(): List<AccountEntity>
+
+    @Query("SELECT * FROM accounts WHERE id = :id")
+    suspend fun account(id: Long): AccountEntity?
 
     @Upsert
-    suspend fun upsertPockets(pockets: List<PocketEntity>): List<Long>
+    suspend fun upsertAccount(a: AccountEntity): Long
 
-    @Query("UPDATE pockets SET archived = 1, percent = 0 WHERE id IN (:ids)")
-    suspend fun archivePockets(ids: List<Long>)
+    @Query("UPDATE accounts SET archived = 1 WHERE id = :id")
+    suspend fun archiveAccount(id: Long)
 
-    @Query("SELECT COUNT(*) FROM pockets WHERE archived = 0")
-    suspend fun pocketCount(): Int
+    // Kategori
+    @Query("SELECT * FROM categories WHERE archived = 0 ORDER BY sortOrder")
+    fun observeCategories(): Flow<List<CategoryEntity>>
+
+    @Query("SELECT * FROM categories WHERE archived = 0 ORDER BY sortOrder")
+    suspend fun categories(): List<CategoryEntity>
+
+    /** Termasuk yang diarsipkan, agar transaksi lama tetap punya nama kategori. */
+    @Query("SELECT * FROM categories")
+    fun observeAllCategories(): Flow<List<CategoryEntity>>
+
+    @Upsert
+    suspend fun upsertCategory(c: CategoryEntity): Long
+
+    @Upsert
+    suspend fun upsertCategories(c: List<CategoryEntity>)
+
+    @Query("UPDATE categories SET archived = 1 WHERE id = :id")
+    suspend fun archiveCategory(id: Long)
 
     // Transaksi
     @Query("SELECT * FROM transactions WHERE status != 'DISMISSED' ORDER BY occurredAt DESC")
@@ -52,15 +72,34 @@ interface CukupDao {
     )
     suspend fun countSimilar(amount: Long, type: String, from: Long, to: Long): Int
 
-    // Alokasi
-    @Query("SELECT * FROM allocations")
-    fun observeAllocations(): Flow<List<AllocationEntity>>
+    // Rencana
+    @Query("SELECT * FROM plan ORDER BY sortOrder")
+    fun observePlan(): Flow<List<PlanPosEntity>>
 
-    @Insert
-    suspend fun insertAllocations(a: List<AllocationEntity>)
+    @Query("SELECT * FROM plan ORDER BY sortOrder")
+    suspend fun plan(): List<PlanPosEntity>
 
-    @Query("DELETE FROM allocations WHERE transactionId = :txId")
-    suspend fun deleteAllocations(txId: Long)
+    @Upsert
+    suspend fun upsertPlan(p: List<PlanPosEntity>): List<Long>
+
+    @Query("DELETE FROM plan WHERE id IN (:ids)")
+    suspend fun deletePlan(ids: List<Long>)
+
+    @Query("UPDATE categories SET planId = NULL WHERE planId IN (:ids)")
+    suspend fun unlinkPlan(ids: List<Long>)
+
+    // Target
+    @Query("SELECT * FROM goals ORDER BY sortOrder")
+    fun observeGoals(): Flow<List<GoalEntity>>
+
+    @Query("SELECT * FROM goals WHERE id = :id")
+    suspend fun goal(id: Long): GoalEntity?
+
+    @Upsert
+    suspend fun upsertGoal(g: GoalEntity): Long
+
+    @Query("DELETE FROM goals WHERE id = :id")
+    suspend fun deleteGoal(id: Long)
 
     // Aturan merchant
     @Query("SELECT * FROM merchant_rules")
