@@ -73,7 +73,7 @@ fun Keypad(value: Long, onChange: (Long) -> Unit, modifier: Modifier = Modifier,
 }
 
 /** Satu pilihan di [ChipPicker]. */
-data class PickItem(val id: Long, val label: String, val emoji: String, val color: androidx.compose.ui.graphics.Color, val detail: String = "")
+data class PickItem(val id: Long, val label: String, val emoji: String, val color: androidx.compose.ui.graphics.Color, val detail: String = "", val mark: String? = null)
 
 /** Deretan pilihan (kategori, dompet) yang bergulir horizontal. */
 @Composable
@@ -100,10 +100,10 @@ fun ChipPicker(
                     .padding(horizontal = 14.dp, vertical = 9.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                PocketDot(p.color)
+                GlassIcon(p.emoji, p.color, size = 26.dp, mark = p.mark)
                 Spacer(Modifier.width(8.dp))
                 Column {
-                    Text("${p.emoji} ${p.label}", style = Type.bodySmall, color = if (selected) c.card else c.ink, maxLines = 1)
+                    Text(p.label, style = Type.bodySmall, color = if (selected) c.card else c.ink, maxLines = 1)
                     if (p.detail.isNotBlank()) {
                         Text(p.detail, style = Type.label, color = if (selected) c.card.copy(alpha = 0.7f) else c.faint, maxLines = 1)
                     }

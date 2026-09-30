@@ -170,7 +170,9 @@ fun BubbleChart(
                 val big = rPx > with(density) { 46.dp.toPx() }
                 val textColor = if (onDark) Color.White else Color(0xFF17110E)
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(b.emoji, fontSize = if (big) 20.sp else 16.sp)
+                    val glyph = glyphOf(b.emoji)
+                    if (glyph != null) androidx.compose.material3.Icon(glyph, null, tint = textColor, modifier = Modifier.size(if (big) 22.dp else 18.dp))
+                    else Text(b.emoji, fontSize = if (big) 20.sp else 16.sp)
                     if (big) {
                         Text(
                             b.label,

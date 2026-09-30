@@ -96,7 +96,7 @@ class OnboardingViewModel @Inject constructor(
         viewModelScope.launch {
             repository.setup(
                 s.accounts.mapIndexed { i, d ->
-                    Account(0, d.name, d.emoji, d.kind, if (d.kind == AccountKind.PAYLATER) -d.amount else d.amount, i)
+                    Account(0, d.name, d.emoji, d.kind, if (d.kind == AccountKind.PAYLATER) -d.amount else d.amount, i, Presets.accounts.firstOrNull { it.name == d.name }?.color?.toInt())
                 },
                 s.preset,
             )

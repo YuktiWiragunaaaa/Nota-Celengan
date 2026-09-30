@@ -16,27 +16,10 @@ data class FinanceApp(val packageName: String, val label: String, val isPaylater
 
 object NotificationParser {
 
-    val apps: List<FinanceApp> = listOf(
-        FinanceApp("com.gojek.app", "GoPay"),
-        FinanceApp("com.gojek.gopay", "GoPay"),
-        FinanceApp("ovo.id", "OVO"),
-        FinanceApp("id.dana", "DANA"),
-        FinanceApp("com.shopeepay.id", "ShopeePay"),
-        FinanceApp("com.shopee.id", "Shopee"),
-        FinanceApp("com.telkom.mwallet", "LinkAja"),
-        FinanceApp("com.bca", "BCA mobile"),
-        FinanceApp("com.bca.mybca.omni.android", "myBCA"),
-        FinanceApp("id.bmri.livin", "Livin' Mandiri"),
-        FinanceApp("id.co.bri.brimo", "BRImo"),
-        FinanceApp("src.com.bni", "BNI Mobile"),
-        FinanceApp("id.bni.wondr", "wondr by BNI"),
-        FinanceApp("com.jago.digitalBanking", "Jago"),
-        FinanceApp("id.co.bankbkemobile.digitalbank", "SeaBank"),
-        FinanceApp("com.bcadigital.blu", "blu"),
-        FinanceApp("com.btpn.dc", "Jenius"),
-        FinanceApp("com.finaccel.android", "Kredivo", isPaylater = true),
-        FinanceApp("io.silvrr.installment", "Akulaku", isPaylater = true),
-    )
+    /** Diambil dari [Brands] supaya daftar bank/e-wallet cukup diatur di satu tempat. */
+    val apps: List<FinanceApp> = Brands.all.flatMap { b ->
+        b.packages.map { FinanceApp(it, b.name, isPaylater = b.kind == AccountKind.PAYLATER) }
+    }
     private val byPackage = apps.associateBy { it.packageName }
 
     fun isSupported(packageName: String): Boolean = packageName in byPackage

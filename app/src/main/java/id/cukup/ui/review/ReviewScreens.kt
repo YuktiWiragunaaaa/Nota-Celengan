@@ -109,7 +109,7 @@ private fun PendingCard(tx: Transaction, o: Overview, onConfirm: (Long?, Long?) 
         }
         Eyebrow(if (isIncome) "Masuk ke" else "Dari dompet", Modifier.padding(horizontal = 16.dp).padding(top = 14.dp, bottom = 8.dp))
         ChipPicker(
-            o.accounts.map { PickItem(it.account.id, it.account.name, it.account.emoji, colorOf(it.account)) },
+            o.accounts.map { PickItem(it.account.id, it.account.name, it.account.emoji, colorOf(it.account), mark = id.cukup.domain.Brands.forAccountName(it.account.name)?.mark) },
             accountId, { accountId = it },
         )
         Eyebrow("Kategori", Modifier.padding(horizontal = 16.dp).padding(top = 12.dp, bottom = 8.dp))

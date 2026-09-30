@@ -1,7 +1,7 @@
 package id.cukup.domain
 
 data class CategorySeed(val name: String, val emoji: String, val kind: CategoryKind, val tag: Tag)
-data class AccountSeed(val name: String, val emoji: String, val kind: AccountKind)
+data class AccountSeed(val name: String, val emoji: String, val kind: AccountKind, val color: Long? = null)
 data class PlanSeed(val name: String, val emoji: String, val percent: Int, val kind: PlanKind, val tags: Set<Tag>)
 data class PlanPreset(val id: String, val title: String, val subtitle: String, val pos: List<PlanSeed>)
 
@@ -27,17 +27,20 @@ object Presets {
         CategorySeed("Lainnya", "💰", CategoryKind.INCOME, Tag.OTHER),
     )
 
-    /** Pilihan cepat saat membuat dompet. */
-    val accounts = listOf(
-        AccountSeed("Tunai", "💵", AccountKind.CASH),
-        AccountSeed("Rekening bank", "🏦", AccountKind.BANK),
-        AccountSeed("GoPay", "🟢", AccountKind.EWALLET),
-        AccountSeed("OVO", "🟣", AccountKind.EWALLET),
-        AccountSeed("DANA", "🔵", AccountKind.EWALLET),
-        AccountSeed("ShopeePay", "🟠", AccountKind.EWALLET),
-        AccountSeed("Tabungan", "🐷", AccountKind.SAVINGS),
-        AccountSeed("Paylater", "🧾", AccountKind.PAYLATER),
-    )
+    /** Pilihan cepat saat membuat dompet: tunai, bank & e-wallet spesifik (supaya notifikasinya masuk ke dompet yang benar). */
+    val accounts: List<AccountSeed> = buildList {
+        add(AccountSeed("Tunai", "💵", AccountKind.CASH))
+        Brands.all.forEach { b ->
+            val emoji = when (b.kind) {
+                AccountKind.EWALLET -> "👛"
+                AccountKind.PAYLATER -> "🧾"
+                else -> "🏦"
+            }
+            add(AccountSeed(b.name, emoji, b.kind, b.color))
+        }
+        add(AccountSeed("Bank lain", "🏦", AccountKind.BANK))
+        add(AccountSeed("Tabungan", "🐷", AccountKind.SAVINGS))
+    }
 
     private val needs = setOf(Tag.FOOD, Tag.TRANSPORT, Tag.BILLS, Tag.HEALTH, Tag.EDUCATION, Tag.FAMILY, Tag.OTHER)
     private val wants = setOf(Tag.FUN, Tag.SHOPPING)
@@ -74,6 +77,6 @@ object Presets {
         "🍜", "🍔", "🍱", "☕", "🧋", "🛒", "🛵", "🚗", "⛽", "🚌", "🏠", "🔌", "📶", "📺", "🎮", "🛍️",
         "👕", "👟", "🧴", "💄", "🎧", "🎬", "🎤", "🏋️", "⚽", "💊", "🩺", "📚", "✏️", "👶", "👨‍👩‍👧", "🐾",
         "🎁", "💍", "💻", "📱", "🙏", "🕌", "⛪", "🌱", "🛟", "✈️", "🏝️", "📈", "💰", "🧾", "💳", "✨",
-        "💵", "🏦", "🟢", "🟣", "🔵", "🟠", "🐷", "💼", "💌",
+        "💵", "🏦", "👛", "🐷", "💼", "💌",
     )
 }

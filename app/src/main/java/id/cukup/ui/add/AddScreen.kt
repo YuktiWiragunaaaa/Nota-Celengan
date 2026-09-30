@@ -84,7 +84,7 @@ fun AddScreen(onClose: () -> Unit, onNewAccount: () -> Unit, vm: AddViewModel = 
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
             if (o != null) {
                 val accountItems = o.accounts.map {
-                    PickItem(it.account.id, it.account.name, it.account.emoji, colorOf(it.account), Rupiah.short(it.balance))
+                    PickItem(it.account.id, it.account.name, it.account.emoji, colorOf(it.account), Rupiah.short(it.balance), id.cukup.domain.Brands.forAccountName(it.account.name)?.mark)
                 }
                 val newAccount: @Composable () -> Unit = { TextAction("+ Dompet", onNewAccount) }
                 when (s.type) {

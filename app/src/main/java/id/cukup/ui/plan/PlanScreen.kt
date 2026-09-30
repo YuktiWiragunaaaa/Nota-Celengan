@@ -1,5 +1,6 @@
 package id.cukup.ui.plan
 
+import id.cukup.ui.components.GlassIcon
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -201,7 +202,7 @@ private fun PosRow(row: PosStatus, o: Overview) {
     val cats = o.expenseCategories().filter { it.planId == row.pos.id }
     Column(Modifier.fillMaxWidth().clickable { open = !open }.padding(horizontal = Gutter, vertical = 12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(row.pos.emoji, fontSize = 20.sp)
+            GlassIcon(row.pos.emoji, colorOf(row.pos), size = 40.dp)
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
                 Text("${row.pos.name} · ${row.pos.percent}%", style = Type.strong, color = c.ink)
@@ -305,7 +306,7 @@ private fun Goals(o: Overview, onNew: () -> Unit, onEdit: (Goal) -> Unit, onAdd:
         ) {
             Box(Modifier.size(56.dp), contentAlignment = Alignment.Center) {
                 PocketRing(listOf(Triple(color, 1f, progress.ratio)), Modifier.size(56.dp), stroke = 6.dp)
-                Text(g.emoji, fontSize = 20.sp)
+                GlassIcon(g.emoji, color, size = 38.dp)
             }
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
@@ -347,7 +348,7 @@ private fun GoalDialog(g: Goal, o: Overview, onDismiss: () -> Unit, onDelete: ()
                 Eyebrow("Terkumpul dihitung dari")
                 Spacer(Modifier.height(8.dp))
                 val items = listOf(PickItem(-1, "Isi sendiri", "✍️", c.mute)) +
-                    o.accounts.map { PickItem(it.account.id, it.account.name, it.account.emoji, colorOf(it.account), Rupiah.short(it.balance)) }
+                    o.accounts.map { PickItem(it.account.id, it.account.name, it.account.emoji, colorOf(it.account), Rupiah.short(it.balance), id.cukup.domain.Brands.forAccountName(it.account.name)?.mark) }
                 ChipPicker(items, account ?: -1, { account = it.takeIf { id -> id > 0 } }, Modifier.padding(horizontal = 0.dp))
                 Text(
                     if (account == null) "Kamu tambahkan sendiri tiap menyisihkan uang." else "Terkumpul = saldo dompet itu. Cocok kalau punya rekening/celengan khusus.",

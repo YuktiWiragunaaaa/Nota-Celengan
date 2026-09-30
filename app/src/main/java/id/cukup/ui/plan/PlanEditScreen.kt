@@ -1,5 +1,6 @@
 package id.cukup.ui.plan
 
+import id.cukup.ui.components.GlassIcon
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -126,7 +127,7 @@ fun PlanEditScreen(onBack: () -> Unit, vm: AppViewModel = hiltViewModel()) {
             pos.forEachIndexed { i, p ->
                 Column(Modifier.padding(horizontal = Gutter, vertical = 8.dp).fillMaxWidth().clip(CardShape).background(c.card).padding(14.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(p.emoji, fontSize = 22.sp, modifier = Modifier.clip(Pill).clickable { looking = i }.padding(4.dp))
+                        GlassIcon(p.emoji, colorOf(p), Modifier.clickable { looking = i }, size = 40.dp)
                         Spacer(Modifier.width(8.dp))
                         Column(Modifier.weight(1f)) {
                             LineField(p.name, { v -> pos[i] = p.copy(name = v.take(20)) }, "Nama pos")

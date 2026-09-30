@@ -168,7 +168,7 @@ private fun WalletsStep(s: OnboardingState, onIntent: (OnboardingIntent) -> Unit
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Presets.accounts.forEach { seed ->
-            Choice("${seed.emoji} ${seed.name}", s.accounts.any { it.name == seed.name }, { onIntent(OnboardingIntent.Toggle(seed.name)) })
+            Choice(seed.name, s.accounts.any { it.name == seed.name }, { onIntent(OnboardingIntent.Toggle(seed.name)) })
         }
     }
     Spacer(Modifier.height(20.dp))

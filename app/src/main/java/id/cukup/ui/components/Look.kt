@@ -12,7 +12,12 @@ import id.cukup.ui.theme.colors
 fun colorOf(c: Category?): Color = if (c == null) colors.faint else colors.of(c.color, c.sortOrder)
 
 @Composable
-fun colorOf(a: Account?): Color = if (a == null) colors.faint else colors.of(a.color, a.sortOrder + 3)
+fun colorOf(a: Account?): Color = when {
+    a == null -> colors.faint
+    a.color != null -> Color(a.color!!)
+    // Dompet bermerek (BCA, OVO) memakai warna khasnya.
+    else -> id.cukup.domain.Brands.forAccountName(a.name)?.let { Color(it.color) } ?: colors.of(null, a.sortOrder + 3)
+}
 
 @Composable
 fun colorOf(p: PlanPos): Color = colors.of(p.color, p.sortOrder)

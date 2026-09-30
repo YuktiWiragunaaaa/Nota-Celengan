@@ -1,5 +1,7 @@
 package id.cukup.ui.home
 
+import id.cukup.ui.components.AccountIcon
+import id.cukup.ui.components.GlassIcon
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -330,7 +332,7 @@ private fun SpendingChart(o: Overview, parts: List<CategoryAmount>, type: String
             else -> DonutChart(slices, selected, pick, Modifier.fillMaxWidth().height(220.dp).padding(vertical = 16.dp)) {
                 val p = parts.firstOrNull { (it.category?.id ?: -1L) == selected }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(p?.category?.emoji ?: "🧾", fontSize = 22.sp)
+                    GlassIcon(p?.category?.emoji ?: "🧾", Color.White, size = 36.dp, onDark = true)
                     Text(p?.category?.name ?: "Total keluar", style = Type.label, color = Color.White.copy(alpha = 0.72f))
                     Text(Rupiah.short(p?.amount ?: o.totals.expense), style = Type.title, color = Color.White)
                 }
@@ -371,9 +373,7 @@ private fun QuickAdd(data: id.cukup.data.Overview, onPick: (Long) -> Unit) {
                         Modifier.weight(1f).clip(CardShape).clickable(role = Role.Button) { onPick(cat.id) }.padding(vertical = 8.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        Box(Modifier.size(52.dp).clip(CircleShape).background(color.copy(alpha = 0.18f)), contentAlignment = Alignment.Center) {
-                            Text(cat.emoji, fontSize = 24.sp)
-                        }
+                        GlassIcon(cat.emoji, color, size = 54.dp)
                         Spacer(Modifier.height(6.dp))
                         Text(cat.name, style = Type.label, color = c.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
@@ -400,9 +400,7 @@ private fun Accounts(accounts: List<AccountBalance>, onOpen: (Long) -> Unit, onN
                 Modifier.width(150.dp).clip(CardShape).background(c.card).clickable { onOpen(ab.account.id) }.padding(14.dp),
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(32.dp).clip(CircleShape).background(color.copy(alpha = 0.18f)), contentAlignment = Alignment.Center) {
-                        Text(ab.account.emoji, fontSize = 16.sp)
-                    }
+                    AccountIcon(ab.account, size = 34.dp)
                     Spacer(Modifier.width(8.dp))
                     Text(ab.account.name, style = Type.bodySmall, color = c.mute, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }

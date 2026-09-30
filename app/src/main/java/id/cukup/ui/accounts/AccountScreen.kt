@@ -1,5 +1,7 @@
 package id.cukup.ui.accounts
 
+import id.cukup.domain.Brands
+import id.cukup.ui.components.AccountIcon
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -86,7 +88,7 @@ fun AccountScreen(id: Long, onBack: () -> Unit, onOpenTx: (Long) -> Unit, onAdd:
         item {
             Column(Modifier.padding(horizontal = Gutter).fillMaxWidth().clip(CardShape).background(c.card).padding(18.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(ab.account.emoji, fontSize = 26.sp)
+                    AccountIcon(ab.account, size = 52.dp)
                     Spacer(Modifier.padding(4.dp))
                     Column {
                         Text(ab.account.kind.label() + if (isDefault) " · dompet utama" else "", style = Type.bodySmall, color = c.mute)
@@ -118,6 +120,28 @@ fun AccountScreen(id: Long, onBack: () -> Unit, onOpenTx: (Long) -> Unit, onAdd:
                 "\"Samakan saldo\" dipakai kalau angka di sini beda dengan aplikasi bank/e-wallet. Riwayat catatan tidak berubah.",
                 style = Type.bodySmall, color = c.faint, modifier = Modifier.padding(horizontal = Gutter),
             )
+        }
+        if (ab.account.kind != AccountKind.CASH) {
+            item {
+                val accounts = data.accounts.map { it.account }
+                // Aplikasi yang notifikasinya sekarang masuk ke dompet ini (tautan atau tebakan otomatis).
+                val linked = Brands.all.filter { b -> b.packages.any { Brands.accountFor(it, accounts, data.settings.appLinks) == id } }
+                SectionHeader("Notifikasi dari")
+                Row(
+                    Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = Gutter),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Brands.all.forEach { b ->
+                        val on = b in linked
+                        Choice(b.name, on, { vm.linkApp(b.key, if (on) null else id) })
+                    }
+                }
+                Text(
+                    if (linked.isEmpty()) "Pilih aplikasi bank/e-wallet yang notifikasinya dicatat ke ${ab.account.name}."
+                    else "Notifikasi ${linked.joinToString { it.name }} dicatat ke ${ab.account.name}.",
+                    style = Type.bodySmall, color = c.faint, modifier = Modifier.padding(horizontal = Gutter, vertical = 8.dp),
+                )
+            }
         }
         item { SectionHeader("Riwayat dompet ini") }
         if (txs.isEmpty()) {
@@ -166,7 +190,7 @@ fun AccountForm(initial: Account, isNew: Boolean, onBack: () -> Unit, onSave: (A
                 Spacer(Modifier.height(8.dp))
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     Presets.accounts.forEach { seed ->
-                        Choice("${seed.emoji} ${seed.name}", name == seed.name, { name = seed.name; emoji = seed.emoji; kind = seed.kind })
+                        Choice(seed.name, name == seed.name, { name = seed.name; emoji = seed.emoji; kind = seed.kind; color = seed.color?.toInt() })
                     }
                 }
                 Spacer(Modifier.height(16.dp))

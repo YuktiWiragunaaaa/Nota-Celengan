@@ -130,7 +130,8 @@ fun HBarChart(
                     Modifier.fillMaxWidth().clip(Pill).clickable { onSelect(if (selected == s.key) null else s.key) }.padding(horizontal = 6.dp, vertical = 2.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(s.emoji, fontSize = 18.sp, modifier = Modifier.width(30.dp))
+                    GlassIcon(s.emoji, s.color, size = 28.dp, onDark = textColor == Color.White)
+                    Spacer(Modifier.width(8.dp))
                     Column(Modifier.weight(1f)) {
                         Row {
                             Text(

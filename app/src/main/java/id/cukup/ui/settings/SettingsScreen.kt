@@ -1,5 +1,6 @@
 package id.cukup.ui.settings
 
+import id.cukup.ui.components.colorOf
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -154,6 +155,8 @@ fun SettingsScreen(
                 ab.account.name,
                 Rupiah.format(ab.balance) + if (ab.account.id == s.defaultAccountId) " · utama" else "",
                 leading = ab.account.emoji,
+                leadingTint = colorOf(ab.account),
+                leadingMark = id.cukup.domain.Brands.forAccountName(ab.account.name)?.mark,
             ) { onOpenAccount(ab.account.id) }
         }
         Link("Tambah dompet", "Tunai, rekening, e-wallet, paylater", leading = "➕") { onOpenAccount(0) }
@@ -240,7 +243,7 @@ fun SettingsScreen(
             Bullet("Cukup nggak pakai internet, jadi datamu nggak ke mana-mana.")
             Bullet("Datanya nggak ikut backup Google. Kalau aplikasinya dihapus, datanya ikut hilang.")
         }
-        Text("Cukup 0.7", style = Type.bodySmall, color = c.faint, modifier = Modifier.padding(horizontal = Gutter, vertical = 20.dp))
+        Text("Cukup 0.8", style = Type.bodySmall, color = c.faint, modifier = Modifier.padding(horizontal = Gutter, vertical = 20.dp))
     }
 
     if (confirmErase) {

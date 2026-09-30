@@ -51,6 +51,11 @@ class AppViewModel @Inject constructor(
 
     fun settings(transform: (Settings) -> Settings) = go { store.update(transform) }
 
+    /** Notifikasi aplikasi [brandKey] masuk ke dompet [accountId]; null = lepas tautan. */
+    fun linkApp(brandKey: String, accountId: Long?) = go {
+        store.update { s -> s.copy(appLinks = if (accountId == null) s.appLinks - brandKey else s.appLinks + (brandKey to accountId)) }
+    }
+
     // Dompet
     fun saveAccount(a: Account) = go { repository.saveAccount(a) }
     fun setAccountBalance(id: Long, actual: Long) = go { repository.setAccountBalance(id, actual) }

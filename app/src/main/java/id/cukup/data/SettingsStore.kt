@@ -28,7 +28,9 @@ data class Settings(
     /** Boleh buka pakai sidik jari selain PIN. */
     val fingerprint: Boolean = true,
     /** Transaksi dari notifikasi langsung tercatat tanpa perlu dicek. */
-    val autoConfirm: Boolean = false,
+    val autoConfirm: Boolean = true,
+    /** Aplikasi notifikasi → dompet, dipelajari dari koreksi pengguna. */
+    val appLinks: Map<String, Long> = emptyMap(),
     /** Kirim notifikasi saat jatah belanja hampir / sudah habis. */
     val budgetAlerts: Boolean = true,
     /** Tanya dulu kalau satu kali belanja di atas nominal ini. 0 = mati. */
@@ -60,7 +62,9 @@ class SettingsStore @Inject constructor(@ApplicationContext private val context:
         val biometric = booleanPreferencesKey("biometric")
         val pinHash = stringPreferencesKey("pin_hash")
         val fingerprint = booleanPreferencesKey("fingerprint")
-        val autoConfirm = booleanPreferencesKey("auto_confirm")
+        // v0.8: catat otomatis jadi bawaan; kunci baru supaya nilai lama (mati) tidak terbawa.
+        val autoConfirm = booleanPreferencesKey("auto_confirm_v2")
+        val appLinks = stringPreferencesKey("app_links")
         val budgetAlerts = booleanPreferencesKey("budget_alerts")
         val lastAlert = stringPreferencesKey("last_alert")
         val singleLimit = longPreferencesKey("single_limit")
@@ -85,7 +89,11 @@ class SettingsStore @Inject constructor(@ApplicationContext private val context:
         biometricLock = p[K.biometric] ?: false,
         pinHash = p[K.pinHash] ?: "",
         fingerprint = p[K.fingerprint] ?: true,
-        autoConfirm = p[K.autoConfirm] ?: false,
+        autoConfirm = p[K.autoConfirm] ?: true,
+        appLinks = p[K.appLinks].orEmpty().split(';').mapNotNull { e ->
+            val (pkg, id) = e.split('=').takeIf { it.size == 2 } ?: return@mapNotNull null
+            id.toLongOrNull()?.let { pkg to it }
+        }.toMap(),
         budgetAlerts = p[K.budgetAlerts] ?: true,
         lastAlert = p[K.lastAlert] ?: "",
         singleLimit = p[K.singleLimit] ?: 0,
@@ -119,6 +127,7 @@ class SettingsStore @Inject constructor(@ApplicationContext private val context:
             p[K.pinHash] = next.pinHash
             p[K.fingerprint] = next.fingerprint
             p[K.autoConfirm] = next.autoConfirm
+            p[K.appLinks] = next.appLinks.entries.joinToString(";") { "${it.key}=${it.value}" }
             p[K.budgetAlerts] = next.budgetAlerts
             p[K.lastAlert] = next.lastAlert
             p[K.singleLimit] = next.singleLimit

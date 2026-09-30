@@ -243,10 +243,7 @@ fun PocketDot(color: Color, modifier: Modifier = Modifier, size: Dp = 8.dp) {
 /** Ikon kantong: emoji di dalam lingkaran berwarna lembut. */
 @Composable
 fun PocketBadge(emoji: String, color: Color, modifier: Modifier = Modifier, size: Dp = 44.dp) {
-    Box(
-        modifier.size(size).clip(CircleShape).background(color.copy(alpha = 0.16f)),
-        contentAlignment = Alignment.Center,
-    ) { Text(emoji, style = Type.body.copy(fontSize = Type.body.fontSize * (size.value / 44f))) }
+    GlassIcon(emoji, color, modifier, size)
 }
 
 @Composable

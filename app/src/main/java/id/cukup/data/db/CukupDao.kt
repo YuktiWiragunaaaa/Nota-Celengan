@@ -72,6 +72,20 @@ interface CukupDao {
     )
     suspend fun countSimilar(amount: Long, type: String, from: Long, to: Long): Int
 
+    /** Notifikasi lawan (masuk vs keluar) bernominal sama, untuk digabung jadi Pindah. */
+    @Query(
+        "SELECT * FROM transactions WHERE amount = :amount AND type = :type AND source = 'NOTIFICATION' " +
+            "AND occurredAt BETWEEN :from AND :to AND status != 'DISMISSED' ORDER BY occurredAt DESC",
+    )
+    suspend fun findNotified(amount: Long, type: String, from: Long, to: Long): List<TransactionEntity>
+
+    /** Duplikat sungguhan: nominal, jenis, dan dompet sama dalam rentang waktu. */
+    @Query(
+        "SELECT COUNT(*) FROM transactions WHERE amount = :amount AND type = :type AND accountId IS :accountId " +
+            "AND occurredAt BETWEEN :from AND :to AND status != 'DISMISSED'",
+    )
+    suspend fun countSame(amount: Long, type: String, accountId: Long?, from: Long, to: Long): Int
+
     // Rencana
     @Query("SELECT * FROM plan ORDER BY sortOrder")
     fun observePlan(): Flow<List<PlanPosEntity>>

@@ -72,14 +72,23 @@ fun Group(title: String) {
 
 /** Baris yang bisa diketuk: judul, keterangan, panah. */
 @Composable
-fun Link(title: String, value: String, valueColor: Color? = null, leading: String? = null, onClick: () -> Unit) {
+fun Link(
+    title: String,
+    value: String,
+    valueColor: Color? = null,
+    leading: String? = null,
+    leadingTint: Color? = null,
+    leadingMark: String? = null,
+    onClick: () -> Unit,
+) {
     val c = colors
     Row(
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = Gutter, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (leading != null) {
-            Text(leading, style = Type.title, modifier = Modifier.padding(end = 14.dp))
+            GlassIcon(leading, leadingTint ?: c.accent, size = 38.dp, mark = leadingMark)
+            Spacer(Modifier.width(14.dp))
         }
         Column(Modifier.weight(1f)) {
             Text(title, style = Type.strong, color = c.ink)
@@ -206,13 +215,14 @@ fun LookPicker(emoji: String, color: Int?, onEmoji: (String) -> Unit, onColor: (
     val c = colors
     Eyebrow("Ikon")
     Spacer(Modifier.height(8.dp))
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Presets.emojis.forEach { e ->
-            Text(
-                e, style = Type.title,
-                modifier = Modifier.clip(CircleShape)
-                    .background(if (e == emoji) c.surface else Color.Transparent)
-                    .clickable { onEmoji(e) }.padding(6.dp),
+    val tint = color?.let { Color(it) } ?: c.accent
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        // Hanya ikon yang punya versi garis, supaya semua ikon tetap seragam.
+        Presets.emojis.distinctBy { glyphOf(it) }.filter { glyphOf(it) != null }.forEach { e ->
+            val selected = glyphOf(e) == glyphOf(emoji)
+            GlassIcon(
+                e, if (selected) tint else c.mute, size = if (selected) 46.dp else 40.dp,
+                modifier = Modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(14.dp)).clickable { onEmoji(e) },
             )
         }
     }

@@ -9,6 +9,7 @@ import id.cukup.data.db.MerchantRuleEntity
 import id.cukup.data.db.PlanPosEntity
 import id.cukup.data.db.TransactionEntity
 import id.cukup.domain.Account
+import id.cukup.domain.Brands
 import id.cukup.domain.AccountBalance
 import id.cukup.domain.AccountKind
 import id.cukup.domain.Category
@@ -211,6 +212,7 @@ class MoneyRepository @Inject constructor(
         val clean = t.copy(merchant = t.merchant.trim(), note = t.note.trim())
         if (clean.id == 0L) dao.insertTransaction(TransactionEntity.from(clean)) else dao.upsertTransaction(TransactionEntity.from(clean))
         if (clean.type != TxType.TRANSFER) clean.categoryId?.let { learn(clean.merchant, it) }
+        if (clean.id != 0L) learnAppLink(clean)
         changed()
         if (clean.type == TxType.EXPENSE && clean.id == 0L) runCatching { alerts.checkSingle(clean.amount, clean.merchant) }
     }
@@ -256,17 +258,46 @@ class MoneyRepository @Inject constructor(
         val parsed = NotificationParser.parse(packageName, title, text) ?: return false
         val s = settingsStore.current()
         if (!s.onboarded) return false
+        val accounts = dao.accounts().map { it.toDomain() }
+        val account = guessAccount(packageName, accounts, parsed.isPaylater, s)
+        val body = listOfNotNull(title, text).joinToString(" ")
+        val window = 15 * 60_000L
+
+        // Pindah ke dompet sendiri (BCA → Krom): notifikasi keluar dan masuk bernominal sama digabung jadi satu Pindah.
+        if (account != null && parsed.type != TxType.TRANSFER) {
+            val opposite = if (parsed.type == TxType.INCOME) TxType.EXPENSE else TxType.INCOME
+            val pair = dao.findNotified(parsed.amount, opposite.name, postedAt - window, postedAt + window)
+                .firstOrNull { it.accountId != null && it.accountId != account }
+            if (pair != null) {
+                val (from, to) = if (parsed.type == TxType.INCOME) pair.accountId to account else account to pair.accountId
+                dao.upsertTransaction(
+                    pair.copy(type = TxType.TRANSFER.name, accountId = from, toAccountId = to, categoryId = null, status = TxStatus.CONFIRMED.name, note = "Pindah antar dompet (otomatis)"),
+                )
+                changed()
+                return true
+            }
+            // Masuk yang sudah tercatat sebagai Pindah dari notifikasi sebelumnya ("Top up OVO").
+            if (parsed.type == TxType.INCOME) {
+                val already = dao.findNotified(parsed.amount, TxType.TRANSFER.name, postedAt - window, postedAt + window)
+                if (already.any { it.toAccountId == account }) return false
+            }
+        }
+        // Keluar yang menyebut dompetmu yang lain ("Top up OVO", "transfer ke Krom") = Pindah.
+        val mentioned = if (parsed.type == TxType.EXPENSE && account != null) Brands.mentionedAccount(body, accounts, account) else null
+
         val fingerprint = NotificationParser.fingerprint(packageName, parsed.amount, postedAt, parsed.merchant)
-        val similar = dao.countSimilar(parsed.amount, parsed.type.name, postedAt - 180_000, postedAt + 180_000)
-        val auto = s.autoConfirm && similar == 0
+        val type = if (mentioned != null) TxType.TRANSFER else parsed.type
+        val duplicate = dao.countSame(parsed.amount, type.name, account, postedAt - 180_000, postedAt + 180_000) > 0
+        val auto = s.autoConfirm && !duplicate
         val kind = if (parsed.type == TxType.INCOME) CategoryKind.INCOME else CategoryKind.EXPENSE
-        val category = suggestCategory(parsed.merchant, kind, parsed.isDebtPayment)
-        val account = guessAccount(parsed.appLabel, parsed.isPaylater, s.defaultAccountId)
+        val category = if (mentioned != null) null else suggestCategory(parsed.merchant, kind, parsed.isDebtPayment)
+        val similar = if (duplicate) 1 else 0
 
         val tx = Transaction(
-            type = parsed.type,
+            type = type,
             amount = parsed.amount,
             accountId = account,
+            toAccountId = mentioned,
             categoryId = category?.id,
             merchant = parsed.merchant.ifBlank { if (parsed.isDebtPayment) "Bayar tagihan ${parsed.appLabel}" else "" },
             note = if (similar > 0) "Mungkin duplikat" else "",
@@ -284,15 +315,28 @@ class MoneyRepository @Inject constructor(
         return saved
     }
 
-    private suspend fun guessAccount(appLabel: String, paylater: Boolean, fallback: Long): Long? {
-        val accounts = dao.accounts().map { it.toDomain() }
+    /**
+     * Dompet untuk notifikasi: tautan yang pernah kamu koreksi, dompet bernama brand-nya,
+     * atau satu-satunya dompet sejenis. Tunai tidak pernah dipakai untuk notifikasi bank/e-wallet.
+     */
+    private fun guessAccount(packageName: String, accounts: List<Account>, paylater: Boolean, s: Settings): Long? {
         if (paylater) accounts.firstOrNull { it.kind == AccountKind.PAYLATER }?.let { return it.id }
-        val label = appLabel.lowercase()
-        accounts.firstOrNull { a ->
-            val n = a.name.lowercase()
-            n.isNotBlank() && (label.contains(n) || n.contains(label.substringBefore(' ')))
-        }?.let { return it.id }
-        return accounts.firstOrNull { it.id == fallback }?.id ?: accounts.firstOrNull()?.id
+        Brands.accountFor(packageName, accounts, s.appLinks)?.let { return it }
+        val brand = Brands.forPackage(packageName)
+        val nonCash = accounts.filter { it.kind != AccountKind.CASH }
+        return nonCash.firstOrNull { it.kind == brand?.kind }?.id
+            ?: nonCash.firstOrNull { it.id == s.defaultAccountId }?.id
+            ?: nonCash.firstOrNull()?.id
+            ?: accounts.firstOrNull()?.id
+    }
+
+    /** Kalau kamu memindah transaksi notifikasi ke dompet lain, notifikasi berikutnya dari aplikasi itu ikut. */
+    private suspend fun learnAppLink(t: Transaction) {
+        if (t.source != TxSource.NOTIFICATION || t.type == TxType.TRANSFER) return
+        val brand = Brands.forName(t.sourceApp) ?: return
+        val account = t.accountId ?: return
+        val s = settingsStore.current()
+        if (s.appLinks[brand.key] != account) settingsStore.update { it.copy(appLinks = it.appLinks + (brand.key to account)) }
     }
 
     // ——— Rencana ———
