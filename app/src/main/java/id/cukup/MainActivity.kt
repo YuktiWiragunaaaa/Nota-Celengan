@@ -42,7 +42,6 @@ import id.cukup.data.Settings
 import id.cukup.data.SettingsStore
 import id.cukup.ui.CukupNav
 import id.cukup.ui.components.InkButton
-import id.cukup.ui.onboarding.italicize
 import id.cukup.ui.theme.CukupTheme
 import id.cukup.ui.theme.Type
 import id.cukup.ui.theme.colors

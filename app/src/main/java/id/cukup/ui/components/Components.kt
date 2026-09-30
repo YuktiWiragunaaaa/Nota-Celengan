@@ -45,7 +45,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
-import id.cukup.domain.Pocket
+import id.cukup.domain.Account
+import id.cukup.domain.Category
 import id.cukup.domain.Rupiah
 import id.cukup.domain.Transaction
 import id.cukup.domain.TxStatus
@@ -253,13 +254,14 @@ fun AmountText(amount: Long, style: TextStyle = Type.amount, color: Color = colo
     Text(Rupiah.format(amount), style = style, color = color, modifier = modifier, maxLines = 1)
 }
 
-/** Satu baris transaksi: ikon bulat, judul, keterangan kecil, nominal. */
+/** Satu baris transaksi: ikon kategori, judul, dompet & jam, nominal. */
 @Composable
 fun TxRow(
     tx: Transaction,
-    pocket: Pocket?,
-    toPocket: Pocket?,
-    pocketColor: Color,
+    category: Category?,
+    account: Account?,
+    toAccount: Account?,
+    color: Color,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -267,25 +269,24 @@ fun TxRow(
     val title = when {
         tx.merchant.isNotBlank() -> tx.merchant
         tx.note.isNotBlank() -> tx.note
+        tx.type == TxType.TRANSFER -> "Pindah uang"
+        category != null -> category.name
         tx.type == TxType.INCOME -> "Uang masuk"
-        tx.type == TxType.MOVE -> "Pindah kantong"
-        tx.type == TxType.ADJUST -> "Atur saldo"
-        else -> "Belanja"
+        else -> "Uang keluar"
     }
     val emoji = when (tx.type) {
-        TxType.INCOME -> "💰"
-        TxType.MOVE -> "🔁"
-        TxType.ADJUST -> "✏️"
-        TxType.EXPENSE -> pocket?.emoji ?: "🧾"
+        TxType.TRANSFER -> "🔁"
+        else -> category?.emoji ?: if (tx.type == TxType.INCOME) "💰" else "🧾"
     }
     val subtitle = buildList {
         when (tx.type) {
-            TxType.EXPENSE -> pocket?.let { add(it.name) }
-            TxType.INCOME -> add(toPocket?.name ?: "Dibagi ke kantong")
-            TxType.MOVE -> add("${pocket?.name ?: "?"} ke ${toPocket?.name ?: "?"}")
-            TxType.ADJUST -> add((toPocket ?: pocket)?.name ?: "")
+            TxType.TRANSFER -> add("${account?.name ?: "?"} → ${toAccount?.name ?: "?"}")
+            else -> {
+                if (category != null && title != category.name) add(category.name)
+                account?.let { add(it.name) }
+            }
         }
-        if (tx.isPaylater) add("paylater")
+        if (tx.status == TxStatus.PENDING) add("perlu dicek")
         add(time(tx.occurredAt))
     }.filter { it.isNotBlank() }.joinToString(" · ")
     Row(
@@ -295,7 +296,7 @@ fun TxRow(
             .padding(horizontal = Gutter, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        PocketBadge(emoji, if (tx.type == TxType.INCOME) c.good else pocketColor)
+        PocketBadge(emoji, if (tx.type == TxType.TRANSFER) c.mute else color)
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
             Text(title, style = Type.strong, color = c.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -306,8 +307,7 @@ fun TxRow(
             when (tx.type) {
                 TxType.INCOME -> "+" + Rupiah.format(tx.amount)
                 TxType.EXPENSE -> "−" + Rupiah.format(tx.amount)
-                TxType.MOVE -> Rupiah.format(tx.amount)
-                TxType.ADJUST -> (if (tx.toPocketId != null) "+" else "−") + Rupiah.format(tx.amount)
+                TxType.TRANSFER -> Rupiah.format(tx.amount)
             },
             style = Type.amount,
             color = when {

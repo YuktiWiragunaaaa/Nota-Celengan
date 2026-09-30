@@ -35,7 +35,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
 
       - name: Tes logika
-        run: ./gradlew :domain:test --console=plain
+        run: bash ./gradlew :domain:test --console=plain
 
       - name: Siapkan kunci tanda tangan
         env:
@@ -52,7 +52,7 @@ jobs:
         env:
           CUKUP_BUILD: ${{ github.run_number }}
           CUKUP_KEYSTORE_PASSWORD: ${{ secrets.CUKUP_KEYSTORE_PASSWORD }}
-        run: ./gradlew :app:assembleRelease --console=plain
+        run: bash ./gradlew :app:assembleRelease --console=plain
 
       - name: Beri nama APK
         id: apk

@@ -41,11 +41,11 @@ import dagger.hilt.components.SingletonComponent
 import id.cukup.MainActivity
 import id.cukup.data.MoneyRepository
 import id.cukup.domain.Rupiah
+import id.cukup.domain.PlanStatus
 import id.cukup.domain.Warning
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -60,19 +60,16 @@ class CukupWidget : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val repo = EntryPointAccessors.fromApplication(context, WidgetEntryPoint::class.java).repository()
-        val summary = runCatching { repo.currentSummary() }.getOrNull()
-        val pending = runCatching { repo.pendingCount() }.getOrDefault(0)
-        val period = runCatching { repo.settings.first().schedule.periodName }.getOrDefault("ini")
+        val o = runCatching { repo.current() }.getOrNull()
         provideContent {
             GlanceTheme {
                 WidgetBody(
-                    left = summary?.budgetLeft ?: 0,
-                    used = summary?.budgetUsed ?: 0,
-                    budget = summary?.budget ?: 0,
-                    period = period,
-                    daysLeft = summary?.daysLeft ?: 0,
-                    pending = pending,
-                    ready = summary != null && summary.pockets.isNotEmpty(),
+                    ready = o != null && o.settings.onboarded && o.accounts.isNotEmpty(),
+                    total = o?.netWorth ?: 0,
+                    spent = o?.totals?.expense ?: 0,
+                    period = o?.periodName ?: "ini",
+                    plan = o?.planStatus?.takeIf { it.active },
+                    pending = o?.pending?.size ?: 0,
                     addIntent = Intent(context, MainActivity::class.java).putExtra(MainActivity.EXTRA_ADD, true),
                 )
             }
@@ -90,22 +87,14 @@ private val inkInverse = ColorProvider(day = Color(0xFFFBFAF7), night = Color(0x
 
 @Composable
 private fun WidgetBody(
-    left: Long,
-    used: Long,
-    budget: Long,
-    period: String,
-    daysLeft: Int,
-    pending: Int,
     ready: Boolean,
+    total: Long,
+    spent: Long,
+    period: String,
+    plan: PlanStatus?,
+    pending: Int,
     addIntent: Intent,
 ) {
-    val warning = Warning.of(used, budget)
-    val tone = when (warning) {
-        Warning.CALM -> ink
-        Warning.NEAR -> caution
-        Warning.OVER -> over
-    }
-    val ratio = if (budget > 0) (used.toFloat() / budget).coerceIn(0f, 1f) else 0f
     Column(
         modifier = GlanceModifier
             .fillMaxSize()
@@ -114,41 +103,39 @@ private fun WidgetBody(
             .padding(16.dp)
             .clickable(actionStartActivity<MainActivity>()),
     ) {
-        Text("JATAH ${period.uppercase()}", style = TextStyle(color = mute, fontSize = 10.sp, fontWeight = FontWeight.Medium))
-        Spacer(GlanceModifier.height(6.dp))
+        Text("UANGMU", style = TextStyle(color = mute, fontSize = 10.sp, fontWeight = FontWeight.Medium))
+        Spacer(GlanceModifier.height(4.dp))
         Text(
-            when {
-                !ready -> "Belum diatur"
-                budget <= 0 && used == 0L -> "Belum ada uang masuk"
-                left < 0 -> "Lewat ${Rupiah.format(-left)}"
-                else -> "${Rupiah.format(left)} lagi"
-            },
-            style = TextStyle(color = tone, fontSize = if (budget > 0 || used > 0) 24.sp else 16.sp),
+            if (ready) Rupiah.format(total) else "Buka Cukup dulu",
+            style = TextStyle(color = ink, fontSize = if (ready) 24.sp else 16.sp),
             maxLines = 1,
         )
-        if (budget > 0) {
-            Spacer(GlanceModifier.height(10.dp))
+        Spacer(GlanceModifier.height(4.dp))
+        Text("Keluar $period: ${Rupiah.short(spent)}", style = TextStyle(color = mute, fontSize = 11.sp))
+        if (plan != null) {
+            val tone = when (plan.warning) {
+                Warning.CALM -> ink
+                Warning.NEAR -> caution
+                Warning.OVER -> over
+            }
+            Spacer(GlanceModifier.height(8.dp))
             LinearProgressIndicator(
-                progress = ratio,
+                progress = (plan.spendUsed.toFloat() / plan.spendLimit.coerceAtLeast(1)).coerceIn(0f, 1f),
                 modifier = GlanceModifier.fillMaxWidth().height(6.dp),
                 color = tone,
                 backgroundColor = line,
             )
-            Spacer(GlanceModifier.height(6.dp))
+            Spacer(GlanceModifier.height(4.dp))
             Text(
-                "Kepakai ${Rupiah.short(used)} dari ${Rupiah.short(budget)}",
-                style = TextStyle(color = mute, fontSize = 11.sp),
+                if (plan.spendLeft < 0) "Lewat rencana ${Rupiah.short(-plan.spendLeft)}"
+                else "Rencana: aman ${Rupiah.short(plan.perDay)}/hari",
+                style = TextStyle(color = tone, fontSize = 11.sp),
             )
         }
         Spacer(GlanceModifier.defaultWeight())
         Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(
-                when {
-                    pending > 0 -> "$pending transaksi perlu dicek"
-                    !ready -> "Buka Cukup dulu"
-                    daysLeft == 1 -> "Besok gajian"
-                    else -> "Gajian $daysLeft hari lagi"
-                },
+                if (pending > 0) "$pending perlu dicek" else "Catat",
                 style = TextStyle(color = if (pending > 0) caution else mute, fontSize = 12.sp),
                 modifier = GlanceModifier.defaultWeight(),
             )

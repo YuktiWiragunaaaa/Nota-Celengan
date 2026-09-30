@@ -61,7 +61,7 @@ import kotlinx.coroutines.launch
 fun ProfileScreen(
     onBack: () -> Unit,
     onOpenSettings: () -> Unit,
-    onOpenGoals: () -> Unit,
+    onOpenPlan: () -> Unit,
     vm: SettingsViewModel = hiltViewModel(),
 ) {
     val s by vm.settings.collectAsStateWithLifecycle()
@@ -110,7 +110,7 @@ fun ProfileScreen(
                 Spacer(Modifier.height(8.dp))
                 LineField(s.name, { v -> vm.update { it.copy(name = v.take(20)) } }, "Nama panggilan")
             }
-            ProfileLink(Icons.Rounded.Flag, "Target tabungan", onOpenGoals)
+            ProfileLink(Icons.Rounded.Flag, "Rencana & target tabungan", onOpenPlan)
             ProfileLink(Icons.Rounded.Tune, "Setelan", onOpenSettings)
         }
     }

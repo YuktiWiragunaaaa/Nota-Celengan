@@ -1,23 +1,30 @@
 package id.cukup.data
 
 import androidx.room.withTransaction
-import id.cukup.data.db.AllocationEntity
+import id.cukup.data.db.AccountEntity
+import id.cukup.data.db.CategoryEntity
 import id.cukup.data.db.CukupDatabase
+import id.cukup.data.db.GoalEntity
 import id.cukup.data.db.MerchantRuleEntity
-import id.cukup.data.db.PocketEntity
+import id.cukup.data.db.PlanPosEntity
 import id.cukup.data.db.TransactionEntity
-import id.cukup.domain.Allocation
-import id.cukup.domain.Allocator
-import id.cukup.domain.Balances
-import id.cukup.domain.BudgetRule
+import id.cukup.domain.Account
+import id.cukup.domain.AccountBalance
+import id.cukup.domain.AccountKind
+import id.cukup.domain.Category
+import id.cukup.domain.CategoryKind
+import id.cukup.domain.Goal
+import id.cukup.domain.Ledger
 import id.cukup.domain.MerchantClassifier
 import id.cukup.domain.NotificationParser
 import id.cukup.domain.PayCycle
-import id.cukup.domain.Pocket
-import id.cukup.domain.PocketKind
-import id.cukup.domain.Preset
+import id.cukup.domain.PlanPos
+import id.cukup.domain.PlanPreset
+import id.cukup.domain.PlanStatus
+import id.cukup.domain.Planner
+import id.cukup.domain.Presets
 import id.cukup.domain.Schedule
-import id.cukup.domain.Summary
+import id.cukup.domain.Totals
 import id.cukup.domain.Transaction
 import id.cukup.domain.TxSource
 import id.cukup.domain.TxStatus
@@ -32,6 +39,37 @@ import java.time.ZoneId
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/** Semua yang dibutuhkan layar, dihitung sekali dari database. */
+data class Overview(
+    val settings: Settings,
+    val accounts: List<AccountBalance>,
+    /** Kategori aktif. */
+    val categories: List<Category>,
+    /** Semua kategori termasuk yang diarsipkan, untuk menamai transaksi lama. */
+    val categoryById: Map<Long, Category>,
+    val transactions: List<Transaction>,
+    val plan: List<PlanPos>,
+    val goals: List<Goal>,
+    val cycle: PayCycle,
+    val previous: PayCycle,
+    val cycleStart: Long,
+    val cycleEnd: Long,
+    val previousStart: Long,
+    /** Catatan periode ini. */
+    val totals: Totals,
+    val lastTotals: Totals,
+    val planStatus: PlanStatus,
+) {
+    val netWorth: Long get() = Ledger.netWorth(accounts)
+    val debt: Long get() = Ledger.debt(accounts)
+    val accountById: Map<Long, Account> get() = accounts.associate { it.account.id to it.account }
+    val pending: List<Transaction> get() = transactions.filter { it.status == TxStatus.PENDING }
+    val confirmed: List<Transaction> get() = transactions.filter { it.status == TxStatus.CONFIRMED }
+    val periodName: String get() = settings.schedule.periodName
+    fun expenseCategories() = categories.filter { it.kind == CategoryKind.EXPENSE }
+    fun incomeCategories() = categories.filter { it.kind == CategoryKind.INCOME }
+}
+
 @Singleton
 class MoneyRepository @Inject constructor(
     private val db: CukupDatabase,
@@ -42,131 +80,151 @@ class MoneyRepository @Inject constructor(
     private val dao = db.dao()
     private val zone: ZoneId get() = ZoneId.systemDefault()
 
-    val pockets: Flow<List<Pocket>> = dao.observePockets().map { list -> list.map { it.toDomain() } }
-    val transactions: Flow<List<Transaction>> = dao.observeTransactions().map { list -> list.map { it.toDomain() } }
-    val pending: Flow<List<Transaction>> = dao.observePending().map { list -> list.map { it.toDomain() } }
-    val allocations: Flow<List<Allocation>> = dao.observeAllocations().map { list -> list.map { it.toDomain() } }
     val settings: Flow<Settings> = settingsStore.settings
 
-    val summary: Flow<Summary> = combine(pockets, transactions, allocations, settings) { p, t, a, s ->
-        summarize(p, t, a, s.schedule, s.budgetRule)
+    private val records = combine(
+        dao.observeAccounts(),
+        dao.observeAllCategories(),
+        dao.observeTransactions(),
+    ) { a, c, t -> Triple(a.map { it.toDomain() }, c, t.map { it.toDomain() }) }
+
+    private val planning = combine(dao.observePlan(), dao.observeGoals()) { p, g ->
+        p.map { it.toDomain() } to g.map { it.toDomain() }
     }
 
-    fun cycle(schedule: Schedule, today: LocalDate = LocalDate.now(zone)): PayCycle = PayCycle.of(today, schedule)
+    val overview: Flow<Overview> = combine(records, planning, settingsStore.settings) { (accounts, cats, txs), (plan, goals), s ->
+        build(accounts, cats, txs, plan, goals, s)
+    }
 
-    /** Periode sebelum periode yang sedang berjalan. */
-    fun previousCycle(schedule: Schedule): PayCycle = PayCycle.of(cycle(schedule).start.minusDays(1), schedule)
+    private fun millis(d: LocalDate) = d.atStartOfDay(zone).toInstant().toEpochMilli()
 
-    fun summarize(p: List<Pocket>, t: List<Transaction>, a: List<Allocation>, schedule: Schedule, rule: BudgetRule = BudgetRule()): Summary {
+    fun cycle(schedule: Schedule): PayCycle = PayCycle.of(LocalDate.now(zone), schedule)
+
+    private fun build(
+        accounts: List<Account>,
+        cats: List<CategoryEntity>,
+        txs: List<Transaction>,
+        plan: List<PlanPos>,
+        goals: List<Goal>,
+        s: Settings,
+    ): Overview {
         val today = LocalDate.now(zone)
-        val cycle = cycle(schedule, today)
-        val start = cycle.start.atStartOfDay(zone).toInstant().toEpochMilli()
-        val previousStart = PayCycle.of(cycle.start.minusDays(1), schedule).start.atStartOfDay(zone).toInstant().toEpochMilli()
-        return Balances.compute(p, t, a, start, cycle.daysLeft(today), rule, previousStart)
+        val cycle = PayCycle.of(today, s.schedule)
+        val previous = PayCycle.of(cycle.start.minusDays(1), s.schedule)
+        val start = millis(cycle.start)
+        val end = millis(cycle.nextPayday)
+        val prevStart = millis(previous.start)
+        val totals = Ledger.totals(txs, start, end)
+        val last = Ledger.totals(txs, prevStart, start)
+        val categories = cats.map { it.toDomain() }
+        val active = cats.filter { !it.archived }.map { it.toDomain() }
+        val basis = Planner.basis(s.planBasis, totals.income, last.income)
+        return Overview(
+            settings = s,
+            accounts = Ledger.balances(accounts, txs),
+            categories = active,
+            categoryById = categories.associateBy { it.id },
+            transactions = txs,
+            plan = plan,
+            goals = goals,
+            cycle = cycle,
+            previous = previous,
+            cycleStart = start,
+            cycleEnd = end,
+            previousStart = prevStart,
+            totals = totals,
+            lastTotals = last,
+            planStatus = Planner.status(plan, categories, accounts, txs, basis, start, end, cycle.daysLeft(today)),
+        )
     }
 
-    suspend fun currentSummary(): Summary =
-        summarize(pockets.first(), transactions.first(), allocations.first(), settingsStore.current().schedule, settingsStore.current().budgetRule)
+    suspend fun current(): Overview = overview.first()
 
-    // ——— Pos ———
+    // ——— Pengenalan ———
 
-    /** Menyimpan urutan & persentase pos. Pos yang tidak ada di [pockets] diarsipkan (riwayatnya tetap). */
-    suspend fun savePockets(pockets: List<Pocket>) {
+    /** Isi awal: dompet dengan saldonya, kategori bawaan, dan (opsional) rencana. */
+    suspend fun setup(accounts: List<Account>, preset: PlanPreset?) {
         db.withTransaction {
-            val existing = dao.pockets().map { it.id }.toSet()
-            val keep = pockets.map { it.id }.filter { it != 0L }.toSet()
-            dao.upsertPockets(pockets.mapIndexed { i, p -> PocketEntity.from(p.copy(sortOrder = i)) })
-            val removed = existing - keep
-            if (removed.isNotEmpty()) dao.archivePockets(removed.toList())
+            db.clearAllTables()
+            accounts.forEachIndexed { i, a -> dao.upsertAccount(AccountEntity.from(a.copy(id = 0, sortOrder = i))) }
+            dao.upsertCategories(
+                Presets.categories.mapIndexed { i, c ->
+                    CategoryEntity(name = c.name, emoji = c.emoji, kind = c.kind.name, tag = c.tag.name, sortOrder = i)
+                },
+            )
+            if (preset != null) writePreset(preset)
+        }
+        val first = dao.accounts().firstOrNull()?.id ?: 0
+        settingsStore.update { it.copy(defaultAccountId = first) }
+        changed()
+    }
+
+    // ——— Dompet ———
+
+    suspend fun saveAccount(a: Account): Long {
+        val order = if (a.id == 0L) dao.accounts().size else a.sortOrder
+        val id = dao.upsertAccount(AccountEntity.from(a.copy(sortOrder = order)))
+        changed()
+        return if (a.id == 0L) id else a.id
+    }
+
+    /**
+     * Menyamakan saldo dompet dengan kenyataan (mis. setelah cek aplikasi bank).
+     * Saldo awal digeser, jadi riwayat transaksi tidak berubah.
+     */
+    suspend fun setAccountBalance(id: Long, actual: Long) {
+        val a = dao.account(id) ?: return
+        val now = current().accounts.firstOrNull { it.account.id == id }?.balance ?: return
+        dao.upsertAccount(a.copy(initialBalance = a.initialBalance + (actual - now)))
+        changed()
+    }
+
+    suspend fun archiveAccount(id: Long) {
+        dao.archiveAccount(id)
+        if (settingsStore.current().defaultAccountId == id) {
+            settingsStore.update { s -> s.copy(defaultAccountId = dao.accounts().firstOrNull()?.id ?: 0) }
         }
         changed()
     }
 
-    suspend fun applyPreset(preset: Preset) {
-        val current = dao.pockets().map { it.id }
-        db.withTransaction {
-            if (current.isNotEmpty()) dao.archivePockets(current)
-            dao.upsertPockets(
-                preset.pockets.mapIndexed { i, p ->
-                    PocketEntity(name = p.name, emoji = p.emoji, percent = p.percent, kind = p.kind.name, tag = p.tag.name, sortOrder = i)
-                },
-            )
-        }
+    suspend fun setDefaultAccount(id: Long) = settingsStore.update { it.copy(defaultAccountId = id) }
+
+    // ——— Kategori ———
+
+    suspend fun saveCategory(c: Category): Long {
+        val order = if (c.id == 0L) dao.categories().size else c.sortOrder
+        val id = dao.upsertCategory(CategoryEntity.from(c.copy(sortOrder = order)))
+        changed()
+        return if (c.id == 0L) id else c.id
+    }
+
+    suspend fun archiveCategory(id: Long) {
+        dao.archiveCategory(id)
         changed()
     }
 
     // ——— Transaksi ———
 
-    suspend fun addExpense(amount: Long, pocketId: Long, merchant: String, note: String, at: Long, isPaylater: Boolean) {
-        dao.insertTransaction(
-            TransactionEntity.from(
-                Transaction(
-                    type = TxType.EXPENSE, amount = amount, pocketId = pocketId, merchant = merchant.trim(),
-                    note = note.trim(), occurredAt = at, isPaylater = isPaylater,
-                ),
-            ),
-        )
-        learn(merchant, pocketId)
+    /** Menyimpan transaksi baru atau hasil edit. */
+    suspend fun save(t: Transaction) {
+        val clean = t.copy(merchant = t.merchant.trim(), note = t.note.trim())
+        if (clean.id == 0L) dao.insertTransaction(TransactionEntity.from(clean)) else dao.upsertTransaction(TransactionEntity.from(clean))
+        if (clean.type != TxType.TRANSFER) clean.categoryId?.let { learn(clean.merchant, it) }
         changed()
+        if (clean.type == TxType.EXPENSE && clean.id == 0L) runCatching { alerts.checkSingle(clean.amount, clean.merchant) }
     }
 
-    /** [toPocketId] null = dibagi ke semua pos sesuai persentase saat ini. */
-    suspend fun addIncome(amount: Long, merchant: String, note: String, at: Long, toPocketId: Long?) {
-        saveIncome(
-            Transaction(type = TxType.INCOME, amount = amount, toPocketId = toPocketId, merchant = merchant.trim(), note = note.trim(), occurredAt = at),
-        )
-        changed()
-    }
+    suspend fun transaction(id: Long): Transaction? = dao.transaction(id)?.toDomain()
 
-    suspend fun move(fromPocketId: Long, toPocketId: Long, amount: Long, note: String, at: Long) {
-        dao.insertTransaction(
-            TransactionEntity.from(
-                Transaction(type = TxType.MOVE, amount = amount, pocketId = fromPocketId, toPocketId = toPocketId, note = note.trim(), occurredAt = at),
-            ),
-        )
-        changed()
-    }
-
-    /** Menyimpan pemasukan beserta alokasinya dalam satu transaksi database. */
-    private suspend fun saveIncome(tx: Transaction): Long = db.withTransaction {
-        val id = dao.upsertTransaction(TransactionEntity.from(tx))
-        val txId = if (tx.id != 0L) tx.id else id
-        dao.deleteAllocations(txId)
-        if (tx.toPocketId == null && tx.status == TxStatus.CONFIRMED) {
-            val pockets = dao.pockets().map { it.toDomain() }
-            dao.insertAllocations(
-                Allocator.split(tx.amount, pockets)
-                    .filter { it.second > 0 }
-                    .map { (p, v) -> AllocationEntity(transactionId = txId, pocketId = p.id, amount = v, percentAtTime = p.percent) },
-            )
-        }
-        txId
-    }
-
-    /**
-     * Mengonfirmasi transaksi dari notifikasi.
-     * Pengeluaran: [pocketId] = pos sumber. Pemasukan: [pocketId] null = dibagi, selain itu masuk ke satu pos.
-     */
-    suspend fun confirm(id: Long, pocketId: Long?, isPaylater: Boolean? = null) {
+    /** Mengonfirmasi transaksi dari notifikasi dengan dompet & kategori pilihan pengguna. */
+    suspend fun confirm(id: Long, accountId: Long?, categoryId: Long?) {
         val tx = dao.transaction(id)?.toDomain() ?: return
-        when (tx.type) {
-            TxType.INCOME -> saveIncome(tx.copy(status = TxStatus.CONFIRMED, toPocketId = pocketId))
-            else -> {
-                dao.upsertTransaction(
-                    TransactionEntity.from(
-                        tx.copy(status = TxStatus.CONFIRMED, pocketId = pocketId ?: tx.pocketId, isPaylater = isPaylater ?: tx.isPaylater),
-                    ),
-                )
-                if (pocketId != null) learn(tx.merchant, pocketId)
-            }
-        }
-        changed()
+        save(tx.copy(status = TxStatus.CONFIRMED, accountId = accountId ?: tx.accountId, categoryId = categoryId ?: tx.categoryId))
     }
 
     suspend fun dismiss(id: Long) {
         val tx = dao.transaction(id) ?: return
         dao.upsertTransaction(tx.copy(status = TxStatus.DISMISSED.name))
-        dao.deleteAllocations(id)
         changed()
     }
 
@@ -175,32 +233,23 @@ class MoneyRepository @Inject constructor(
         changed()
     }
 
-    /** Mengganti pos sebuah pengeluaran dan mengingat pilihan itu untuk merchant yang sama. */
-    suspend fun changePocket(id: Long, pocketId: Long) {
-        val tx = dao.transaction(id)?.toDomain() ?: return
-        if (tx.type != TxType.EXPENSE) return
-        dao.upsertTransaction(TransactionEntity.from(tx.copy(pocketId = pocketId)))
-        learn(tx.merchant, pocketId)
-        changed()
-    }
-
-    private suspend fun learn(merchant: String, pocketId: Long) {
+    private suspend fun learn(merchant: String, categoryId: Long) {
         val key = MerchantClassifier.key(merchant)
-        if (key.length >= 2) dao.upsertRule(MerchantRuleEntity(key, pocketId, System.currentTimeMillis()))
+        if (key.length >= 2) dao.upsertRule(MerchantRuleEntity(key, categoryId, System.currentTimeMillis()))
     }
 
-    suspend fun suggestPocket(merchant: String, isPaylaterPayment: Boolean = false): Pocket? {
-        val pockets = dao.pockets().map { it.toDomain() }
-        val learned = dao.merchantRules().associate { it.merchantKey to it.pocketId }
-        return MerchantClassifier.suggest(merchant, pockets, learned, isPaylaterPayment)
+    suspend fun suggestCategory(merchant: String, kind: CategoryKind, isDebtPayment: Boolean = false): Category? {
+        val cats = dao.categories().map { it.toDomain() }
+        val learned = dao.merchantRules().associate { it.merchantKey to it.categoryId }
+        return MerchantClassifier.suggest(merchant, cats, learned, kind, isDebtPayment)
     }
 
     // ——— Notifikasi ———
 
     /**
      * Membaca notifikasi dan menyimpannya sebagai transaksi. Mengembalikan true bila tersimpan.
-     * Notifikasi yang sama (fingerprint) diabaikan; nominal serupa dari aplikasi lain dalam ±3 menit
-     * tetap disimpan tetapi selalu masuk "Perlu dicek" (kemungkinan duplikat bank + e-wallet).
+     * Dompet ditebak dari nama aplikasi (mis. notifikasi GoPay → dompet bernama "GoPay").
+     * Nominal serupa dalam ±3 menit selalu masuk "Perlu dicek" (kemungkinan duplikat bank + e-wallet).
      */
     suspend fun ingest(packageName: String, title: String?, text: String?, postedAt: Long): Boolean {
         val parsed = NotificationParser.parse(packageName, title, text) ?: return false
@@ -209,69 +258,124 @@ class MoneyRepository @Inject constructor(
         val fingerprint = NotificationParser.fingerprint(packageName, parsed.amount, postedAt, parsed.merchant)
         val similar = dao.countSimilar(parsed.amount, parsed.type.name, postedAt - 180_000, postedAt + 180_000)
         val auto = s.autoConfirm && similar == 0
-        val pocket = if (parsed.type == TxType.EXPENSE) suggestPocket(parsed.merchant, parsed.isDebtPayment) else null
+        val kind = if (parsed.type == TxType.INCOME) CategoryKind.INCOME else CategoryKind.EXPENSE
+        val category = suggestCategory(parsed.merchant, kind, parsed.isDebtPayment)
+        val account = guessAccount(parsed.appLabel, parsed.isPaylater, s.defaultAccountId)
 
         val tx = Transaction(
             type = parsed.type,
             amount = parsed.amount,
-            pocketId = pocket?.id,
+            accountId = account,
+            categoryId = category?.id,
             merchant = parsed.merchant.ifBlank { if (parsed.isDebtPayment) "Bayar tagihan ${parsed.appLabel}" else "" },
             note = if (similar > 0) "Mungkin duplikat" else "",
             occurredAt = postedAt,
             source = TxSource.NOTIFICATION,
             sourceApp = parsed.appLabel,
             status = if (auto) TxStatus.CONFIRMED else TxStatus.PENDING,
-            isPaylater = parsed.isPaylater,
             fingerprint = fingerprint,
         )
-        val saved = if (tx.type == TxType.INCOME && auto) {
-            saveIncome(tx) > 0
-        } else {
-            dao.insertTransaction(TransactionEntity.from(tx)) > 0
-        }
+        val saved = dao.insertTransaction(TransactionEntity.from(tx)) > 0
         if (saved) {
             changed()
-            if (tx.type == TxType.EXPENSE && !tx.isPaylater) runCatching { alerts.checkSingle(tx.amount, tx.merchant) }
+            if (tx.type == TxType.EXPENSE) runCatching { alerts.checkSingle(tx.amount, tx.merchant) }
         }
         return saved
     }
 
-    /** Mengubah isi kantong menjadi [target] lewat transaksi penyesuaian (riwayat tetap ada). */
-    suspend fun setBalance(pocketId: Long, target: Long) {
-        val current = currentSummary().pockets.firstOrNull { it.pocket.id == pocketId }?.balance ?: return
-        val diff = target - current
-        if (diff == 0L) return
-        dao.insertTransaction(
-            TransactionEntity.from(
-                Transaction(
-                    type = TxType.ADJUST,
-                    amount = kotlin.math.abs(diff),
-                    pocketId = if (diff < 0) pocketId else null,
-                    toPocketId = if (diff > 0) pocketId else null,
-                    merchant = if (target == 0L) "Saldo dikosongkan" else "Saldo disesuaikan",
-                    occurredAt = System.currentTimeMillis(),
-                ),
-            ),
+    private suspend fun guessAccount(appLabel: String, paylater: Boolean, fallback: Long): Long? {
+        val accounts = dao.accounts().map { it.toDomain() }
+        if (paylater) accounts.firstOrNull { it.kind == AccountKind.PAYLATER }?.let { return it.id }
+        val label = appLabel.lowercase()
+        accounts.firstOrNull { a ->
+            val n = a.name.lowercase()
+            n.isNotBlank() && (label.contains(n) || n.contains(label.substringBefore(' ')))
+        }?.let { return it.id }
+        return accounts.firstOrNull { it.id == fallback }?.id ?: accounts.firstOrNull()?.id
+    }
+
+    // ——— Rencana ———
+
+    private suspend fun writePreset(preset: PlanPreset) {
+        val old = dao.plan().map { it.id }
+        if (old.isNotEmpty()) {
+            dao.unlinkPlan(old)
+            dao.deletePlan(old)
+        }
+        val ids = dao.upsertPlan(
+            preset.pos.mapIndexed { i, p -> PlanPosEntity(name = p.name, emoji = p.emoji, percent = p.percent, kind = p.kind.name, sortOrder = i) },
         )
+        val cats = dao.categories()
+        dao.upsertCategories(
+            cats.map { c ->
+                val index = preset.pos.indexOfFirst { c.tag in it.tags.map { t -> t.name } }
+                c.copy(planId = if (c.kind == CategoryKind.EXPENSE.name && index >= 0) ids[index] else null)
+            },
+        )
+    }
+
+    suspend fun applyPlanPreset(preset: PlanPreset) {
+        db.withTransaction { writePreset(preset) }
         changed()
     }
 
-    /** Pasang atau hapus target tabungan pada kantong. */
-    suspend fun setTarget(pocketId: Long, target: Long?) {
-        val p = dao.pockets().firstOrNull { it.id == pocketId } ?: return
-        dao.upsertPockets(listOf(p.copy(target = target?.takeIf { it > 0 })))
+    /**
+     * Menyimpan pos rencana dan ke pos mana tiap kategori dihitung.
+     * Pos baru memakai id negatif sementara di [links]; diganti id sungguhan setelah disimpan.
+     */
+    suspend fun savePlan(pos: List<PlanPos>, links: Map<Long, Long?>) {
+        db.withTransaction {
+            val existing = dao.plan().map { it.id }.toSet()
+            val keep = pos.map { it.id }.filter { it > 0 }.toSet()
+            val removed = (existing - keep).toList()
+            if (removed.isNotEmpty()) {
+                dao.unlinkPlan(removed)
+                dao.deletePlan(removed)
+            }
+            val saved = dao.upsertPlan(pos.mapIndexed { i, p -> PlanPosEntity.from(p.copy(id = p.id.coerceAtLeast(0), sortOrder = i)) })
+            val realId = pos.mapIndexed { i, p -> p.id to (if (p.id > 0) p.id else saved[i]) }.toMap()
+            val cats = dao.categories()
+            dao.upsertCategories(
+                cats.map { c ->
+                    if (!links.containsKey(c.id)) c else c.copy(planId = links[c.id]?.let { realId[it] })
+                },
+            )
+        }
         changed()
     }
 
-    /** Membuat kantong tabungan baru (0%) dengan target. Mengembalikan id-nya. */
-    suspend fun createGoal(name: String, emoji: String, color: Int?, target: Long): Long {
-        val order = dao.pockets().size
-        val id = dao.upsertPockets(
-            listOf(PocketEntity(name = name, emoji = emoji, percent = 0, kind = PocketKind.SAVE.name, tag = "SAVINGS", sortOrder = order, color = color, target = target)),
-        ).first()
+    suspend fun clearPlan() {
+        db.withTransaction {
+            val ids = dao.plan().map { it.id }
+            if (ids.isNotEmpty()) {
+                dao.unlinkPlan(ids)
+                dao.deletePlan(ids)
+            }
+        }
         changed()
-        return id
     }
+
+    suspend fun setPlanBasis(basis: id.cukup.domain.PlanBasis) {
+        settingsStore.update { it.copy(planBasis = basis) }
+        changed()
+    }
+
+    // ——— Target tabungan ———
+
+    suspend fun saveGoal(g: Goal): Long {
+        val id = dao.upsertGoal(GoalEntity.from(g))
+        return if (g.id == 0L) id else g.id
+    }
+
+    /** Menambah (atau mengurangi, bila negatif) jumlah terkumpul target tanpa dompet. */
+    suspend fun addToGoal(id: Long, amount: Long) {
+        val g = dao.goal(id) ?: return
+        dao.upsertGoal(g.copy(saved = (g.saved + amount).coerceAtLeast(0)))
+    }
+
+    suspend fun deleteGoal(id: Long) = dao.deleteGoal(id)
+
+    // ——— Lain-lain ———
 
     /** Menghapus semua data dan pengaturan. Aplikasi kembali ke awal. */
     suspend fun eraseEverything() {
@@ -280,15 +384,9 @@ class MoneyRepository @Inject constructor(
         widgets.refresh()
     }
 
-    suspend fun hasPockets(): Boolean = dao.pocketCount() > 0
-
-    suspend fun pendingCount(): Int = pending.first().size
-
-    /** Setelah data berubah: perbarui widget dan periksa jatah belanja. */
+    /** Setelah data berubah: perbarui widget dan periksa rencana belanja. */
     private suspend fun changed() {
         widgets.refresh()
-        runCatching { alerts.check(currentSummary()) }
+        runCatching { alerts.check(current().planStatus) }
     }
-
-    fun spendPockets(all: List<Pocket>) = all.filter { it.kind != PocketKind.SAVE }
 }

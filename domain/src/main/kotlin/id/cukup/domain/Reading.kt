@@ -2,54 +2,42 @@ package id.cukup.domain
 
 import kotlin.math.ceil
 
-/** Kesimpulan singkat dari data kantong, untuk dibaca di bawah grafik. */
+/** Kesimpulan singkat dari grafik, untuk dibaca di bawahnya. */
 object ChartReader {
 
-    /** Maksimal dua kalimat pendek. */
-    fun read(summary: Summary): List<String> {
-        val rows = summary.pockets.filter { it.balance > 0 }
-        val total = rows.sumOf { it.balance }
-        if (total <= 0) return listOf("Belum ada uang di kantong. Catat uang masuk dulu.")
+    /** Maksimal dua kalimat tentang pengeluaran per kategori. */
+    fun readSpending(parts: List<CategoryAmount>, totals: Totals, periodName: String): List<String> {
+        val total = parts.sumOf { it.amount }
+        if (total <= 0) {
+            return if (totals.income > 0) listOf("Belum ada pengeluaran $periodName. Uang masuk ${Rupiah.short(totals.income)}.")
+            else listOf("Belum ada catatan $periodName.")
+        }
         val out = mutableListOf<String>()
-
-        val biggest = rows.maxBy { it.balance }
-        val share = (biggest.balance * 100 / total).toInt()
-        out += "${biggest.pocket.name} paling besar, $share% dari semua uangmu."
-
-        val spend = summary.pockets.filter { it.pocket.kind == PocketKind.SPEND && it.balance + it.spentThisCycle > 0 }
-        val fastest = spend.maxByOrNull { it.usedRatio }
+        val top = parts.first()
+        val name = top.category?.name ?: "Tanpa kategori"
+        out += if (parts.size == 1) "Semua pengeluaran $periodName untuk $name."
+        else "$name paling besar: ${top.amount * 100 / total}% dari ${Rupiah.short(total)}."
         when {
-            fastest != null && fastest.usedRatio >= 0.8f ->
-                out += "${fastest.pocket.name} hampir habis, tinggal ${Rupiah.short(fastest.balance.coerceAtLeast(0))}."
-            fastest != null && fastest.usedRatio > 0f ->
-                out += "${fastest.pocket.name} paling cepat terpakai (${(fastest.usedRatio * 100).toInt()}%)."
-            else -> {
-                val saved = summary.pockets.filter { it.pocket.kind == PocketKind.SAVE }.sumOf { it.balance.coerceAtLeast(0) }
-                if (saved > 0) out += "${(saved * 100 / total).toInt()}% uangmu ada di tabungan."
+            totals.income > 0 && totals.expense > totals.income ->
+                out += "Keluar lebih banyak ${Rupiah.short(totals.expense - totals.income)} dari yang masuk."
+            totals.income > 0 ->
+                out += "Masih tersisa ${Rupiah.short(totals.income - totals.expense)} dari uang masuk $periodName."
+            parts.size >= 2 -> {
+                val second = parts[1]
+                out += "Disusul ${second.category?.name ?: "tanpa kategori"} (${Rupiah.short(second.amount)})."
             }
         }
         return out.take(2)
     }
 
-    /** Pembagian pengeluaran per kantong untuk sekumpulan transaksi. */
-    fun spendingByPocket(transactions: List<Transaction>, pockets: List<Pocket>): List<Pair<Pocket, Long>> {
-        val sums = transactions
-            .filter { it.status == TxStatus.CONFIRMED && it.type == TxType.EXPENSE && !it.isPaylater }
-            .groupBy { it.pocketId }
-            .mapValues { (_, list) -> list.sumOf { it.amount } }
-        return pockets.mapNotNull { p -> sums[p.id]?.takeIf { it > 0 }?.let { p to it } }.sortedByDescending { it.second }
-    }
-
-    /** Kalimat untuk grafik pengeluaran per kantong. */
-    fun readSpending(parts: List<Pair<Pocket, Long>>): String {
-        val total = parts.sumOf { it.second }
-        if (total <= 0) return "Belum ada pengeluaran di periode ini."
-        val (top, amount) = parts.first()
-        val share = (amount * 100 / total).toInt()
-        return if (parts.size == 1) {
-            "Semua pengeluaran periode ini dari ${top.name}."
-        } else {
-            "${top.name} paling banyak makan uang: $share% dari ${Rupiah.short(total)}."
+    /** Satu kalimat tentang rencana. */
+    fun readPlan(status: PlanStatus, periodName: String): String {
+        if (!status.active) return "Belum ada rencana. Atur di tab Rencana kalau mau dibantu jaga belanja."
+        val over = status.rows.filter { it.pos.kind == PlanKind.SPEND && it.left < 0 }
+        return when {
+            over.isNotEmpty() -> "${over.first().pos.name} sudah lewat ${Rupiah.short(-over.first().left)} dari rencana."
+            status.warning == Warning.NEAR -> "Batas belanja $periodName hampir habis, tinggal ${Rupiah.short(status.spendLeft)}."
+            else -> "Aman. Boleh belanja sekitar ${Rupiah.short(status.perDay)} per hari sampai akhir periode."
         }
     }
 }
@@ -58,7 +46,7 @@ object ChartReader {
 data class GoalProgress(
     val saved: Long,
     val target: Long,
-    /** Perkiraan jumlah periode (minggu/bulan) lagi sampai tercapai; null bila tidak bisa diperkirakan. */
+    /** Perkiraan jumlah periode lagi sampai tercapai; null bila tidak bisa diperkirakan. */
     val periodsLeft: Int?,
 ) {
     val ratio: Float get() = if (target <= 0) 0f else (saved.toFloat() / target).coerceIn(0f, 1f)
@@ -66,10 +54,7 @@ data class GoalProgress(
     val reached: Boolean get() = target in 1..saved
 
     companion object {
-        /**
-         * [perPeriod] = perkiraan uang yang masuk ke kantong ini tiap periode
-         * (persen kantong × uang masuk periode ini atau periode lalu).
-         */
+        /** [perPeriod] = perkiraan yang bisa disisihkan tiap periode (dari rencana tabungan). */
         fun of(saved: Long, target: Long, perPeriod: Long): GoalProgress {
             val remaining = (target - saved).coerceAtLeast(0)
             val periods = when {

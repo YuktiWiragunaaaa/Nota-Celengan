@@ -9,7 +9,7 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
-import id.cukup.domain.BudgetRule
+import id.cukup.domain.PlanBasis
 import id.cukup.domain.Frequency
 import id.cukup.domain.Schedule
 import kotlinx.coroutines.flow.Flow
@@ -29,8 +29,10 @@ data class Settings(
     val budgetAlerts: Boolean = true,
     /** Tanya dulu kalau satu kali belanja di atas nominal ini. 0 = mati. */
     val singleLimit: Long = 0,
-    /** Cara hitung jatah belanja. */
-    val budgetRule: BudgetRule = BudgetRule(),
+    /** Dari mana rencana menghitung uang masuk yang dibagi ke pos. */
+    val planBasis: PlanBasis = PlanBasis(),
+    /** Dompet yang dipilih otomatis saat mencatat. */
+    val defaultAccountId: Long = 0,
     /** Grafik di beranda: DONUT, BAR, atau BUBBLE. */
     val chart: String = "DONUT",
     /** Versi foto profil (0 = belum ada). Dipakai agar gambar dimuat ulang saat diganti. */
@@ -56,8 +58,10 @@ class SettingsStore @Inject constructor(@ApplicationContext private val context:
         val budgetAlerts = booleanPreferencesKey("budget_alerts")
         val lastAlert = stringPreferencesKey("last_alert")
         val singleLimit = longPreferencesKey("single_limit")
-        val budgetMode = stringPreferencesKey("budget_mode")
-        val budgetPercent = intPreferencesKey("budget_percent")
+        val basisMode = stringPreferencesKey("plan_basis_mode")
+        val basisAmount = longPreferencesKey("plan_basis_amount")
+        val defaultAccount = longPreferencesKey("default_account")
+        val dataVersion = intPreferencesKey("data_version")
         val chart = stringPreferencesKey("chart")
         val avatarVersion = longPreferencesKey("avatar_version")
     }
@@ -70,19 +74,25 @@ class SettingsStore @Inject constructor(@ApplicationContext private val context:
             weekday = p[K.weekday] ?: 5,
             anchor = p[K.anchor] ?: 0,
         ),
-        onboarded = p[K.onboarded] ?: false,
+        // Data sebelum v0.6 dikosongkan (lihat CukupDatabase), jadi pengenalan diulang.
+        onboarded = (p[K.onboarded] ?: false) && (p[K.dataVersion] ?: 0) >= DATA_VERSION,
         biometricLock = p[K.biometric] ?: false,
         autoConfirm = p[K.autoConfirm] ?: false,
         budgetAlerts = p[K.budgetAlerts] ?: true,
         lastAlert = p[K.lastAlert] ?: "",
         singleLimit = p[K.singleLimit] ?: 0,
-        budgetRule = BudgetRule(
-            mode = p[K.budgetMode]?.let { runCatching { BudgetRule.Mode.valueOf(it) }.getOrNull() } ?: BudgetRule.Mode.POCKETS,
-            percent = p[K.budgetPercent] ?: 50,
+        planBasis = PlanBasis(
+            mode = p[K.basisMode]?.let { runCatching { PlanBasis.Mode.valueOf(it) }.getOrNull() } ?: PlanBasis.Mode.FIXED,
+            fixedAmount = p[K.basisAmount] ?: 0,
         ),
+        defaultAccountId = p[K.defaultAccount] ?: 0,
         chart = p[K.chart] ?: "DONUT",
         avatarVersion = p[K.avatarVersion] ?: 0,
     )
+
+    private companion object {
+        const val DATA_VERSION = 4
+    }
 
     val settings: Flow<Settings> = context.dataStore.data.map(::read)
 
@@ -102,8 +112,10 @@ class SettingsStore @Inject constructor(@ApplicationContext private val context:
             p[K.budgetAlerts] = next.budgetAlerts
             p[K.lastAlert] = next.lastAlert
             p[K.singleLimit] = next.singleLimit
-            p[K.budgetMode] = next.budgetRule.mode.name
-            p[K.budgetPercent] = next.budgetRule.percent
+            p[K.basisMode] = next.planBasis.mode.name
+            p[K.basisAmount] = next.planBasis.fixedAmount
+            p[K.defaultAccount] = next.defaultAccountId
+            p[K.dataVersion] = DATA_VERSION
             p[K.chart] = next.chart
             p[K.avatarVersion] = next.avatarVersion
         }

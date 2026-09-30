@@ -1,66 +1,110 @@
 package id.cukup.domain
 
-/** Jenis pos menentukan bagaimana saldonya dihitung di "aman dipakai". */
-enum class PocketKind { SPEND, SAVE, DEBT }
+/*
+ * Cukup v0.6 memisahkan dua hal:
+ *
+ * CATATAN — apa yang benar-benar terjadi.
+ *   Dompet (tunai, rekening, e-wallet) punya saldo sungguhan.
+ *   Setiap transaksi mengubah saldo dompet: Keluar mengurangi, Masuk menambah, Pindah memindahkan.
+ *   Kategori hanya label ("Makan", "Transport") supaya tahu uang habis ke mana.
+ *
+ * RENCANA — batas yang kamu tetapkan sendiri. Tidak memindahkan uang apa pun.
+ *   Pos rencana (mis. Kebutuhan 50%, Keinginan 30%, Tabungan 20%) dihitung dari perkiraan uang masuk.
+ *   Cukup lalu membandingkan rencana itu dengan catatanmu.
+ *   Target tabungan juga bagian dari rencana.
+ */
 
-/** Petunjuk makna pos, dipakai untuk menebak pos dari nama merchant. */
-enum class PocketTag { NEEDS, WANTS, FOOD, BILLS, TRANSPORT, FUN, SHOPPING, DEBT, SAVINGS, OTHER }
+/** Jenis dompet. PAYLATER = hutang: saldonya biasanya minus. */
+enum class AccountKind { CASH, BANK, EWALLET, SAVINGS, PAYLATER }
 
-data class Pocket(
+/** Tempat uangmu berada. Saldo = [initialBalance] + semua transaksi yang menyentuhnya. */
+data class Account(
     val id: Long,
     val name: String,
     val emoji: String,
-    val percent: Int,
-    val kind: PocketKind,
-    val tag: PocketTag = PocketTag.OTHER,
+    val kind: AccountKind,
+    /** Saldo saat dompet mulai dicatat. */
+    val initialBalance: Long = 0,
     val sortOrder: Int = 0,
-    /** Warna pilihan pengguna (ARGB). null = warna bawaan sesuai urutan. */
     val color: Int? = null,
-    /** Target tabungan (rupiah). null = tanpa target. */
-    val target: Long? = null,
 )
 
-/** ADJUST = penyesuaian saldo kantong (bukan belanja, bukan pemasukan). */
-enum class TxType { INCOME, EXPENSE, MOVE, ADJUST }
+/** Kategori untuk uang keluar atau uang masuk. */
+enum class CategoryKind { EXPENSE, INCOME }
+
+/** Makna kategori, dipakai untuk menebak kategori dari nama merchant dan pos rencana bawaan. */
+enum class Tag { FOOD, FUN, SHOPPING, TRANSPORT, BILLS, HEALTH, EDUCATION, FAMILY, DEBT, SAVINGS, SALARY, OTHER }
+
+data class Category(
+    val id: Long,
+    val name: String,
+    val emoji: String,
+    val kind: CategoryKind,
+    val tag: Tag = Tag.OTHER,
+    val sortOrder: Int = 0,
+    val color: Int? = null,
+    /** Pos rencana tempat pengeluaran kategori ini dihitung. null = tidak masuk rencana mana pun. */
+    val planId: Long? = null,
+)
+
+enum class TxType { EXPENSE, INCOME, TRANSFER }
 enum class TxStatus { CONFIRMED, PENDING, DISMISSED }
 enum class TxSource { MANUAL, NOTIFICATION }
 
 /**
  * Satu kejadian uang. Nominal selalu positif dalam rupiah penuh.
- * - EXPENSE: keluar dari [pocketId].
- * - INCOME: dibagi ke semua pos (lihat [Allocation]) atau, bila [toPocketId] diisi, masuk ke satu pos saja.
- * - MOVE: pindah dari [pocketId] ke [toPocketId].
+ * - EXPENSE: keluar dari [accountId], kategori [categoryId].
+ * - INCOME: masuk ke [accountId], kategori [categoryId].
+ * - TRANSFER: dari [accountId] ke [toAccountId]. Bukan pengeluaran, bukan pemasukan.
  */
 data class Transaction(
     val id: Long = 0,
     val type: TxType,
     val amount: Long,
-    val pocketId: Long? = null,
-    val toPocketId: Long? = null,
+    val accountId: Long? = null,
+    val toAccountId: Long? = null,
+    val categoryId: Long? = null,
     val merchant: String = "",
     val note: String = "",
     val occurredAt: Long,
     val source: TxSource = TxSource.MANUAL,
     val sourceApp: String? = null,
     val status: TxStatus = TxStatus.CONFIRMED,
-    val isPaylater: Boolean = false,
     val fingerprint: String? = null,
 )
 
-/** Bagian pemasukan yang masuk ke satu pos. Disimpan agar riwayat tidak berubah saat persentase diubah. */
-data class Allocation(
-    val transactionId: Long,
-    val pocketId: Long,
-    val amount: Long,
-    val percentAtTime: Int,
+/** Pos rencana hanya membatasi belanja (SPEND) atau menargetkan sisihan (SAVE). */
+enum class PlanKind { SPEND, SAVE }
+
+/** Satu pos rencana, mis. "Kebutuhan 50%". */
+data class PlanPos(
+    val id: Long,
+    val name: String,
+    val emoji: String,
+    val percent: Int,
+    val kind: PlanKind,
+    val sortOrder: Int = 0,
+    val color: Int? = null,
 )
 
 /**
- * Cara menghitung jatah belanja per periode.
- * - POCKETS: bagian kantong belanja dari uang yang masuk periode ini.
- * - LAST_INCOME: [percent]% dari total uang masuk periode sebelumnya
- *   (bila periode lalu kosong, memakai uang masuk periode ini).
+ * Dari mana rencana menghitung "uang masuk" yang dibagi ke pos.
+ * - FIXED: angka tetap yang kamu isi (mis. gaji Rp4 jt).
+ * - LAST_PERIOD: total uang masuk periode lalu (dari catatan).
+ * - THIS_PERIOD: total uang masuk periode ini (dari catatan).
  */
-data class BudgetRule(val mode: Mode = Mode.POCKETS, val percent: Int = 50) {
-    enum class Mode { POCKETS, LAST_INCOME }
+data class PlanBasis(val mode: Mode = Mode.FIXED, val fixedAmount: Long = 0) {
+    enum class Mode { FIXED, LAST_PERIOD, THIS_PERIOD }
 }
+
+/** Target tabungan. Bila [accountId] diisi, terkumpul = saldo dompet itu; bila tidak, [saved] diisi sendiri. */
+data class Goal(
+    val id: Long,
+    val name: String,
+    val emoji: String,
+    val target: Long,
+    val saved: Long = 0,
+    val accountId: Long? = null,
+    val color: Int? = null,
+    val sortOrder: Int = 0,
+)
