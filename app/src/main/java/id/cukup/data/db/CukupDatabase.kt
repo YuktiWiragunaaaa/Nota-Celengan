@@ -18,4 +18,12 @@ import androidx.room.RoomDatabase
 )
 abstract class CukupDatabase : RoomDatabase() {
     abstract fun dao(): CukupDao
+
+    companion object {
+        /**
+         * Setiap kenaikan versi WAJIB punya migrasi di sini (mis. MIGRATION_4_5), dan skema barunya
+         * ikut di-commit di app/schemas. Tanpa migrasi, aplikasi berhenti dan data tidak disentuh.
+         */
+        val MIGRATIONS: Array<androidx.room.migration.Migration> = arrayOf()
+    }
 }

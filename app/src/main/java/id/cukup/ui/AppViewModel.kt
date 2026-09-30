@@ -38,6 +38,14 @@ class AppViewModel @Inject constructor(
             .fold({ "Tersimpan: ${it.accounts} dompet, ${it.transactions} catatan." }, { "Gagal menyimpan: ${it.message}" })
     }
 
+    /** Cadangan otomatis di HP, terbaru dulu. */
+    fun autoBackups(): List<java.io.File> = backup.autoBackups()
+
+    fun restoreAuto(file: java.io.File) = go {
+        backupMessage.value = runCatching { backup.restore(file) }
+            .fold({ "Dipulihkan dari ${file.nameWithoutExtension.removePrefix("auto-")}: ${it.accounts} dompet, ${it.transactions} catatan." }, { "Gagal memulihkan: ${it.message}" })
+    }
+
     fun restoreBackup(uri: android.net.Uri, onDone: () -> Unit = {}) = go {
         backupMessage.value = runCatching { backup.restore(uri) }
             .fold({ onDone(); "Dipulihkan: ${it.accounts} dompet, ${it.transactions} catatan." }, { "Gagal memulihkan: ${it.message}" })

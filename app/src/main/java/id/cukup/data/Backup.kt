@@ -18,6 +18,8 @@ import id.cukup.widget.WidgetRefresher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
+import java.io.File
+import java.time.LocalDate
 import org.json.JSONObject
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -38,6 +40,13 @@ class Backup @Inject constructor(
     class Summary(val accounts: Int, val transactions: Int)
 
     suspend fun export(uri: Uri): Summary = withContext(Dispatchers.IO) {
+        val (root, summary) = snapshot()
+        val out = context.contentResolver.openOutputStream(uri, "wt") ?: error("Tidak bisa menulis file")
+        out.bufferedWriter().use { it.write(root.toString()) }
+        summary
+    }
+
+    private suspend fun snapshot(): Pair<JSONObject, Summary> {
         val s = settings.current()
         val txs = dao.allTransactions()
         val accounts = dao.allAccounts()
@@ -59,7 +68,9 @@ class Backup @Inject constructor(
                     .put("basisMode", s.planBasis.mode.name)
                     .put("basisAmount", s.planBasis.fixedAmount)
                     .put("defaultAccountId", s.defaultAccountId)
-                    .put("chart", s.chart),
+                    .put("chart", s.chart)
+                    .put("theme", s.theme)
+                    .put("appLinks", JSONObject(s.appLinks as Map<*, *>)),
             )
             .put("accounts", accounts.json { a -> put("id", a.id).put("name", a.name).put("emoji", a.emoji).put("kind", a.kind).put("initialBalance", a.initialBalance).put("sortOrder", a.sortOrder).put("color", a.color).put("archived", a.archived) })
             .put("categories", dao.allCategories().json { c -> put("id", c.id).put("name", c.name).put("emoji", c.emoji).put("kind", c.kind).put("tag", c.tag).put("sortOrder", c.sortOrder).put("color", c.color).put("planId", c.planId).put("archived", c.archived) })
@@ -67,17 +78,23 @@ class Backup @Inject constructor(
             .put("plan", dao.plan().json { p -> put("id", p.id).put("name", p.name).put("emoji", p.emoji).put("percent", p.percent).put("kind", p.kind).put("sortOrder", p.sortOrder).put("color", p.color) })
             .put("goals", dao.allGoals().json { g -> put("id", g.id).put("name", g.name).put("emoji", g.emoji).put("target", g.target).put("saved", g.saved).put("accountId", g.accountId).put("color", g.color).put("sortOrder", g.sortOrder) })
             .put("rules", dao.merchantRules().json { r -> put("merchantKey", r.merchantKey).put("categoryId", r.categoryId).put("updatedAt", r.updatedAt) })
-        val out = context.contentResolver.openOutputStream(uri, "wt") ?: error("Tidak bisa menulis file")
-        out.bufferedWriter().use { it.write(root.toString()) }
-        Summary(accounts.count { !it.archived }, txs.size)
+        return root to Summary(accounts.count { !it.archived }, txs.size)
     }
 
     /** Mengganti semua data dengan isi cadangan. Melempar exception bila file bukan cadangan Cukup. */
     suspend fun restore(uri: Uri): Summary = withContext(Dispatchers.IO) {
         val input = context.contentResolver.openInputStream(uri) ?: error("File tidak bisa dibuka")
-        val root = JSONObject(input.bufferedReader().use { it.readText() })
+        restoreText(input.bufferedReader().use { it.readText() })
+    }
+
+    suspend fun restore(file: File): Summary = withContext(Dispatchers.IO) { restoreText(file.readText()) }
+
+    private suspend fun restoreText(text: String): Summary {
+        val root = JSONObject(text)
         require(root.optString("app") == "cukup") { "Ini bukan file cadangan Cukup" }
         require(root.optInt("version") <= VERSION) { "Cadangan dari versi Cukup yang lebih baru" }
+        // Simpan isi sekarang dulu, supaya pemulihan yang keliru pun bisa dibatalkan.
+        runCatching { if (settings.current().onboarded) File(DbGuard.backupDir(context), "before-restore.json").writeText(snapshot().first.toString()) }
 
         val accounts = root.list("accounts") { AccountEntity(getLong("id"), getString("name"), getString("emoji"), getString("kind"), getLong("initialBalance"), getInt("sortOrder"), intOrNull("color"), optBoolean("archived")) }
         val categories = root.list("categories") { CategoryEntity(getLong("id"), getString("name"), getString("emoji"), getString("kind"), getString("tag"), getInt("sortOrder"), intOrNull("color"), longOrNull("planId"), optBoolean("archived")) }
@@ -115,14 +132,40 @@ class Backup @Inject constructor(
                 ),
                 defaultAccountId = s.optLong("defaultAccountId"),
                 chart = s.optString("chart", "DONUT"),
+                theme = s.optString("theme", old.theme),
+                appLinks = s.optJSONObject("appLinks")?.let { o -> o.keys().asSequence().associateWith { o.getLong(it) } } ?: old.appLinks,
             )
         }
         widgets.refresh()
-        Summary(accounts.count { !it.archived }, txs.size)
+        return Summary(accounts.count { !it.archived }, txs.size)
     }
+
+    /**
+     * Cadangan harian otomatis ke penyimpanan aplikasi (maks. sekali sehari, 7 terakhir disimpan).
+     * Dilewati kalau belum ada data, supaya cadangan kosong tidak menimpa yang berisi.
+     */
+    suspend fun autoBackup(): File? = withContext(Dispatchers.IO) {
+        if (!settings.current().onboarded) return@withContext null
+        val dir = DbGuard.backupDir(context)
+        val today = File(dir, "auto-${LocalDate.now()}.json")
+        if (today.exists()) return@withContext null
+        val (root, summary) = snapshot()
+        if (summary.accounts == 0) return@withContext null
+        val tmp = File(dir, today.name + ".tmp")
+        tmp.writeText(root.toString())
+        tmp.renameTo(today)
+        autoBackups().drop(KEEP_AUTO).forEach { it.delete() }
+        today
+    }
+
+    /** Cadangan otomatis, terbaru dulu. */
+    fun autoBackups(): List<File> =
+        DbGuard.backupDir(context).listFiles { f -> f.isFile && f.name.startsWith("auto-") && f.name.endsWith(".json") }
+            ?.sortedByDescending { it.name }.orEmpty()
 
     private companion object {
         const val VERSION = 1
+        const val KEEP_AUTO = 7
     }
 }
 

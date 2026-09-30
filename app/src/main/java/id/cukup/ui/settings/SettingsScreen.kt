@@ -112,6 +112,38 @@ fun SettingsScreen(
     }
     var setPin by remember { mutableStateOf(false) }
     var restoreUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    var showAutos by remember { mutableStateOf(false) }
+    var restoreAuto by remember { mutableStateOf<java.io.File?>(null) }
+    if (showAutos) {
+        val files = remember { vm.autoBackups() }
+        AlertDialog(
+            onDismissRequest = { showAutos = false },
+            title = { Text("Cadangan otomatis", style = Type.title) },
+            text = {
+                Column {
+                    if (files.isEmpty()) Text("Belum ada. Cadangan pertama dibuat beberapa detik setelah Cukup dibuka.", style = Type.body)
+                    files.forEach { f ->
+                        Text(
+                            f.nameWithoutExtension.removePrefix("auto-"), style = Type.strong, color = c.ink,
+                            modifier = Modifier.fillMaxWidth().clickable { restoreAuto = f; showAutos = false }.padding(vertical = 12.dp),
+                        )
+                    }
+                }
+            },
+            confirmButton = { TextButton({ showAutos = false }) { Text("Tutup", color = c.ink) } },
+            containerColor = c.card,
+        )
+    }
+    restoreAuto?.let { f ->
+        AlertDialog(
+            onDismissRequest = { restoreAuto = null },
+            title = { Text("Pulihkan ${f.nameWithoutExtension.removePrefix("auto-")}?", style = Type.title) },
+            text = { Text("Semua data di HP ini diganti dengan cadangan tanggal itu. Isi sekarang disimpan dulu, jadi masih bisa dibatalkan.", style = Type.body) },
+            confirmButton = { TextButton({ restoreAuto = null; vm.restoreAuto(f) }) { Text("Pulihkan", color = c.over) } },
+            dismissButton = { TextButton({ restoreAuto = null }) { Text("Batal", color = c.ink) } },
+            containerColor = c.card,
+        )
+    }
     val exportFile = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         if (uri != null) vm.exportBackup(uri)
     }
@@ -237,6 +269,13 @@ fun SettingsScreen(
         Link("Pulihkan dari cadangan", "Ganti semua data di HP ini dengan isi file cadangan.", leading = "📂") {
             importFile.launch(arrayOf("application/json", "application/octet-stream", "text/plain"))
         }
+        val autos = remember(data) { vm.autoBackups() }
+        Link(
+            "Cadangan otomatis",
+            autos.firstOrNull()?.let { "Harian di HP ini · terakhir ${it.nameWithoutExtension.removePrefix("auto-")} · ${autos.size} tersimpan" }
+                ?: "Dibuat otomatis sekali sehari saat Cukup dibuka.",
+            leading = "🛟",
+        ) { showAutos = true }
         Row(
             Modifier.fillMaxWidth().clickable { confirmErase = true }.padding(horizontal = Gutter, vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
