@@ -51,7 +51,8 @@ fun ScheduleEditor(schedule: Schedule, onChange: (Schedule) -> Unit, modifier: M
     Column(modifier.padding(horizontal = Gutter)) {
         Eyebrow("Kamu terima uang")
         Spacer(Modifier.height(10.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        // FlowRow: di dialog yang sempit, pilihan turun ke baris baru alih-alih terpotong.
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Choice("Tiap minggu", schedule.frequency == Frequency.WEEKLY, { onChange(schedule.copy(frequency = Frequency.WEEKLY)) })
             Choice("Tiap 2 minggu", schedule.frequency == Frequency.BIWEEKLY, {
                 onChange(schedule.copy(frequency = Frequency.BIWEEKLY, anchor = thisWeekPayday(schedule.weekday)))

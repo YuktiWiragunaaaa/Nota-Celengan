@@ -1,5 +1,9 @@
 package id.cukup.ui.home
 
+import androidx.compose.foundation.verticalScroll
+import id.cukup.ui.components.ScheduleEditor
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.AlertDialog
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.SizeTransform
 import id.cukup.ui.components.AccountIcon
@@ -143,7 +147,13 @@ fun HomeScreen(
         Modifier.fillMaxSize().background(c.paper),
         contentPadding = PaddingValues(bottom = contentPadding.calculateBottomPadding()),
     ) {
-        item { Hero(data, vm::chart, onOpenInbox, onOpenProfile, onOpenHelp) }
+        item {
+            Hero(
+                data, vm::chart, onOpenInbox, onOpenProfile, onOpenHelp,
+                onOpenAccount = onOpenAccount, onOpenTx = onOpenTx,
+                onSchedule = { sch -> vm.settings { it.copy(schedule = sch) } },
+            )
+        }
         item {
             Row(
                 Modifier.padding(horizontal = Gutter).offset(y = (-26).dp),
@@ -200,9 +210,27 @@ private fun Hero(
     onOpenInbox: () -> Unit,
     onOpenProfile: () -> Unit,
     onOpenHelp: () -> Unit,
+    onOpenAccount: (Long) -> Unit,
+    onOpenTx: (Long) -> Unit,
+    onSchedule: (id.cukup.domain.Schedule) -> Unit,
 ) {
     val c = colors
     val white = Color.White
+    // Hampir semua angka di bagian atas bisa diketuk untuk melihat rinciannya.
+    var sheet by remember { mutableStateOf<HeroSheet?>(null) }
+    var editSchedule by remember { mutableStateOf(false) }
+    sheet?.let { HeroDetails(it, o, onDismiss = { sheet = null }, onOpenAccount = { id -> sheet = null; onOpenAccount(id) }, onOpenTx = { id -> sheet = null; onOpenTx(id) }) }
+    if (editSchedule) {
+        var draft by remember { mutableStateOf(o.settings.schedule) }
+        AlertDialog(
+            onDismissRequest = { editSchedule = false },
+            title = { Text("Jadwal gajian", style = Type.title) },
+            text = { Column(Modifier.verticalScroll(rememberScrollState())) { ScheduleEditor(draft, { draft = it }, Modifier.padding(horizontal = 0.dp)) } },
+            confirmButton = { TextButton({ onSchedule(draft); editSchedule = false }) { Text("Simpan", color = c.ink) } },
+            dismissButton = { TextButton({ editSchedule = false }) { Text("Batal", color = c.mute) } },
+            containerColor = c.card,
+        )
+    }
     val soft = Color.White.copy(alpha = 0.72f)
     var selected by rememberSaveable { mutableStateOf<Long?>(null) }
     val parts = remember(o) { Ledger.byCategory(o.transactions, o.categoryById.values.toList(), TxType.EXPENSE, o.cycleStart, o.cycleEnd) }
@@ -260,7 +288,8 @@ private fun Hero(
                 append(digits)
             },
             style = Type.hero.copy(fontSize = heroSize), color = white,
-            modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center, maxLines = 1,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = Gutter).clip(CardShape).clickable { sheet = HeroSheet.WALLETS },
+            textAlign = TextAlign.Center, maxLines = 1,
         )
         val sub = buildList {
             add("jumlah ${o.accounts.count { it.account.kind != AccountKind.PAYLATER }} dompet")
@@ -271,17 +300,19 @@ private fun Hero(
         // 2. Masuk & keluar periode ini.
         Spacer(Modifier.height(16.dp))
         Row(Modifier.padding(horizontal = Gutter).fillMaxWidth().clip(CardShape).background(white.copy(alpha = 0.12f)).padding(vertical = 12.dp)) {
-            Flow("Masuk", o.totals.income, "+", Modifier.weight(1f))
+            Flow("Masuk", o.totals.income, "+", Modifier.weight(1f).clickable { sheet = HeroSheet.INCOME })
             Box(Modifier.width(1.dp).height(36.dp).background(white.copy(alpha = 0.2f)))
-            Flow("Keluar", o.totals.expense, "−", Modifier.weight(1f))
+            Flow("Keluar", o.totals.expense, "−", Modifier.weight(1f).clickable { sheet = HeroSheet.EXPENSE })
             Box(Modifier.width(1.dp).height(36.dp).background(white.copy(alpha = 0.2f)))
-            Flow("Selisih", o.totals.net, if (o.totals.net >= 0) "+" else "−", Modifier.weight(1f))
+            Flow("Selisih", o.totals.net, if (o.totals.net >= 0) "+" else "−", Modifier.weight(1f).clickable { sheet = HeroSheet.NET })
         }
-        Text(
-            "${o.periodName.replaceFirstChar { it.uppercase() }} · ${o.cycle.start.format(rangeFmt)} – ${o.cycle.nextPayday.minusDays(1).format(rangeFmt)}",
-            style = Type.label, color = soft,
-            modifier = Modifier.fillMaxWidth().padding(top = 8.dp), textAlign = TextAlign.Center,
-        )
+        Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.Center) {
+            Text(
+                "${o.periodName.replaceFirstChar { it.uppercase() }} · ${o.cycle.start.format(rangeFmt)} – ${o.cycle.nextPayday.minusDays(1).format(rangeFmt)}  ›",
+                style = Type.label, color = soft,
+                modifier = Modifier.clip(Pill).clickable { editSchedule = true }.padding(horizontal = 12.dp, vertical = 6.dp),
+            )
+        }
 
         // 3. Keluar ke mana?
         // Jenis grafik diganti langsung di layar; menyimpannya ke setelan menyusul di belakang,
@@ -289,7 +320,7 @@ private fun Hero(
         var chart by rememberSaveable { mutableStateOf(o.settings.chart) }
         Spacer(Modifier.height(18.dp))
         Row(Modifier.fillMaxWidth().padding(horizontal = Gutter), verticalAlignment = Alignment.CenterVertically) {
-            Text("Keluar ke mana?", style = Type.strong, color = white, modifier = Modifier.weight(1f))
+            Text("Pengeluaran ${o.periodName}", style = Type.strong, color = white, modifier = Modifier.weight(1f))
             ChartSwitch(
                 listOf("DONUT" to Icons.Rounded.DonutLarge, "BAR" to Icons.Rounded.BarChart, "BUBBLE" to Icons.Rounded.BubbleChart),
                 current = chart, onPick = { chart = it; onChart(it) },
@@ -532,5 +563,84 @@ private fun InsightPager(insights: List<Insight>) {
                 }
             }
         }
+    }
+}
+
+private enum class HeroSheet { WALLETS, INCOME, EXPENSE, NET }
+
+/** Rincian angka di bagian atas Beranda: dompet, uang masuk, uang keluar, atau selisih periode ini. */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun HeroDetails(kind: HeroSheet, o: Overview, onDismiss: () -> Unit, onOpenAccount: (Long) -> Unit, onOpenTx: (Long) -> Unit) {
+    val c = colors
+    androidx.compose.material3.ModalBottomSheet(onDismissRequest = onDismiss, containerColor = c.card) {
+        androidx.compose.foundation.lazy.LazyColumn(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
+            when (kind) {
+                HeroSheet.WALLETS -> {
+                    val wallets = o.accounts.filter { it.account.kind != AccountKind.PAYLATER }
+                    val total = wallets.sumOf { it.balance.coerceAtLeast(0) }.coerceAtLeast(1)
+                    item { SheetTitle("Uangmu di mana", Rupiah.format(o.netWorth), "${wallets.size} dompet" + if (o.debt > 0) " · hutang ${Rupiah.short(o.debt)}" else "") }
+                    items(o.accounts.sortedByDescending { it.balance }, key = { "a" + it.account.id }) { ab ->
+                        val share = (ab.balance.coerceAtLeast(0).toFloat() / total).coerceIn(0f, 1f)
+                        Row(
+                            Modifier.fillMaxWidth().clickable { onOpenAccount(ab.account.id) }.padding(horizontal = Gutter, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            AccountIcon(ab.account, size = 40.dp)
+                            Spacer(Modifier.width(12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Row {
+                                    Text(ab.account.name, style = Type.strong, color = c.ink, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text(Rupiah.format(ab.balance), style = Type.amount, color = if (ab.balance < 0) c.over else c.ink)
+                                }
+                                if (ab.account.kind != AccountKind.PAYLATER) {
+                                    Box(Modifier.padding(top = 6.dp).fillMaxWidth().height(4.dp).clip(Pill).background(c.line)) {
+                                        Box(Modifier.fillMaxWidth(share).height(4.dp).clip(Pill).background(colorOf(ab.account)))
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                else -> {
+                    val txs = o.confirmed.filter { it.occurredAt >= o.cycleStart && it.occurredAt < o.cycleEnd }.filter {
+                        when (kind) {
+                            HeroSheet.INCOME -> it.type == TxType.INCOME
+                            HeroSheet.EXPENSE -> it.type == TxType.EXPENSE
+                            else -> it.type != TxType.TRANSFER
+                        }
+                    }
+                    val title = when (kind) {
+                        HeroSheet.INCOME -> "Uang masuk ${o.periodName}"
+                        HeroSheet.EXPENSE -> "Uang keluar ${o.periodName}"
+                        else -> "Selisih ${o.periodName}"
+                    }
+                    val amount = when (kind) {
+                        HeroSheet.INCOME -> o.totals.income
+                        HeroSheet.EXPENSE -> o.totals.expense
+                        else -> o.totals.net
+                    }
+                    val sub = if (kind == HeroSheet.NET) "Masuk ${Rupiah.short(o.totals.income)} − keluar ${Rupiah.short(o.totals.expense)}" else "${txs.size} catatan"
+                    item { SheetTitle(title, (if (kind == HeroSheet.NET && amount < 0) "−" else "") + Rupiah.format(kotlin.math.abs(amount)), sub) }
+                    if (txs.isEmpty()) {
+                        item { Text("Belum ada catatan.", style = Type.body, color = c.faint, modifier = Modifier.padding(horizontal = Gutter, vertical = 12.dp)) }
+                    }
+                    items(txs, key = { "t" + it.id }) { tx ->
+                        val cat = tx.categoryId?.let(o.categoryById::get)
+                        TxRow(tx, cat, o.accountById[tx.accountId], o.accountById[tx.toAccountId], colorOf(cat), { onOpenTx(tx.id) })
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SheetTitle(title: String, amount: String, sub: String) {
+    val c = colors
+    Column(Modifier.padding(horizontal = Gutter).padding(bottom = 12.dp)) {
+        Text(title, style = Type.bodySmall, color = c.mute)
+        Text(amount, style = Type.number, color = c.ink)
+        Text(sub, style = Type.bodySmall, color = c.faint)
     }
 }
