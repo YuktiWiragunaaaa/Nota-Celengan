@@ -1,4 +1,4 @@
-package id.cukup.ui.components
+﻿package id.cukup.ui.components
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -10,7 +10,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -173,7 +172,7 @@ fun DayBarChart(
     LaunchedEffect(values) { grow.snapTo(0f); grow.animateTo(1f, tween(700, easing = FastOutSlowInEasing)) }
     val max = (values.maxOrNull() ?: 0L).coerceAtLeast(limitPerDay).coerceAtLeast(1L)
     Column(modifier) {
-        BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {
+        Box(Modifier.fillMaxWidth().weight(1f)) {
             val n = values.size.coerceAtLeast(1)
             Canvas(
                 Modifier.fillMaxSize().pointerInput(values) {

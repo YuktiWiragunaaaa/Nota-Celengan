@@ -244,13 +244,16 @@ private fun Hero(
         Text("Uangmu sekarang", style = Type.bodySmall, color = soft, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
         Spacer(Modifier.height(2.dp))
         val total = o.netWorth
+        val digits = Rupiah.format(kotlin.math.abs(total)).removePrefix("Rp")
+        // Angka panjang (ratusan juta ke atas) dikecilkan supaya tidak terpotong.
+        val heroSize = Type.hero.fontSize * (11f / digits.length).coerceAtMost(1f)
         Text(
             buildAnnotatedString {
                 if (total < 0) withStyle(SpanStyle(color = soft)) { append("−") }
-                withStyle(SpanStyle(color = soft, fontSize = Type.hero.fontSize * 0.55f)) { append("Rp") }
-                append(Rupiah.format(kotlin.math.abs(total)).removePrefix("Rp"))
+                withStyle(SpanStyle(color = soft, fontSize = heroSize * 0.55f)) { append("Rp") }
+                append(digits)
             },
-            style = Type.hero, color = white,
+            style = Type.hero.copy(fontSize = heroSize), color = white,
             modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center, maxLines = 1,
         )
         val sub = buildList {
@@ -369,7 +372,9 @@ private fun Accounts(accounts: List<AccountBalance>, onOpen: (Long) -> Unit, onN
                 }
                 Spacer(Modifier.height(10.dp))
                 Text(
-                    Rupiah.format(ab.balance), style = Type.amount,
+                    // Di atas 99 juta tidak muat di kartu; pakai bentuk ringkas daripada terpotong.
+                    if (kotlin.math.abs(ab.balance) >= 100_000_000) (if (ab.balance < 0) "−Rp" else "Rp") + Rupiah.short(kotlin.math.abs(ab.balance)) else Rupiah.format(ab.balance),
+                    style = Type.amount,
                     color = if (ab.balance < 0) c.over else c.ink, maxLines = 1,
                 )
             }

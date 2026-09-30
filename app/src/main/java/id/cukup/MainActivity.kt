@@ -6,7 +6,11 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_WEAK
 import androidx.biometric.BiometricManager.Authenticators.DEVICE_CREDENTIAL
+import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
+import androidx.compose.runtime.remember
+import id.cukup.domain.PinCode
+import id.cukup.ui.components.PinPad
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -65,7 +69,7 @@ class MainActivity : FragmentActivity() {
                 val s = settings
                 when {
                     s == null -> Box(Modifier.fillMaxSize().background(colors.paper))
-                    s.biometricLock && LockState.locked -> LockScreen(name = s.name, onUnlock = ::authenticate)
+                    s.biometricLock && s.pinHash.isNotEmpty() && LockState.locked -> LockScreen(s)
                     else -> CukupNav(onboarded = s.onboarded, openAdd = openAdd, onAddHandled = { openAdd = false })
                 }
             }
@@ -77,55 +81,54 @@ class MainActivity : FragmentActivity() {
         if (intent.getBooleanExtra(EXTRA_ADD, false)) openAdd = true
     }
 
-    private fun authenticate() {
+    private fun canFingerprint(): Boolean =
+        BiometricManager.from(this).canAuthenticate(BIOMETRIC_WEAK) == BiometricManager.BIOMETRIC_SUCCESS
+
+    private fun fingerprint() {
         val prompt = BiometricPrompt(
             this,
             ContextCompat.getMainExecutor(this),
             object : BiometricPrompt.AuthenticationCallback() {
                 override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
-                    LockState.locked = false
+                    LockState.unlock()
                 }
             },
         )
         prompt.authenticate(
             BiometricPrompt.PromptInfo.Builder()
                 .setTitle("Buka Cukup")
-                .setAllowedAuthenticators(BIOMETRIC_WEAK or DEVICE_CREDENTIAL)
+                .setNegativeButtonText("Pakai PIN")
+                .setAllowedAuthenticators(BIOMETRIC_WEAK)
                 .build(),
         )
     }
 
     @androidx.compose.runtime.Composable
-    private fun LockScreen(name: String, onUnlock: () -> Unit) {
-        val c = colors
+    private fun LockScreen(s: Settings) {
         id.cukup.ui.components.LightStatusBarIcons(light = true)
-        LaunchedEffect(Unit) { onUnlock() }
-        val pulse = androidx.compose.animation.core.rememberInfiniteTransition(label = "pulse")
-        val ring by pulse.animateFloat(
-            1f, 1.18f,
-            androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween<Float>(1400), androidx.compose.animation.core.RepeatMode.Reverse),
-            label = "ring",
-        )
-        Column(
-            Modifier.fillMaxSize().background(c.brandBrush).padding(32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Spacer(Modifier.weight(1f))
-            Text(if (name.isBlank()) "Hai!" else "Hai, $name", style = Type.display, color = Color.White)
-            Spacer(Modifier.height(6.dp))
-            Text("Uangmu aman di sini.", style = Type.body, color = Color.White.copy(alpha = 0.7f))
-            Spacer(Modifier.weight(0.62f))
-            Box(contentAlignment = Alignment.Center) {
-                Box(Modifier.size(120.dp).graphicsLayer { scaleX = ring; scaleY = ring }.clip(CircleShape).background(Color.White.copy(alpha = 0.12f)))
-                Box(
-                    Modifier.size(88.dp).clip(CircleShape).background(Color.White).clickable(onClick = onUnlock),
-                    contentAlignment = Alignment.Center,
-                ) { Icon(Icons.Rounded.Fingerprint, "Buka dengan sidik jari", tint = c.accent, modifier = Modifier.size(44.dp)) }
-            }
-            Spacer(Modifier.height(16.dp))
-            Text("Sentuh untuk membuka", style = Type.bodySmall, color = Color.White.copy(alpha = 0.7f))
-            Spacer(Modifier.weight(1f))
+        val useFinger = s.fingerprint && remember { canFingerprint() }
+        LaunchedEffect(Unit) { if (useFinger) fingerprint() }
+        var now by remember { mutableStateOf(System.currentTimeMillis()) }
+        val waitUntil = LockState.waitUntil
+        LaunchedEffect(waitUntil) {
+            while (System.currentTimeMillis() < waitUntil) { now = System.currentTimeMillis(); kotlinx.coroutines.delay(500) }
+            now = System.currentTimeMillis()
         }
+        val waiting = now < waitUntil
+        PinPad(
+            title = if (s.name.isBlank()) "Hai!" else "Hai, ${s.name}",
+            subtitle = "Masukkan PIN Cukup.",
+            locked = waiting,
+            message = when {
+                waiting -> "Kebanyakan salah. Coba lagi ${(waitUntil - now + 999) / 1000} detik."
+                LockState.wrong > 0 -> "PIN salah. Sisa ${PinCode.MAX_TRIES - LockState.wrong} kali."
+                else -> null
+            },
+            onFingerprint = if (useFinger) ::fingerprint else null,
+            onComplete = { pin ->
+                if (PinCode.verify(pin, s.pinHash)) { LockState.unlock(); true } else { LockState.fail(); false }
+            },
+        )
     }
 
     companion object {

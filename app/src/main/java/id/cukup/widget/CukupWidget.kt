@@ -43,6 +43,16 @@ import id.cukup.data.MoneyRepository
 import id.cukup.domain.Rupiah
 import id.cukup.domain.PlanStatus
 import id.cukup.domain.Warning
+import id.cukup.domain.Transaction
+import id.cukup.domain.TxType
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.temporal.ChronoUnit
+import androidx.glance.LocalSize
+import androidx.glance.appwidget.SizeMode
+import androidx.glance.layout.fillMaxHeight
+import androidx.glance.layout.width
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -58,6 +68,8 @@ interface WidgetEntryPoint {
 
 class CukupWidget : GlanceAppWidget() {
 
+    override val sizeMode: SizeMode = SizeMode.Exact
+
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val repo = EntryPointAccessors.fromApplication(context, WidgetEntryPoint::class.java).repository()
         val o = runCatching { repo.current() }.getOrNull()
@@ -70,6 +82,7 @@ class CukupWidget : GlanceAppWidget() {
                     period = o?.periodName ?: "ini",
                     plan = o?.planStatus?.takeIf { it.active },
                     pending = o?.pending?.size ?: 0,
+                    week = o?.let { lastSevenDays(it.confirmed) } ?: emptyList(),
                     addIntent = Intent(context, MainActivity::class.java).putExtra(MainActivity.EXTRA_ADD, true),
                 )
             }
@@ -93,9 +106,11 @@ private fun WidgetBody(
     period: String,
     plan: PlanStatus?,
     pending: Int,
+    week: List<Long>,
     addIntent: Intent,
 ) {
-    Column(
+    val wide = LocalSize.current.width >= 260.dp && ready
+    Row(
         modifier = GlanceModifier
             .fillMaxSize()
             .background(paper)
@@ -103,6 +118,26 @@ private fun WidgetBody(
             .padding(16.dp)
             .clickable(actionStartActivity<MainActivity>()),
     ) {
+        Summary(ready, total, spent, period, plan, pending, addIntent, GlanceModifier.defaultWeight().fillMaxHeight())
+        if (wide) {
+            Spacer(GlanceModifier.width(16.dp))
+            WeekChart(week, GlanceModifier.defaultWeight().fillMaxHeight())
+        }
+    }
+}
+
+@Composable
+private fun Summary(
+    ready: Boolean,
+    total: Long,
+    spent: Long,
+    period: String,
+    plan: PlanStatus?,
+    pending: Int,
+    addIntent: Intent,
+    modifier: GlanceModifier,
+) {
+    Column(modifier = modifier) {
         Text("UANGMU", style = TextStyle(color = mute, fontSize = 10.sp, fontWeight = FontWeight.Medium))
         Spacer(GlanceModifier.height(4.dp))
         Text(
@@ -148,6 +183,41 @@ private fun WidgetBody(
                 contentAlignment = Alignment.Center,
             ) {
                 Text("+", style = TextStyle(color = inkInverse, fontSize = 20.sp))
+            }
+        }
+    }
+}
+
+/** Total pengeluaran per hari, 7 hari terakhir (paling lama dulu). */
+private fun lastSevenDays(txs: List<Transaction>): List<Long> {
+    val zone = ZoneId.systemDefault()
+    val today = LocalDate.now(zone)
+    val sums = LongArray(7)
+    txs.filter { it.type == TxType.EXPENSE }.forEach { t ->
+        val d = Instant.ofEpochMilli(t.occurredAt).atZone(zone).toLocalDate()
+        val back = ChronoUnit.DAYS.between(d, today).toInt()
+        if (back in 0..6) sums[6 - back] += t.amount
+    }
+    return sums.toList()
+}
+
+@Composable
+private fun WeekChart(week: List<Long>, modifier: GlanceModifier) {
+    val max = (week.maxOrNull() ?: 0L).coerceAtLeast(1L)
+    val names = listOf("M", "S", "S", "R", "K", "J", "S")
+    val today = LocalDate.now()
+    Column(modifier = modifier) {
+        Text("7 HARI", style = TextStyle(color = mute, fontSize = 10.sp, fontWeight = FontWeight.Medium))
+        Text("Keluar ${Rupiah.short(week.sum())}", style = TextStyle(color = ink, fontSize = 12.sp), maxLines = 1)
+        Spacer(GlanceModifier.height(6.dp))
+        Row(modifier = GlanceModifier.fillMaxWidth().defaultWeight(), verticalAlignment = Alignment.Bottom) {
+            week.forEachIndexed { i, v ->
+                Column(modifier = GlanceModifier.defaultWeight().fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally, verticalAlignment = Alignment.Bottom) {
+                    val h = if (v <= 0) 2 else (4 + 60 * v / max).toInt()
+                    Box(modifier = GlanceModifier.width(10.dp).height(h.dp).background(if (i == 6) ink else line).cornerRadius(3.dp)) {}
+                    Spacer(GlanceModifier.height(3.dp))
+                    Text(names[today.minusDays((6 - i).toLong()).dayOfWeek.value % 7], style = TextStyle(color = mute, fontSize = 9.sp))
+                }
             }
         }
     }

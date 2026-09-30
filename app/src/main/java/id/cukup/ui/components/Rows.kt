@@ -33,6 +33,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
@@ -92,7 +94,9 @@ fun Link(title: String, value: String, valueColor: Color? = null, leading: Strin
 fun Toggle(title: String, subtitle: String, checked: Boolean, enabled: Boolean = true, onChange: (Boolean) -> Unit) {
     val c = colors
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = Gutter, vertical = 14.dp),
+        Modifier.fillMaxWidth()
+            .toggleable(checked, enabled = enabled, role = Role.Switch, onValueChange = onChange)
+            .padding(horizontal = Gutter, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f).padding(end = 12.dp)) {
@@ -100,7 +104,7 @@ fun Toggle(title: String, subtitle: String, checked: Boolean, enabled: Boolean =
             Text(subtitle, style = Type.bodySmall, color = c.mute)
         }
         Switch(
-            checked = checked, onCheckedChange = onChange, enabled = enabled,
+            checked = checked, onCheckedChange = null, enabled = enabled,
             colors = SwitchDefaults.colors(
                 checkedTrackColor = c.ink, checkedThumbColor = c.paper,
                 uncheckedBorderColor = c.faint, uncheckedThumbColor = c.faint, uncheckedTrackColor = c.paper,

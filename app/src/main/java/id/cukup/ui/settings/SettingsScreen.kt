@@ -8,6 +8,9 @@ import android.provider.Settings as AndroidSettings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.biometric.BiometricManager
+import id.cukup.LockState
+import id.cukup.domain.PinCode
+import id.cukup.ui.components.PinSetupDialog
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -100,10 +103,17 @@ fun SettingsScreen(
             notifAllowed = canNotify(context)
         }
     }
-    val biometricAvailable = remember {
-        BiometricManager.from(context).canAuthenticate(
-            BiometricManager.Authenticators.BIOMETRIC_WEAK or BiometricManager.Authenticators.DEVICE_CREDENTIAL,
-        ) == BiometricManager.BIOMETRIC_SUCCESS
+    val fingerAvailable = remember {
+        BiometricManager.from(context).canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK) ==
+            BiometricManager.BIOMETRIC_SUCCESS
+    }
+    var setPin by remember { mutableStateOf(false) }
+    if (setPin) {
+        PinSetupDialog(onCancel = { setPin = false }) { hash ->
+            setPin = false
+            LockState.unlock()
+            vm.settings { it.copy(biometricLock = true, pinHash = hash) }
+        }
     }
 
     Column(Modifier.fillMaxSize().background(c.paper).verticalScroll(rememberScrollState()).padding(contentPadding)) {
@@ -164,12 +174,23 @@ fun SettingsScreen(
         Hairline()
 
         Group("Keamanan")
+        val lockOn = s.biometricLock && s.pinHash.isNotEmpty()
         Toggle(
-            "Kunci dengan sidik jari / PIN",
-            if (biometricAvailable) "Diminta saat membuka Cukup setelah layar HP mati." else "Atur kunci layar HP dulu.",
-            s.biometricLock && biometricAvailable,
-            enabled = biometricAvailable,
-        ) { on -> vm.settings { it.copy(biometricLock = on) } }
+            "Kunci pakai PIN",
+            if (lockOn) "Diminta saat Cukup baru dibuka atau setelah layar HP mati." else "PIN ${PinCode.LENGTH} angka khusus Cukup.",
+            lockOn,
+        ) { on ->
+            if (on) setPin = true else vm.settings { it.copy(biometricLock = false, pinHash = "") }
+        }
+        if (lockOn) {
+            Link("Ganti PIN", "Bikin PIN baru") { setPin = true }
+            Toggle(
+                "Buka pakai sidik jari juga",
+                if (fingerAvailable) "Lebih cepat. PIN tetap bisa dipakai." else "Daftarkan sidik jari di Setelan HP dulu.",
+                s.fingerprint && fingerAvailable,
+                enabled = fingerAvailable,
+            ) { on -> vm.settings { it.copy(fingerprint = on) } }
+        }
 
         Group("Data")
         Row(

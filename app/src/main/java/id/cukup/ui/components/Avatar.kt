@@ -78,3 +78,11 @@ fun Avatar(
         }
     }
 }
+
+/** Menyimpan foto yang sudah dipotong sebagai foto profil. */
+suspend fun saveAvatar(context: Context, bitmap: Bitmap): Boolean = withContext(Dispatchers.IO) {
+    runCatching {
+        avatarFile(context).outputStream().use { bitmap.compress(Bitmap.CompressFormat.JPEG, 90, it) }
+        true
+    }.getOrDefault(false)
+}

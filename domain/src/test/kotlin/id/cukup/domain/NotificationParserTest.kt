@@ -18,6 +18,28 @@ class NotificationParserTest {
     }
 
     @Test
+    fun `mybca catatan finansial income`() {
+        val r = NotificationParser.parse(
+            "com.bca.mybca.omni.android", "Catatan Finansial",
+            "Pemasukan sebesar IDR 10,000.00 dari **TU **KTI ****GUN di kategori Transfer Rekening.",
+        )!!
+        assertEquals(TxType.INCOME, r.type)
+        assertEquals(10_000L, r.amount)
+        assertEquals("**TU **KTI ****GUN", r.merchant)
+    }
+
+    @Test
+    fun `mybca catatan finansial expense`() {
+        val r = NotificationParser.parse(
+            "com.bca.mybca.omni.android", "Catatan Finansial",
+            "Pengeluaran sebesar IDR 50,000.00 ke GOFOOD di kategori Makanan.",
+        )!!
+        assertEquals(TxType.EXPENSE, r.type)
+        assertEquals(50_000L, r.amount)
+        assertEquals("GOFOOD", r.merchant)
+    }
+
+    @Test
     fun `bank incoming transfer`() {
         val r = NotificationParser.parse("id.co.bri.brimo", "Dana Masuk", "Kamu menerima Rp 4.000.000,00 dari PT MAJU JAYA.")!!
         assertEquals(TxType.INCOME, r.type)

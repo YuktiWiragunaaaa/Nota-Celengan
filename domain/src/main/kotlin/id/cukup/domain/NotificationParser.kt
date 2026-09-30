@@ -49,22 +49,24 @@ object NotificationParser {
         "gagal", "dibatalkan", "ditolak", "tagihan kamu akan jatuh tempo", "pengingat",
     )
     private val incomeWords = listOf(
-        "menerima", "diterima", "masuk ke", "dana masuk", "uang masuk", "transfer masuk", "kredit",
+        "pemasukan", "menerima", "diterima", "masuk ke", "dana masuk", "uang masuk", "transfer masuk", "kredit",
         "telah menerima", "kamu dapat", "refund", "pengembalian dana", "saldo bertambah", "top up berhasil",
         "isi saldo berhasil",
     )
     private val expenseWords = listOf(
-        "pembayaran", "bayar", "dibayar", "transfer ke", "kirim uang", "mengirim", "pembelian", "debit",
+        "pengeluaran", "pembayaran", "bayar", "dibayar", "transfer ke", "kirim uang", "mengirim", "pembelian", "debit",
         "transaksi berhasil", "berhasil transfer", "tarik tunai", "belanja", "dipotong", "qris",
     )
     private val debtPaymentWords = listOf("bayar tagihan", "pembayaran tagihan", "pelunasan", "angsuran", "bayar cicilan", "pembayaran cicilan", "tagihan berhasil dibayar", "tagihan kamu sudah lunas")
     private val paylaterWords = listOf("paylater", "pay later", "spaylater", "gopaylater", "cicilan", "kredivo", "akulaku")
 
     private val merchantRegexes = listOf(
-        Regex("""\b(?:di|at)\s+([A-Za-z0-9&'.\- ]{2,40}?)(?:\s+(?:sebesar|senilai|berhasil|pada|tgl|tanggal|dengan|menggunakan|pakai|via)\b|[.,!]|$)""", RegexOption.IGNORE_CASE),
-        Regex("""\b(?:ke|kepada|to)\s+([A-Za-z0-9&'.\- ]{2,40}?)(?:\s+(?:sebesar|senilai|berhasil|pada|tgl|tanggal|dengan|menggunakan|via)\b|[.,!]|$)""", RegexOption.IGNORE_CASE),
-        Regex("""\b(?:dari|from)\s+([A-Za-z0-9&'.\- ]{2,40}?)(?:\s+(?:sebesar|senilai|berhasil|pada|tgl|tanggal|ke)\b|[.,!]|$)""", RegexOption.IGNORE_CASE),
+        Regex("""\b(?:di|at)\s+([A-Za-z0-9*&'.\- ]{2,40}?)(?:\s+(?:sebesar|senilai|berhasil|pada|tgl|tanggal|dengan|menggunakan|pakai|via)\b|[.,!]|$)""", RegexOption.IGNORE_CASE),
+        Regex("""\b(?:ke|kepada|to)\s+([A-Za-z0-9*&'.\- ]{2,40}?)(?:\s+(?:sebesar|senilai|berhasil|pada|tgl|tanggal|dengan|menggunakan|via)\b|[.,!]|$)""", RegexOption.IGNORE_CASE),
+        Regex("""\b(?:dari|from)\s+([A-Za-z0-9*&'.\- ]{2,40}?)(?:\s+(?:sebesar|senilai|berhasil|pada|tgl|tanggal|ke)\b|[.,!]|$)""", RegexOption.IGNORE_CASE),
     )
+
+    private val kategoriRegex = Regex("""\s+di kategori\b[^.]*""", RegexOption.IGNORE_CASE)
 
     /**
      * Membaca notifikasi. Mengembalikan null bila bukan transaksi yang jelas
@@ -111,8 +113,10 @@ object NotificationParser {
     internal fun extractMerchant(body: String, type: TxType): String {
         val candidates = if (type == TxType.INCOME) listOf(merchantRegexes[2], merchantRegexes[0])
         else listOf(merchantRegexes[0], merchantRegexes[1])
+        // myBCA menambahkan "di kategori ..." yang bukan nama merchant.
+        val clean = body.replace(kategoriRegex, "")
         for (r in candidates) {
-            val m = r.findAll(body)
+            val m = r.findAll(clean)
                 .map { it.groupValues[1].trim().trimEnd('.', '-') }
                 .firstOrNull { it.isNotBlank() && !it.startsWith("Rp", ignoreCase = true) && it.any(Char::isLetter) }
             if (m != null) return m.take(40)

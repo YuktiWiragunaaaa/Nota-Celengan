@@ -61,6 +61,18 @@ import id.cukup.ui.theme.Type
 import id.cukup.ui.theme.colors
 import kotlin.math.roundToInt
 
+/** Ubah persen satu pos; kelebihan di atas 100% diambil dari pos lain, yang terbesar dulu. */
+private fun setPercent(pos: MutableList<PlanPos>, i: Int, value: Int) {
+    pos[i] = pos[i].copy(percent = value)
+    var excess = pos.sumOf { it.percent } - 100
+    while (excess > 0) {
+        val j = pos.indices.filter { it != i && pos[it].percent > 0 }.maxByOrNull { pos[it].percent } ?: break
+        val cut = minOf(5, excess, pos[j].percent)
+        pos[j] = pos[j].copy(percent = pos[j].percent - cut)
+        excess -= cut
+    }
+}
+
 @Composable
 fun PlanEditScreen(onBack: () -> Unit, vm: AppViewModel = hiltViewModel()) {
     val o by vm.overview.collectAsStateWithLifecycle()
@@ -130,7 +142,7 @@ fun PlanEditScreen(onBack: () -> Unit, vm: AppViewModel = hiltViewModel()) {
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
                         Text("${p.percent}%", style = Type.number, color = c.ink, modifier = Modifier.width(70.dp))
                         Slider(
-                            value = p.percent.toFloat(), onValueChange = { v -> pos[i] = p.copy(percent = (v / 5f).roundToInt() * 5) },
+                            value = p.percent.toFloat(), onValueChange = { v -> setPercent(pos, i, (v / 5f).roundToInt() * 5) },
                             valueRange = 0f..100f, modifier = Modifier.weight(1f),
                             colors = SliderDefaults.colors(thumbColor = colorOf(p), activeTrackColor = colorOf(p), inactiveTrackColor = c.line),
                         )

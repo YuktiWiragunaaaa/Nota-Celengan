@@ -137,6 +137,7 @@ fun LineField(
             singleLine = true,
             textStyle = Type.body.copy(color = c.ink),
             cursorBrush = SolidColor(c.ink),
+            visualTransformation = if (keyboardType == KeyboardType.Number) ThousandDots else androidx.compose.ui.text.input.VisualTransformation.None,
             keyboardOptions = KeyboardOptions(
                 keyboardType = keyboardType,
                 imeAction = ImeAction.Done,
@@ -147,3 +148,26 @@ fun LineField(
     }
 }
 
+
+/** Menampilkan "4000000" sebagai "4.000.000" saat diketik; nilai aslinya tetap angka polos. */
+private object ThousandDots : androidx.compose.ui.text.input.VisualTransformation {
+    override fun filter(text: androidx.compose.ui.text.AnnotatedString): androidx.compose.ui.text.input.TransformedText {
+        val raw = text.text
+        if (raw.isEmpty() || !raw.all(Char::isDigit)) {
+            return androidx.compose.ui.text.input.TransformedText(text, androidx.compose.ui.text.input.OffsetMapping.Identity)
+        }
+        val out = raw.reversed().chunked(3).joinToString(".").reversed()
+        val mapping = object : androidx.compose.ui.text.input.OffsetMapping {
+            override fun originalToTransformed(offset: Int): Int {
+                var digits = 0
+                for (j in out.indices) {
+                    if (digits == offset) return j
+                    if (out[j] != '.') digits++
+                }
+                return out.length
+            }
+            override fun transformedToOriginal(offset: Int): Int = out.take(offset.coerceIn(0, out.length)).count { it != '.' }
+        }
+        return androidx.compose.ui.text.input.TransformedText(androidx.compose.ui.text.AnnotatedString(out), mapping)
+    }
+}

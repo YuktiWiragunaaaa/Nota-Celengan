@@ -33,7 +33,13 @@ import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import android.graphics.Bitmap
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import id.cukup.ui.components.AvatarCropDialog
+import id.cukup.ui.components.loadForCrop
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -68,10 +74,15 @@ fun ProfileScreen(
     val c = colors
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    var cropping by remember { mutableStateOf<Bitmap?>(null) }
     val pick = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        if (uri != null) scope.launch {
-            if (saveAvatar(context, uri)) vm.update { it.copy(avatarVersion = System.currentTimeMillis()) }
-        }
+        if (uri != null) scope.launch { cropping = loadForCrop(context, uri) }
+    }
+    cropping?.let { src ->
+        AvatarCropDialog(src, onCancel = { cropping = null }, onDone = { out ->
+            cropping = null
+            scope.launch { if (saveAvatar(context, out)) vm.update { it.copy(avatarVersion = System.currentTimeMillis()) } }
+        })
     }
 
     Column(Modifier.fillMaxSize().background(c.paper).verticalScroll(rememberScrollState())) {

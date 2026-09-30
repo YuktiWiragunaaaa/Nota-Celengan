@@ -14,6 +14,25 @@ import androidx.compose.runtime.setValue
  */
 object LockState {
     var locked by mutableStateOf(true)
+    /** PIN salah berturut-turut. */
+    var wrong by mutableStateOf(0)
+        private set
+    /** Waktu (ms) sampai boleh coba lagi setelah terlalu sering salah. */
+    var waitUntil by mutableStateOf(0L)
+        private set
+
+    fun unlock() {
+        locked = false
+        wrong = 0
+    }
+
+    fun fail() {
+        wrong++
+        if (wrong >= id.cukup.domain.PinCode.MAX_TRIES) {
+            wrong = 0
+            waitUntil = System.currentTimeMillis() + id.cukup.domain.PinCode.COOLDOWN_MS
+        }
+    }
 
     fun watchScreen(context: Context) {
         androidx.core.content.ContextCompat.registerReceiver(

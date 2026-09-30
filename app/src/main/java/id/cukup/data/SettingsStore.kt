@@ -23,6 +23,10 @@ data class Settings(
     val schedule: Schedule = Schedule(),
     val onboarded: Boolean = false,
     val biometricLock: Boolean = false,
+    /** "garam:hash" PIN aplikasi; kosong = belum diatur. */
+    val pinHash: String = "",
+    /** Boleh buka pakai sidik jari selain PIN. */
+    val fingerprint: Boolean = true,
     /** Transaksi dari notifikasi langsung tercatat tanpa perlu dicek. */
     val autoConfirm: Boolean = false,
     /** Kirim notifikasi saat jatah belanja hampir / sudah habis. */
@@ -54,6 +58,8 @@ class SettingsStore @Inject constructor(@ApplicationContext private val context:
         val anchor = longPreferencesKey("anchor")
         val onboarded = booleanPreferencesKey("onboarded")
         val biometric = booleanPreferencesKey("biometric")
+        val pinHash = stringPreferencesKey("pin_hash")
+        val fingerprint = booleanPreferencesKey("fingerprint")
         val autoConfirm = booleanPreferencesKey("auto_confirm")
         val budgetAlerts = booleanPreferencesKey("budget_alerts")
         val lastAlert = stringPreferencesKey("last_alert")
@@ -77,6 +83,8 @@ class SettingsStore @Inject constructor(@ApplicationContext private val context:
         // Data sebelum v0.6 dikosongkan (lihat CukupDatabase), jadi pengenalan diulang.
         onboarded = (p[K.onboarded] ?: false) && (p[K.dataVersion] ?: 0) >= DATA_VERSION,
         biometricLock = p[K.biometric] ?: false,
+        pinHash = p[K.pinHash] ?: "",
+        fingerprint = p[K.fingerprint] ?: true,
         autoConfirm = p[K.autoConfirm] ?: false,
         budgetAlerts = p[K.budgetAlerts] ?: true,
         lastAlert = p[K.lastAlert] ?: "",
@@ -108,6 +116,8 @@ class SettingsStore @Inject constructor(@ApplicationContext private val context:
             p[K.anchor] = next.schedule.anchor
             p[K.onboarded] = next.onboarded
             p[K.biometric] = next.biometricLock
+            p[K.pinHash] = next.pinHash
+            p[K.fingerprint] = next.fingerprint
             p[K.autoConfirm] = next.autoConfirm
             p[K.budgetAlerts] = next.budgetAlerts
             p[K.lastAlert] = next.lastAlert
