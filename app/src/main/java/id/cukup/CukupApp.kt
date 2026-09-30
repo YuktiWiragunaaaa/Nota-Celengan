@@ -19,7 +19,7 @@ class CukupApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        LockState.watchScreen(this)
+        LockState.init(this)
         // Cadangan harian otomatis, sedikit ditunda supaya tidak memperlambat saat aplikasi dibuka.
         scope.launch {
             delay(5_000)

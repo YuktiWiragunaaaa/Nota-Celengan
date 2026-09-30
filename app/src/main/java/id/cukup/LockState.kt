@@ -4,13 +4,16 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.SharedPreferences
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import id.cukup.domain.PinCode
 
 /**
  * Status kunci aplikasi. Terkunci saat aplikasi baru dibuka (proses baru) dan saat layar HP mati,
  * seperti aplikasi bank. Pindah ke aplikasi lain sebentar tidak mengunci.
+ * Jumlah salah & waktu tunggu disimpan, jadi menutup paksa aplikasi tidak mereset batas percobaan.
  */
 object LockState {
     var locked by mutableStateOf(true)
@@ -21,20 +24,32 @@ object LockState {
     var waitUntil by mutableStateOf(0L)
         private set
 
+    private var prefs: SharedPreferences? = null
+
     fun unlock() {
         locked = false
         wrong = 0
+        save()
     }
 
     fun fail() {
         wrong++
-        if (wrong >= id.cukup.domain.PinCode.MAX_TRIES) {
+        if (wrong >= PinCode.MAX_TRIES) {
             wrong = 0
-            waitUntil = System.currentTimeMillis() + id.cukup.domain.PinCode.COOLDOWN_MS
+            waitUntil = System.currentTimeMillis() + PinCode.COOLDOWN_MS
         }
+        save()
     }
 
-    fun watchScreen(context: Context) {
+    private fun save() {
+        prefs?.edit()?.putInt("wrong", wrong)?.putLong("wait_until", waitUntil)?.apply()
+    }
+
+    fun init(context: Context) {
+        val p = context.getSharedPreferences("lock", Context.MODE_PRIVATE)
+        prefs = p
+        wrong = p.getInt("wrong", 0)
+        waitUntil = p.getLong("wait_until", 0L)
         androidx.core.content.ContextCompat.registerReceiver(
             context,
             object : BroadcastReceiver() {

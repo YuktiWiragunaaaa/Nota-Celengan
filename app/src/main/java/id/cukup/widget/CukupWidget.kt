@@ -90,6 +90,9 @@ class CukupWidget : GlanceAppWidget() {
             val state = repo.overview.collectAsState(initial = first)
             val o = state.value
             val chips = remember(o) { o?.let { quickChips(context, it) } ?: emptyList() }
+            widgetTheme = o?.settings?.theme ?: "DARK"
+            // Kunci PIN aktif = saldo tidak ditampilkan di layar utama (bisa dimatikan di Setelan).
+            val hidden = o?.settings?.let { it.biometricLock && it.pinHash.isNotEmpty() && it.widgetHide } ?: false
             GlanceTheme {
                 WidgetBody(
                     ready = o != null && o.settings.onboarded && o.accounts.isNotEmpty(),
@@ -100,6 +103,7 @@ class CukupWidget : GlanceAppWidget() {
                     pending = o?.pending?.size ?: 0,
                     week = o?.let { lastSevenDays(it.confirmed) } ?: emptyList(),
                     chips = chips,
+                    hidden = hidden,
                     addIntent = Intent(context, MainActivity::class.java).putExtra(MainActivity.EXTRA_ADD, true),
                 )
             }
@@ -172,14 +176,24 @@ class QuickLogAction : ActionCallback {
     }
 }
 
-private val paper = ColorProvider(day = Color(0xFFFBFAF7), night = Color(0xFF1F1E1C))
-private val ink = ColorProvider(day = Color(0xFF1F1E1C), night = Color(0xFFF3F1EC))
-private val mute = ColorProvider(day = Color(0xFF77756F), night = Color(0xFFB9B6AE))
-private val line = ColorProvider(day = Color(0xFFE6E4DE), night = Color(0xFF34322E))
-private val caution = ColorProvider(day = Color(0xFF9A6B2F), night = Color(0xFFD1A263))
-private val over = ColorProvider(day = Color(0xFFA3402F), night = Color(0xFFD9826F))
-private val inkInverse = ColorProvider(day = Color(0xFFFBFAF7), night = Color(0xFF1F1E1C))
-private val accent = ColorProvider(day = Color(0xFFFFE9DC), night = Color(0xFF4A2A1C))
+/** Tema widget mengikuti setelan aplikasi (DARK bawaan, LIGHT, atau SYSTEM = ikut HP). */
+@Volatile private var widgetTheme = "DARK"
+
+private fun pal(day: Long, night: Long) = when (widgetTheme) {
+    "LIGHT" -> ColorProvider(day = Color(day), night = Color(day))
+    "SYSTEM" -> ColorProvider(day = Color(day), night = Color(night))
+    else -> ColorProvider(day = Color(night), night = Color(night))
+}
+
+private val paper get() = pal(0xFFF4F1EE, 0xFF16141B)
+private val ink get() = pal(0xFF17110E, 0xFFF4F1F6)
+private val mute get() = pal(0xFF6F6560, 0xFFA8A2AE)
+private val line get() = pal(0xFFEAE4DF, 0xFF29252F)
+private val caution get() = pal(0xFFE08A1E, 0xFFD1A263)
+private val over get() = pal(0xFFD9392B, 0xFFD9826F)
+private val inkInverse get() = pal(0xFFF4F1EE, 0xFF16141B)
+private val accent get() = pal(0xFFFFE3D1, 0xFF3A2218)
+private val brand get() = pal(0xFFD9481A, 0xFFF2782E)
 
 @Composable
 private fun WidgetBody(
@@ -191,6 +205,7 @@ private fun WidgetBody(
     pending: Int,
     week: List<Long>,
     chips: List<Chip>,
+    hidden: Boolean,
     addIntent: Intent,
 ) {
     val size = LocalSize.current
@@ -210,10 +225,10 @@ private fun WidgetBody(
             .clickable(actionStartActivity<MainActivity>()),
     ) {
         Row(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
-            Summary(ready, total, spent, period, plan.takeIf { tall || chipCount == 0 }, pending, GlanceModifier.defaultWeight().fillMaxHeight())
+            Summary(ready, total, spent, period, plan.takeIf { (tall || chipCount == 0) && !hidden }, pending, hidden, GlanceModifier.defaultWeight().fillMaxHeight())
             if (wide) {
                 Spacer(GlanceModifier.width(16.dp))
-                WeekChart(week, GlanceModifier.defaultWeight().fillMaxHeight())
+                WeekChart(week, hidden, GlanceModifier.defaultWeight().fillMaxHeight())
             }
         }
         Spacer(GlanceModifier.height(8.dp))
@@ -255,6 +270,7 @@ private fun Summary(
     period: String,
     plan: PlanStatus?,
     pending: Int,
+    hidden: Boolean,
     modifier: GlanceModifier,
 ) {
     Column(modifier = modifier) {
@@ -263,6 +279,7 @@ private fun Summary(
         Text(
             when {
                 !ready -> "Buka Cukup dulu"
+                hidden -> "Rp•••••"
                 kotlin.math.abs(total) >= 100_000_000 -> "Rp" + Rupiah.short(total)
                 else -> Rupiah.format(total)
             },
@@ -271,7 +288,11 @@ private fun Summary(
         )
         Spacer(GlanceModifier.height(2.dp))
         Text(
-            if (pending > 0) "$pending perlu dicek · keluar ${Rupiah.short(spent)}" else "Keluar $period: ${Rupiah.short(spent)}",
+            when {
+                hidden -> "Buka Cukup untuk lihat saldo"
+                pending > 0 -> "$pending perlu dicek · keluar ${Rupiah.short(spent)}"
+                else -> "Keluar $period: ${Rupiah.short(spent)}"
+            },
             style = TextStyle(color = if (pending > 0) caution else mute, fontSize = 11.sp),
             maxLines = 1,
         )
@@ -313,19 +334,19 @@ private fun lastSevenDays(txs: List<Transaction>): List<Long> {
 }
 
 @Composable
-private fun WeekChart(week: List<Long>, modifier: GlanceModifier) {
+private fun WeekChart(week: List<Long>, hidden: Boolean, modifier: GlanceModifier) {
     val max = (week.maxOrNull() ?: 0L).coerceAtLeast(1L)
     val names = listOf("M", "S", "S", "R", "K", "J", "S")
     val today = LocalDate.now()
     Column(modifier = modifier) {
         Text("7 HARI", style = TextStyle(color = mute, fontSize = 10.sp, fontWeight = FontWeight.Medium))
-        Text("Keluar ${Rupiah.short(week.sum())}", style = TextStyle(color = ink, fontSize = 12.sp), maxLines = 1)
+        Text(if (hidden) "Keluar •••" else "Keluar ${Rupiah.short(week.sum())}", style = TextStyle(color = ink, fontSize = 12.sp), maxLines = 1)
         Spacer(GlanceModifier.height(6.dp))
         Row(modifier = GlanceModifier.fillMaxWidth().defaultWeight(), verticalAlignment = Alignment.Bottom) {
             week.forEachIndexed { i, v ->
                 Column(modifier = GlanceModifier.defaultWeight().fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally, verticalAlignment = Alignment.Bottom) {
                     val h = if (v <= 0) 2 else (4 + 60 * v / max).toInt()
-                    Box(modifier = GlanceModifier.width(10.dp).height(h.dp).background(if (i == 6) ink else line).cornerRadius(3.dp)) {}
+                    Box(modifier = GlanceModifier.width(10.dp).height(h.dp).background(if (i == 6) brand else line).cornerRadius(3.dp)) {}
                     Spacer(GlanceModifier.height(3.dp))
                     Text(names[today.minusDays((6 - i).toLong()).dayOfWeek.value % 7], style = TextStyle(color = mute, fontSize = 9.sp))
                 }

@@ -260,6 +260,11 @@ fun SettingsScreen(
                 s.fingerprint && fingerAvailable,
                 enabled = fingerAvailable,
             ) { on -> vm.settings { it.copy(fingerprint = on) } }
+            Toggle(
+                "Sembunyikan saldo di widget",
+                "Widget menampilkan Rp••••• supaya saldo tidak terlihat di layar utama.",
+                s.widgetHide,
+            ) { on -> vm.settings { it.copy(widgetHide = on) } }
         }
 
         Group("Data")
@@ -292,7 +297,7 @@ fun SettingsScreen(
             Bullet("Cukup nggak pakai internet, jadi datamu nggak ke mana-mana.")
             Bullet("Datanya nggak ikut backup Google. Kalau aplikasinya dihapus, datanya ikut hilang.")
         }
-        Text("Cukup 0.9.2", style = Type.bodySmall, color = c.faint, modifier = Modifier.padding(horizontal = Gutter, vertical = 20.dp))
+        Text("Cukup 0.9.3", style = Type.bodySmall, color = c.faint, modifier = Modifier.padding(horizontal = Gutter, vertical = 20.dp))
     }
 
     if (confirmErase) {

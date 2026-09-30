@@ -43,6 +43,8 @@ data class Settings(
     val chart: String = "DONUT",
     /** Tema: DARK (bawaan), LIGHT, atau SYSTEM. */
     val theme: String = "DARK",
+    /** Saat kunci PIN aktif, widget menyembunyikan saldo. */
+    val widgetHide: Boolean = true,
     /** Versi foto profil (0 = belum ada). Dipakai agar gambar dimuat ulang saat diganti. */
     val avatarVersion: Long = 0,
     /** Peringatan terakhir yang sudah dikirim: "<awal periode>:<tingkat>", agar tidak berulang. */
@@ -76,6 +78,7 @@ class SettingsStore @Inject constructor(@ApplicationContext private val context:
         val dataVersion = intPreferencesKey("data_version")
         val chart = stringPreferencesKey("chart")
         val theme = stringPreferencesKey("theme")
+        val widgetHide = booleanPreferencesKey("widget_hide")
         val avatarVersion = longPreferencesKey("avatar_version")
     }
 
@@ -107,6 +110,7 @@ class SettingsStore @Inject constructor(@ApplicationContext private val context:
         defaultAccountId = p[K.defaultAccount] ?: 0,
         chart = p[K.chart] ?: "DONUT",
         theme = p[K.theme] ?: "DARK",
+        widgetHide = p[K.widgetHide] ?: true,
         avatarVersion = p[K.avatarVersion] ?: 0,
     )
 
@@ -141,6 +145,7 @@ class SettingsStore @Inject constructor(@ApplicationContext private val context:
             p[K.dataVersion] = DATA_VERSION
             p[K.chart] = next.chart
             p[K.theme] = next.theme
+            p[K.widgetHide] = next.widgetHide
             p[K.avatarVersion] = next.avatarVersion
         }
     }
