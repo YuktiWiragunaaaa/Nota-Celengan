@@ -111,24 +111,26 @@ fun LineButton(
     modifier: Modifier = Modifier,
     height: Dp = 52.dp,
     icon: ImageVector? = null,
+    danger: Boolean = false,
 ) {
     val c = colors
+    val fg = if (danger) c.over else c.ink
     Row(
         modifier = modifier
             .height(height)
             .clip(Pill)
-            .background(c.card)
-            .border(1.dp, c.line, Pill)
+            .background(if (danger) c.over.copy(alpha = 0.12f) else c.card)
+            .border(1.dp, if (danger) c.over.copy(alpha = 0.5f) else c.line, Pill)
             .clickable(role = Role.Button, onClick = onClick)
             .padding(horizontal = 18.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center,
     ) {
         if (icon != null) {
-            Icon(icon, null, tint = c.ink, modifier = Modifier.size(18.dp))
+            Icon(icon, null, tint = fg, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
         }
-        Text(text, style = Type.strong, color = c.ink, maxLines = 1)
+        Text(text, style = Type.strong, color = fg, maxLines = 1)
     }
 }
 

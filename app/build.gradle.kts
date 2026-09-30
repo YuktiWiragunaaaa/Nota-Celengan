@@ -15,8 +15,8 @@ android {
         minSdk = 26
         targetSdk = 36
         // CI mengisi CUKUP_BUILD dengan nomor build supaya tiap APK terbaca sebagai pembaruan.
-        versionCode = 940 + (System.getenv("CUKUP_BUILD")?.toIntOrNull() ?: 0)
-        versionName = "0.9.4"
+        versionCode = 950 + (System.getenv("CUKUP_BUILD")?.toIntOrNull() ?: 0)
+        versionName = "0.9.5"
     }
 
     signingConfigs {

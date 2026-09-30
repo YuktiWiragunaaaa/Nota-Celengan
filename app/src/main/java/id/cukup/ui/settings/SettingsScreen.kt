@@ -1,5 +1,7 @@
 package id.cukup.ui.settings
 
+import androidx.compose.ui.draw.clip
+import id.cukup.ui.components.CardShape
 import androidx.compose.foundation.layout.Arrangement
 import id.cukup.ui.components.Choice
 import id.cukup.ui.components.colorOf
@@ -189,7 +191,6 @@ fun SettingsScreen(
                 Choice(label, s.theme == key, { vm.settings { it.copy(theme = key) } })
             }
         }
-        Hairline()
 
         Group("Catatan (uang sungguhan)")
         data.accounts.forEach { ab ->
@@ -241,7 +242,6 @@ fun SettingsScreen(
             style = Type.bodySmall, color = c.faint,
             modifier = Modifier.padding(horizontal = Gutter, vertical = 12.dp),
         )
-        Hairline()
 
         Group("Keamanan")
         val lockOn = s.biometricLock && s.pinHash.isNotEmpty()
@@ -282,7 +282,8 @@ fun SettingsScreen(
             leading = "🛟",
         ) { showAutos = true }
         Row(
-            Modifier.fillMaxWidth().clickable { confirmErase = true }.padding(horizontal = Gutter, vertical = 16.dp),
+            Modifier.padding(horizontal = Gutter, vertical = 4.dp).fillMaxWidth().clip(CardShape).background(c.card)
+                .clickable { confirmErase = true }.padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(Modifier.weight(1f)) {
@@ -290,14 +291,13 @@ fun SettingsScreen(
                 Text("Mulai dari nol lagi. Dompet, catatan, rencana, dan setelan ikut terhapus.", style = Type.bodySmall, color = c.mute)
             }
         }
-        Hairline()
 
         Group("Privasi")
         Column(Modifier.padding(horizontal = Gutter, vertical = 8.dp)) {
             Bullet("Cukup nggak pakai internet, jadi datamu nggak ke mana-mana.")
             Bullet("Datanya nggak ikut backup Google. Kalau aplikasinya dihapus, datanya ikut hilang.")
         }
-        Text("Cukup 0.9.4", style = Type.bodySmall, color = c.faint, modifier = Modifier.padding(horizontal = Gutter, vertical = 20.dp))
+        Text("Cukup 0.9.5", style = Type.bodySmall, color = c.faint, modifier = Modifier.padding(horizontal = Gutter, vertical = 20.dp))
     }
 
     if (confirmErase) {

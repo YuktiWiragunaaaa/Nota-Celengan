@@ -63,7 +63,7 @@ val PocketPalette = listOf(
     Color(0xFFF25FC6), // magenta
     Color(0xFFFF8A3D), // jingga
     Color(0xFFB98A64), // cokelat
-    Color(0xFF6EDCF5), // sian (dulu abu-abu: terlalu kusam di atas gradien)
+    Color(0xFFFFB38A), // peach (dulu abu-abu: kusam; sian: terlalu dingin untuk palet hangat)
 )
 
 private val Light = CukupColors(

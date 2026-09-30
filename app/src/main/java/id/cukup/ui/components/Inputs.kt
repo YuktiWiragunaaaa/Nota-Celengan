@@ -127,8 +127,10 @@ fun LineField(
     Box(
         modifier
             .fillMaxWidth()
-            .border(BorderStroke(1.dp, c.line), RoundedCornerShape(2.dp))
-            .padding(horizontal = 14.dp, vertical = 14.dp),
+            .clip(RoundedCornerShape(14.dp))
+            .background(c.surface)
+            .border(BorderStroke(1.dp, c.line), RoundedCornerShape(14.dp))
+            .padding(horizontal = 16.dp, vertical = 14.dp),
     ) {
         if (value.isEmpty()) Text(placeholder, style = Type.body, color = c.faint)
         BasicTextField(
@@ -136,7 +138,7 @@ fun LineField(
             onValueChange = onChange,
             singleLine = true,
             textStyle = Type.body.copy(color = c.ink),
-            cursorBrush = SolidColor(c.ink),
+            cursorBrush = SolidColor(c.accent),
             visualTransformation = if (keyboardType == KeyboardType.Number) ThousandDots else androidx.compose.ui.text.input.VisualTransformation.None,
             keyboardOptions = KeyboardOptions(
                 keyboardType = keyboardType,

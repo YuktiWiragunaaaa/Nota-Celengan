@@ -1,5 +1,6 @@
 package id.cukup.ui.help
 
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
@@ -92,7 +93,8 @@ fun HelpScreen(onBack: () -> Unit) {
             val p = pages[i]
             val focus by animateFloatAsState(if (pager.currentPage == i) 1f else 0.94f, spring(stiffness = 300f), label = "focus")
             Column(
-                Modifier.fillMaxSize().padding(vertical = 8.dp)
+                // Kartu setinggi isinya (tidak ada ruang kosong besar), tetap bisa digulir kalau panjang.
+                Modifier.fillMaxWidth().wrapContentHeight(Alignment.Top, unbounded = false).padding(vertical = 8.dp)
                     .graphicsLayer { scaleX = focus; scaleY = focus }
                     .clip(CardShape).background(c.card).border(1.dp, c.line, CardShape)
                     .verticalScroll(rememberScrollState()).padding(20.dp),
@@ -310,7 +312,7 @@ private fun TipsDemo() {
                 GlassIcon(e, c.pocket(i + 2), size = 36.dp)
                 Spacer(Modifier.width(12.dp))
                 Text(t, style = Type.strong, color = c.ink, modifier = Modifier.weight(1f))
-                Text(if (open == i) "−" else "+", style = Type.title, color = c.mute)
+                Text(if (open == i) "−" else "+", style = Type.title, color = c.accent)
             }
             AnimatedVisibility(open == i) {
                 Text(d, style = Type.bodySmall, color = c.mute, modifier = Modifier.padding(top = 8.dp, start = 48.dp))

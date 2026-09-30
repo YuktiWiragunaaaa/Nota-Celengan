@@ -61,6 +61,8 @@ fun AddScreen(onClose: () -> Unit, onNewAccount: () -> Unit, vm: AddViewModel = 
         vm.effects.collect { if (it is AddEffect.Saved) onClose() }
     }
     val o = s.overview
+    // Keyboard HP terbuka = sedang mengetik nama/catatan: ringkas bagian atas & sembunyikan keypad angka.
+    val typing = WindowInsets.isImeVisible
 
     Column(Modifier.fillMaxSize().background(c.paper).systemBarsPadding().imePadding()) {
         TopBar(
@@ -72,14 +74,16 @@ fun AddScreen(onClose: () -> Unit, onNewAccount: () -> Unit, vm: AddViewModel = 
             },
             onBack = onClose,
         )
-        Row(Modifier.padding(horizontal = Gutter), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Choice("Keluar", s.type == TxType.EXPENSE, { vm.onIntent(AddIntent.Type(TxType.EXPENSE)) })
+        AnimatedVisibility(!typing) {
+            Row(Modifier.padding(horizontal = Gutter), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Choice("Keluar", s.type == TxType.EXPENSE, { vm.onIntent(AddIntent.Type(TxType.EXPENSE)) })
             Choice("Masuk", s.type == TxType.INCOME, { vm.onIntent(AddIntent.Type(TxType.INCOME)) })
             Choice("Pindah", s.type == TxType.TRANSFER, { vm.onIntent(AddIntent.Type(TxType.TRANSFER)) })
+            }
         }
         Text(
             Rupiah.format(s.amount),
-            style = Type.hero,
+            style = if (typing) Type.number else Type.hero,
             color = if (s.amount > 0) c.ink else c.faint,
             textAlign = TextAlign.Center,
             maxLines = 1,
@@ -133,7 +137,6 @@ fun AddScreen(onClose: () -> Unit, onNewAccount: () -> Unit, vm: AddViewModel = 
         }
         Hairline()
         // Saat keyboard HP terbuka (mengetik nama/catatan), keypad angka disembunyikan supaya kolom teks tidak tertutup.
-        val typing = WindowInsets.isImeVisible
         AnimatedVisibility(!typing) {
             Keypad(s.amount, { vm.onIntent(AddIntent.Amount(it)) }, Modifier.padding(horizontal = Gutter, vertical = 4.dp), keyHeight = 48.dp)
         }

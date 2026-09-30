@@ -419,7 +419,7 @@ private fun QuickAdd(data: id.cukup.data.Overview, onPick: (Long) -> Unit) {
                     ) {
                         GlassIcon(cat.emoji, color, size = 54.dp)
                         Spacer(Modifier.height(6.dp))
-                        Text(cat.name, style = Type.label, color = c.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(cat.name, style = Type.label, color = c.ink, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
                     }
                 }
                 repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
@@ -441,7 +441,7 @@ private fun Accounts(accounts: List<AccountBalance>, onOpen: (Long) -> Unit, onN
         accounts.forEach { ab ->
             val color = colorOf(ab.account)
             Column(
-                Modifier.width(150.dp).clip(CardShape).background(c.card).clickable { onOpen(ab.account.id) }.padding(14.dp),
+                Modifier.width(172.dp).clip(CardShape).background(c.card).clickable { onOpen(ab.account.id) }.padding(14.dp),
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     AccountIcon(ab.account, size = 34.dp)

@@ -161,7 +161,7 @@ fun BubbleChart(
             ) {
                 Canvas(Modifier.fillMaxSize()) {
                     val r = this.size.minDimension / 2f
-                    val glow = if (isSelected) 1f else 0.75f
+                    val glow = if (isSelected || bubbles.size == 1) 1f else 0.75f
                     // Liquid glass: badan kaca bening, warna kategori hanya jadi inti bercahaya di tengah.
                     drawCircle(
                         Brush.radialGradient(

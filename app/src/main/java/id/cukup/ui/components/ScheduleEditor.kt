@@ -1,5 +1,6 @@
 package id.cukup.ui.components
 
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -104,12 +105,12 @@ private fun Cell(text: String, selected: Boolean, modifier: Modifier, onClick: (
     Box(
         modifier
             .height(44.dp)
-            .clip(RoundedCornerShape(2.dp))
-            .background(if (selected) c.ink else c.paper)
-            .border(1.dp, if (selected) c.ink else c.line, RoundedCornerShape(2.dp))
+            .clip(RoundedCornerShape(12.dp))
+            .background(if (selected) c.accent else c.surface)
+            .border(1.dp, if (selected) c.accent else c.line, RoundedCornerShape(12.dp))
             .clickable(role = Role.RadioButton, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Text(text, style = Type.bodySmall, color = if (selected) c.paper else c.ink)
+        Text(text, style = Type.bodySmall, color = if (selected) Color.White else c.ink)
     }
 }

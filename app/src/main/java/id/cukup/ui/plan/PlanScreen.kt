@@ -121,7 +121,7 @@ fun PlanScreen(contentPadding: PaddingValues, onEditPlan: () -> Unit, vm: AppVie
             data.planStatus.rows.forEach { row -> PosRow(row, data) }
             Row(Modifier.padding(horizontal = Gutter, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 LineButton("Ubah rencana", onEditPlan, Modifier.weight(1f), height = 44.dp)
-                LineButton("Hapus rencana", { confirmClear = true }, Modifier.weight(1f), height = 44.dp)
+                LineButton("Hapus rencana", { confirmClear = true }, Modifier.weight(1f), height = 44.dp, danger = true)
             }
         }
 
@@ -183,7 +183,7 @@ private fun Totals(o: Overview) {
     Row(Modifier.padding(horizontal = Gutter).padding(top = 10.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         Stat("Batas belanja", Rupiah.short(s.spendLimit), c.ink, Modifier.weight(1f))
         Stat("Terpakai", Rupiah.short(s.spendUsed), if (s.spendLeft < 0) c.over else c.ink, Modifier.weight(1f))
-        Stat("Aman per hari", Rupiah.short(s.perDay), if (s.perDay <= 0) c.over else c.good, Modifier.weight(1f))
+        Stat("Aman/hari", Rupiah.short(s.perDay), if (s.perDay <= 0) c.over else c.good, Modifier.weight(1f))
     }
 }
 

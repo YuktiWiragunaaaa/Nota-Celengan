@@ -66,8 +66,7 @@ fun italicize(s: String): AnnotatedString = buildAnnotatedString {
 /** Judul kecil pengelompokan dalam daftar setelan. */
 @Composable
 fun Group(title: String) {
-    Eyebrow(title, Modifier.padding(horizontal = Gutter).padding(top = 28.dp, bottom = 8.dp))
-    Hairline()
+    Eyebrow(title, Modifier.padding(horizontal = Gutter).padding(top = 24.dp, bottom = 8.dp), color = colors.accent)
 }
 
 /** Baris yang bisa diketuk: judul, keterangan, panah. */
@@ -83,7 +82,8 @@ fun Link(
 ) {
     val c = colors
     Row(
-        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = Gutter, vertical = 14.dp),
+        Modifier.padding(horizontal = Gutter, vertical = 4.dp).fillMaxWidth().clip(CardShape).background(c.card)
+            .clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (leading != null) {
@@ -96,16 +96,15 @@ fun Link(
         }
         Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = c.faint)
     }
-    Hairline()
 }
 
 @Composable
 fun Toggle(title: String, subtitle: String, checked: Boolean, enabled: Boolean = true, onChange: (Boolean) -> Unit) {
     val c = colors
     Row(
-        Modifier.fillMaxWidth()
+        Modifier.padding(horizontal = Gutter, vertical = 4.dp).fillMaxWidth().clip(CardShape).background(c.card)
             .toggleable(checked, enabled = enabled, role = Role.Switch, onValueChange = onChange)
-            .padding(horizontal = Gutter, vertical = 14.dp),
+            .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f).padding(end = 12.dp)) {
@@ -115,12 +114,11 @@ fun Toggle(title: String, subtitle: String, checked: Boolean, enabled: Boolean =
         Switch(
             checked = checked, onCheckedChange = null, enabled = enabled,
             colors = SwitchDefaults.colors(
-                checkedTrackColor = c.ink, checkedThumbColor = c.paper,
-                uncheckedBorderColor = c.faint, uncheckedThumbColor = c.faint, uncheckedTrackColor = c.paper,
+                checkedTrackColor = c.accent, checkedThumbColor = Color.White, checkedBorderColor = c.accent,
+                uncheckedBorderColor = c.line, uncheckedThumbColor = c.faint, uncheckedTrackColor = c.surface,
             ),
         )
     }
-    Hairline()
 }
 
 /** Pilihan radio dengan judul dan penjelasan dampaknya. */
