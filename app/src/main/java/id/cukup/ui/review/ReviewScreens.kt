@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import id.cukup.data.Overview
+import id.cukup.domain.Brands
 import id.cukup.domain.AccountKind
 import id.cukup.domain.CategoryKind
 import id.cukup.domain.Rupiah
@@ -46,6 +47,7 @@ import id.cukup.ui.components.Hairline
 import id.cukup.ui.components.InkButton
 import id.cukup.ui.components.LineButton
 import id.cukup.ui.components.PickItem
+import id.cukup.ui.components.SectionHeader
 import id.cukup.ui.components.TextAction
 import id.cukup.ui.components.TopBar
 import id.cukup.ui.components.colorOf
@@ -109,7 +111,7 @@ private fun PendingCard(tx: Transaction, o: Overview, onConfirm: (Long?, Long?) 
         }
         Eyebrow(if (isIncome) "Masuk ke" else "Dari dompet", Modifier.padding(horizontal = 16.dp).padding(top = 14.dp, bottom = 8.dp))
         ChipPicker(
-            o.accounts.map { PickItem(it.account.id, it.account.name, it.account.emoji, colorOf(it.account), mark = id.cukup.domain.Brands.forAccountName(it.account.name)?.mark) },
+            o.accounts.map { PickItem(it.account.id, it.account.name, it.account.emoji, colorOf(it.account), mark = Brands.forAccountName(it.account.name)?.mark) },
             accountId, { accountId = it },
         )
         Eyebrow("Kategori", Modifier.padding(horizontal = 16.dp).padding(top = 12.dp, bottom = 8.dp))
@@ -177,6 +179,28 @@ fun TxDetailScreen(id: Long, onBack: () -> Unit, onEdit: (Long) -> Unit, vm: App
                         val pos = data.plan.firstOrNull { it.id == cat?.planId }
                         Info("Dihitung di rencana", pos?.let { "${it.emoji} ${it.name}" } ?: "Tidak")
                     }
+                }
+            }
+            if (tx.type != TxType.TRANSFER) {
+                SectionHeader("Pindahkan ke dompet")
+                ChipPicker(
+                    data.accounts.map { PickItem(it.account.id, it.account.name, it.account.emoji, colorOf(it.account), mark = Brands.forAccountName(it.account.name)?.mark) },
+                    tx.accountId, { vm.moveTo(tx, it) },
+                )
+                if (tx.source == TxSource.NOTIFICATION) {
+                    Text(
+                        "Notifikasi ${tx.sourceApp ?: "ini"} berikutnya ikut masuk ke dompet yang kamu pilih.",
+                        style = Type.bodySmall, color = c.faint, modifier = Modifier.padding(horizontal = Gutter, vertical = 6.dp),
+                    )
+                }
+            }
+            if (tx.type == TxType.TRANSFER && tx.source == TxSource.NOTIFICATION) {
+                Column(Modifier.padding(Gutter)) {
+                    LineButton("Bukan pindah, pisahkan", onClick = { vm.splitTransfer(tx.id) }, modifier = Modifier.fillMaxWidth())
+                    Text(
+                        "Jadi dua catatan: uang keluar dari ${from?.name ?: "dompet asal"} dan uang masuk ke ${to?.name ?: "dompet tujuan"}.",
+                        style = Type.bodySmall, color = c.faint, modifier = Modifier.padding(top = 6.dp),
+                    )
                 }
             }
             Info("Sumber", if (tx.source == TxSource.NOTIFICATION) "Notifikasi ${tx.sourceApp ?: ""}" else "Dicatat manual")

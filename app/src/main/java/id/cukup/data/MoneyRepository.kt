@@ -1,5 +1,12 @@
 package id.cukup.data
 
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.shareIn
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.conflate
+import kotlinx.coroutines.flow.flowOn
 import androidx.room.withTransaction
 import id.cukup.data.db.AccountEntity
 import id.cukup.data.db.CategoryEntity
@@ -10,6 +17,7 @@ import id.cukup.data.db.PlanPosEntity
 import id.cukup.data.db.TransactionEntity
 import id.cukup.domain.Account
 import id.cukup.domain.Brands
+import id.cukup.domain.Rupiah
 import id.cukup.domain.AccountBalance
 import id.cukup.domain.AccountKind
 import id.cukup.domain.Category
@@ -77,8 +85,15 @@ class MoneyRepository @Inject constructor(
     private val settingsStore: SettingsStore,
     private val widgets: WidgetRefresher,
     private val alerts: BudgetAlerts,
+    private val notice: RecordedNotice,
 ) {
     private val dao = db.dao()
+    private val shareScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    companion object {
+        const val AUTO_TRANSFER_NOTE = "Pindah antar dompet (otomatis)"
+        const val SPLIT_NOTE = "Dipisah dari Pindah otomatis"
+    }
     private val zone: ZoneId get() = ZoneId.systemDefault()
 
     val settings: Flow<Settings> = settingsStore.settings
@@ -93,9 +108,15 @@ class MoneyRepository @Inject constructor(
         p.map { it.toDomain() } to g.map { it.toDomain() }
     }
 
-    val overview: Flow<Overview> = combine(records, planning, settingsStore.settings) { (accounts, cats, txs), (plan, goals), s ->
+    // Dihitung di thread latar (bukan main thread) dan hanya hasil terbaru yang dipakai,
+    // supaya scroll/animasi tidak tersendat saat data atau setelan berubah.
+    private val computed: Flow<Overview> = combine(records, planning, settingsStore.settings) { (accounts, cats, txs), (plan, goals), s ->
         build(accounts, cats, txs, plan, goals, s)
-    }
+    }.flowOn(Dispatchers.Default)
+
+    val overview: Flow<Overview> = computed.conflate()
+        // Satu perhitungan dibagi ke semua layar & widget, bukan satu per ViewModel.
+        .shareIn(shareScope, SharingStarted.WhileSubscribed(5_000), replay = 1)
 
     private fun millis(d: LocalDate) = d.atStartOfDay(zone).toInstant().toEpochMilli()
 
@@ -139,7 +160,8 @@ class MoneyRepository @Inject constructor(
         )
     }
 
-    suspend fun current(): Overview = overview.first()
+    /** Selalu dihitung langsung dari database, jadi aman dipakai tepat setelah menulis. */
+    suspend fun current(): Overview = computed.first()
 
     // ——— Pengenalan ———
 
@@ -261,19 +283,26 @@ class MoneyRepository @Inject constructor(
         val accounts = dao.accounts().map { it.toDomain() }
         val account = guessAccount(packageName, accounts, parsed.isPaylater, s)
         val body = listOfNotNull(title, text).joinToString(" ")
-        val window = 15 * 60_000L
+        // Transfer antar bank/e-wallet sendiri biasanya memunculkan dua notifikasi dalam 1–2 menit.
+        val window = 5 * 60_000L
+        val names = accounts.associate { it.id to it.name }
 
         // Pindah ke dompet sendiri (BCA → Krom): notifikasi keluar dan masuk bernominal sama digabung jadi satu Pindah.
         if (account != null && parsed.type != TxType.TRANSFER) {
             val opposite = if (parsed.type == TxType.INCOME) TxType.EXPENSE else TxType.INCOME
+            // Hanya pasangan yang belum kamu sentuh (tanpa catatan, belum diedit) dari dompet lain.
             val pair = dao.findNotified(parsed.amount, opposite.name, postedAt - window, postedAt + window)
-                .firstOrNull { it.accountId != null && it.accountId != account }
+                .firstOrNull { it.accountId != null && it.accountId != account && it.note.isBlank() }
             if (pair != null) {
                 val (from, to) = if (parsed.type == TxType.INCOME) pair.accountId to account else account to pair.accountId
                 dao.upsertTransaction(
-                    pair.copy(type = TxType.TRANSFER.name, accountId = from, toAccountId = to, categoryId = null, status = TxStatus.CONFIRMED.name, note = "Pindah antar dompet (otomatis)"),
+                    pair.copy(type = TxType.TRANSFER.name, accountId = from, toAccountId = to, categoryId = null, status = TxStatus.CONFIRMED.name, note = AUTO_TRANSFER_NOTE),
                 )
                 changed()
+                notice.post(
+                    pair.id, "Pindah ${Rupiah.format(parsed.amount)}", "${from?.let(names::get).orEmpty()} → ${to?.let(names::get).orEmpty()} · digabung otomatis",
+                    RecordedNotice.Undo.SPLIT,
+                )
                 return true
             }
             // Masuk yang sudah tercatat sebagai Pindah dari notifikasi sebelumnya ("Top up OVO").
@@ -307,12 +336,39 @@ class MoneyRepository @Inject constructor(
             status = if (auto) TxStatus.CONFIRMED else TxStatus.PENDING,
             fingerprint = fingerprint,
         )
-        val saved = dao.insertTransaction(TransactionEntity.from(tx)) > 0
+        val newId = dao.insertTransaction(TransactionEntity.from(tx))
+        val saved = newId > 0
         if (saved) {
             changed()
             if (tx.type == TxType.EXPENSE) runCatching { alerts.checkSingle(tx.amount, tx.merchant) }
+            if (auto) {
+                val what = when (tx.type) {
+                    TxType.INCOME -> "Masuk"
+                    TxType.TRANSFER -> "Pindah"
+                    TxType.EXPENSE -> "Keluar"
+                }
+                val where = if (tx.type == TxType.TRANSFER) "${account?.let(names::get).orEmpty()} → ${mentioned?.let(names::get).orEmpty()}"
+                else listOf(account?.let(names::get).orEmpty(), category?.name.orEmpty(), tx.merchant).filter { it.isNotBlank() }.joinToString(" · ")
+                notice.post(newId, "$what ${Rupiah.format(tx.amount)}", where, RecordedNotice.Undo.DELETE)
+            }
         }
         return saved
+    }
+
+    /**
+     * Membatalkan Pindah yang digabung otomatis: kembali jadi Keluar dari dompet asal
+     * dan Masuk ke dompet tujuan, tanpa kategori (bisa diisi setelahnya).
+     */
+    suspend fun splitTransfer(id: Long) {
+        val t = dao.transaction(id) ?: return
+        if (t.type != TxType.TRANSFER.name || t.toAccountId == null) return
+        db.withTransaction {
+            dao.upsertTransaction(t.copy(type = TxType.EXPENSE.name, toAccountId = null, note = SPLIT_NOTE))
+            dao.insertTransaction(
+                t.copy(id = 0, type = TxType.INCOME.name, accountId = t.toAccountId, toAccountId = null, note = SPLIT_NOTE, fingerprint = t.fingerprint?.let { "$it|in" }),
+            )
+        }
+        changed()
     }
 
     /**

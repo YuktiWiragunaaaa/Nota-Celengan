@@ -38,6 +38,12 @@ class AppViewModel @Inject constructor(
             .fold({ "Tersimpan: ${it.accounts} dompet, ${it.transactions} catatan." }, { "Gagal menyimpan: ${it.message}" })
     }
 
+    /** Pindah otomatis yang keliru: kembalikan jadi Keluar + Masuk. */
+    fun splitTransfer(id: Long) = go { repository.splitTransfer(id) }
+
+    /** Ganti dompet sebuah catatan; untuk notifikasi, aplikasi itu ikut diarahkan ke dompet ini. */
+    fun moveTo(tx: id.cukup.domain.Transaction, accountId: Long) = go { repository.save(tx.copy(accountId = accountId)) }
+
     /** Cadangan otomatis di HP, terbaru dulu. */
     fun autoBackups(): List<java.io.File> = backup.autoBackups()
 

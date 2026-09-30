@@ -49,6 +49,10 @@
         </service>
 
         <receiver
+            android:name=".data.UndoReceiver"
+            android:exported="false" />
+
+        <receiver
             android:name=".widget.CukupWidgetReceiver"
             android:exported="true"
             android:label="@string/widget_label">

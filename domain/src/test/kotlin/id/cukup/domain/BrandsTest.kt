@@ -43,6 +43,25 @@ class BrandsTest {
     }
 
     @Test
+    fun `dana as a common word is not the DANA wallet`() {
+        assertNull(Brands.forAccountName("Dana darurat"))
+        assertNull(Brands.forAccountName("Tabungan Jagoan"))
+        assertEquals("dana", Brands.forAccountName("DANA")?.key)
+        assertEquals("dana", Brands.forAccountName("Dana")?.key)
+        assertEquals("dana", Brands.forAccountName("DANA pribadi")?.key)
+        val dana = Account(5, "DANA", "👛", AccountKind.EWALLET)
+        val all = listOf(bank, dana)
+        assertNull(Brands.mentionedAccount("Transfer dana ke BUDI sebesar Rp50.000", all, except = 2))
+        assertEquals(5L, Brands.mentionedAccount("Top Up DANA Rp50.000 berhasil", all, except = 2))
+    }
+
+    @Test
+    fun `a savings pot named dana darurat does not take DANA notifications`() {
+        val pot = Account(8, "Dana darurat", "🐷", AccountKind.SAVINGS)
+        assertNull(Brands.accountFor("id.dana", listOf(cash, pot), emptyMap()))
+    }
+
+    @Test
     fun `krom notifications are read`() {
         val r = NotificationParser.parse("com.krom.android", "Uang masuk", "Kamu menerima Rp250.000 dari BUDI")!!
         assertEquals(TxType.INCOME, r.type)

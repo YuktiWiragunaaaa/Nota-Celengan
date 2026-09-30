@@ -1,5 +1,7 @@
 package id.cukup.ui.home
 
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.SizeTransform
 import id.cukup.ui.components.AccountIcon
 import id.cukup.ui.components.GlassIcon
 import androidx.compose.animation.AnimatedContent
@@ -282,12 +284,15 @@ private fun Hero(
         )
 
         // 3. Keluar ke mana?
+        // Jenis grafik diganti langsung di layar; menyimpannya ke setelan menyusul di belakang,
+        // supaya tidak menunggu tulis setelan + hitung ulang semua data.
+        var chart by rememberSaveable { mutableStateOf(o.settings.chart) }
         Spacer(Modifier.height(18.dp))
         Row(Modifier.fillMaxWidth().padding(horizontal = Gutter), verticalAlignment = Alignment.CenterVertically) {
             Text("Keluar ke mana?", style = Type.strong, color = white, modifier = Modifier.weight(1f))
             ChartSwitch(
                 listOf("DONUT" to Icons.Rounded.DonutLarge, "BAR" to Icons.Rounded.BarChart, "BUBBLE" to Icons.Rounded.BubbleChart),
-                current = o.settings.chart, onPick = onChart,
+                current = chart, onPick = { chart = it; onChart(it) },
             )
         }
         if (parts.isEmpty()) {
@@ -297,7 +302,7 @@ private fun Hero(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 28.dp, vertical = 36.dp),
             )
         } else {
-            SpendingChart(o, parts, o.settings.chart, selected) { selected = if (selected == it) null else it }
+            SpendingChart(o, parts, chart, selected) { selected = if (selected == it) null else it }
             val pick = parts.firstOrNull { (it.category?.id ?: -1L) == selected }
             AnimatedContent(pick, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "pick") { p ->
                 Column(Modifier.fillMaxWidth().padding(horizontal = 28.dp).height(44.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -316,11 +321,19 @@ private fun Hero(
 
 @Composable
 private fun SpendingChart(o: Overview, parts: List<CategoryAmount>, type: String, selected: Long?, onSelect: (Long) -> Unit) {
-    val slices = parts.map { p ->
-        Slice(p.category?.id ?: -1L, p.category?.name ?: "Tanpa kategori", p.category?.emoji ?: "🧾", p.amount.toFloat(), colorOf(p.category), Rupiah.short(p.amount))
+    val colorsOf = parts.map { colorOf(it.category) }
+    val slices = remember(parts, colorsOf) {
+        parts.mapIndexed { i, p -> Slice(p.category?.id ?: -1L, p.category?.name ?: "Tanpa kategori", p.category?.emoji ?: "🧾", p.amount.toFloat(), colorsOf[i], Rupiah.short(p.amount)) }
     }
     val pick: (Long?) -> Unit = { id -> if (id != null) onSelect(id) else if (selected != null) onSelect(selected) }
-    AnimatedContent(type, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "chart") { t ->
+    AnimatedContent(
+        type,
+        transitionSpec = {
+            (fadeIn(tween(220, delayMillis = 60)) togetherWith fadeOut(tween(120)))
+                .using(SizeTransform(clip = false) { _, _ -> spring(dampingRatio = 0.85f, stiffness = 400f) })
+        },
+        label = "chart",
+    ) { t ->
         when (t) {
             "BAR" -> HBarChart(slices, selected, pick, Modifier.fillMaxWidth().padding(horizontal = 28.dp, vertical = 18.dp))
             "BUBBLE" -> BubbleChart(

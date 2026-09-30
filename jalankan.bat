@@ -41,7 +41,7 @@ if errorlevel 1 (
   echo atau pakai menu 5 untuk sambungan Wi-Fi. Lalu jalankan lagi.
   goto selesai
 )
-call gradlew.bat :app:installDebug
+call gradlew.bat :app:installFast
 if errorlevel 1 goto gagal
 "%ADB%" shell am start -n id.cukup.debug/id.cukup.MainActivity >nul
 echo.
@@ -68,7 +68,7 @@ goto selesai
 start "" "%ANDROID_HOME%\emulator\emulator.exe" -avd Cukup_Pixel
 echo Menunggu emulator menyala...
 "%ADB%" -e wait-for-device
-call gradlew.bat :app:installDebug
+call gradlew.bat :app:installFast
 if errorlevel 1 goto gagal
 "%ADB%" -e shell am start -n id.cukup.debug/id.cukup.MainActivity >nul
 goto selesai

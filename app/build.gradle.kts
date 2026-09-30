@@ -15,8 +15,8 @@ android {
         minSdk = 26
         targetSdk = 36
         // CI mengisi CUKUP_BUILD dengan nomor build supaya tiap APK terbaca sebagai pembaruan.
-        versionCode = 912 + (System.getenv("CUKUP_BUILD")?.toIntOrNull() ?: 0)
-        versionName = "0.9.1"
+        versionCode = 920 + (System.getenv("CUKUP_BUILD")?.toIntOrNull() ?: 0)
+        versionName = "0.9.2"
     }
 
     signingConfigs {
@@ -39,6 +39,18 @@ android {
         release {
             isMinifyEnabled = false
             signingConfig = signingConfigs.findByName("sideload") ?: signingConfigs.getByName("debug")
+        }
+        // Build cepat untuk dipakai sehari-hari di HP: dioptimalkan R8 dan tidak debuggable (Compose jauh
+        // lebih lancar), tapi ID & kunci sama dengan debug, jadi bisa menimpa versi debug tanpa kehilangan data.
+        create("fast") {
+            initWith(getByName("release"))
+            applicationIdSuffix = ".debug"
+            isDebuggable = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = signingConfigs.getByName("debug")
+            matchingFallbacks += "release"
         }
     }
 
