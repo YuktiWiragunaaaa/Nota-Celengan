@@ -64,6 +64,12 @@ val PocketPalette = listOf(
     Color(0xFFFF8A3D), // jingga
     Color(0xFFB98A64), // cokelat
     Color(0xFFFFB38A), // peach (dulu abu-abu: kusam; sian: terlalu dingin untuk palet hangat)
+    Color(0xFFC4A1FF), // lavender
+    Color(0xFF2FB8D6), // biru kehijauan
+    Color(0xFFFF6F59), // koral
+    Color(0xFFB5C94A), // zaitun
+    Color(0xFFD65A8A), // anggur
+    Color(0xFF7C8CFF), // periwinkle
 )
 
 private val Light = CukupColors(

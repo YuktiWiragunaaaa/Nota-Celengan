@@ -1,5 +1,6 @@
 package id.cukup.ui.components
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -209,11 +210,13 @@ fun AmountDialog(
 /** Pilihan ikon emoji dan warna untuk dompet / kategori / pos / target. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun LookPicker(emoji: String, color: Int?, onEmoji: (String) -> Unit, onColor: (Int?) -> Unit) {
+fun LookPicker(emoji: String, color: Int?, onEmoji: (String) -> Unit, onColor: (Int?) -> Unit, fallback: Color? = null) {
     val c = colors
+    // Warna yang sebenarnya dipakai: pilihan pengguna, atau warna bawaan item ini.
+    val current = color?.let { Color(it) } ?: fallback ?: c.accent
     Eyebrow("Ikon")
     Spacer(Modifier.height(8.dp))
-    val tint = color?.let { Color(it) } ?: c.accent
+    val tint = current
     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         // Hanya ikon yang punya versi garis, supaya semua ikon tetap seragam.
         Presets.emojis.distinctBy { glyphOf(it) }.filter { glyphOf(it) != null }.forEach { e ->
@@ -230,9 +233,11 @@ fun LookPicker(emoji: String, color: Int?, onEmoji: (String) -> Unit, onColor: (
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         PocketPalette.forEach { col ->
             val argb = col.toArgb()
-            val selected = color == argb
+            val selected = current.toArgb() == argb
             androidx.compose.foundation.layout.Box(
-                Modifier.size(if (selected) 34.dp else 28.dp).clip(CircleShape).background(col).clickable { onColor(argb) },
+                Modifier.size(34.dp).clip(CircleShape)
+                    .border(2.dp, if (selected) c.ink else Color.Transparent, CircleShape)
+                    .padding(4.dp).clip(CircleShape).background(col).clickable { onColor(argb) },
             )
         }
     }

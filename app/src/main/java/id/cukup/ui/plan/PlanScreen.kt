@@ -361,7 +361,7 @@ private fun GoalDialog(g: Goal, o: Overview, onDismiss: () -> Unit, onDelete: ()
                     LineField(saved, { saved = it.filter(Char::isDigit).take(12) }, "Sudah terkumpul (opsional)", keyboardType = KeyboardType.Number)
                 }
                 Spacer(Modifier.height(14.dp))
-                LookPicker(emoji, color, { emoji = it }, { color = it })
+                LookPicker(emoji, color, { emoji = it }, { color = it }, fallback = colors.of(g.color, g.sortOrder))
                 if (g.id != 0L) {
                     Spacer(Modifier.height(14.dp))
                     TextAction("Hapus target ini", onDelete, color = c.over)

@@ -223,7 +223,7 @@ fun AccountForm(initial: Account, isNew: Boolean, onBack: () -> Unit, onSave: (A
                 )
             }
             Spacer(Modifier.height(16.dp))
-            LookPicker(emoji, color, { emoji = it }, { color = it })
+            LookPicker(emoji, color, { emoji = it }, { color = it }, fallback = colorOf(initial))
             Spacer(Modifier.height(24.dp))
         }
         InkButton(

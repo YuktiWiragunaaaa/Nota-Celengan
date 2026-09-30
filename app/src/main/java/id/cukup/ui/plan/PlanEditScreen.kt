@@ -210,7 +210,7 @@ fun PlanEditScreen(onBack: () -> Unit, vm: AppViewModel = hiltViewModel()) {
             AlertDialog(
                 onDismissRequest = { looking = null },
                 title = { Text("Ikon & warna", style = Type.title) },
-                text = { Column(Modifier.verticalScroll(rememberScrollState())) { LookPicker(p.emoji, p.color, { pos[i] = pos[i].copy(emoji = it) }, { pos[i] = pos[i].copy(color = it) }) } },
+                text = { Column(Modifier.verticalScroll(rememberScrollState())) { LookPicker(p.emoji, p.color, { pos[i] = pos[i].copy(emoji = it) }, { pos[i] = pos[i].copy(color = it) }, fallback = colorOf(p)) } },
                 confirmButton = { TextButton({ looking = null }) { Text("Selesai", color = c.ink) } },
                 containerColor = c.card,
             )

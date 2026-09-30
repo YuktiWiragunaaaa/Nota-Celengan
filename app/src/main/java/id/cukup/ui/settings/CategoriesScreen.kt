@@ -1,5 +1,6 @@
 package id.cukup.ui.settings
 
+import id.cukup.ui.components.colorOf
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -55,7 +56,7 @@ fun CategoriesScreen(onBack: () -> Unit, vm: AppViewModel = hiltViewModel()) {
                 Group(title)
                 data.categories.filter { it.kind == kind }.forEach { cat ->
                     val pos = data.plan.firstOrNull { it.id == cat.planId }
-                    Link(cat.name, if (kind == CategoryKind.EXPENSE) (pos?.let { "Rencana: ${it.name}" } ?: "Tidak masuk rencana") else "", leading = cat.emoji) {
+                    Link(cat.name, if (kind == CategoryKind.EXPENSE) (pos?.let { "Rencana: ${it.name}" } ?: "Tidak masuk rencana") else "", leading = cat.emoji, leadingTint = colorOf(cat)) {
                         editing = cat
                     }
                 }
@@ -82,7 +83,7 @@ fun CategoriesScreen(onBack: () -> Unit, vm: AppViewModel = hiltViewModel()) {
                         }
                     }
                     Spacer(Modifier.height(14.dp))
-                    LookPicker(emoji, color, { emoji = it }, { color = it })
+                    LookPicker(emoji, color, { emoji = it }, { color = it }, fallback = colorOf(cat))
                     if (cat.id != 0L) {
                         Spacer(Modifier.height(14.dp))
                         TextAction("Hapus kategori ini", { vm.archiveCategory(cat.id); editing = null }, color = c.over)
