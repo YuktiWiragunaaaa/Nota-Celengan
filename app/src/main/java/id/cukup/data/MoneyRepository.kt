@@ -182,7 +182,8 @@ class MoneyRepository @Inject constructor(
     suspend fun archiveAccount(id: Long) {
         dao.archiveAccount(id)
         if (settingsStore.current().defaultAccountId == id) {
-            settingsStore.update { s -> s.copy(defaultAccountId = dao.accounts().firstOrNull()?.id ?: 0) }
+            val next = dao.accounts().firstOrNull()?.id ?: 0
+            settingsStore.update { s -> s.copy(defaultAccountId = next) }
         }
         changed()
     }
