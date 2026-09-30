@@ -1,8 +1,13 @@
 # Cukup
 
-Aplikasi keuangan pribadi Android untuk Gen Z Indonesia. **Uangmu, dipilah.**
-Setiap uang masuk dibagi otomatis ke pos-pos berbasis persentase; setiap pengeluaran mengambil dari satu pos.
-Semua tercatat, semua di HP, tanpa internet.
+Aplikasi keuangan pribadi Android untuk Gen Z Indonesia. Semua data ada di HP, tanpa internet.
+
+Cukup punya dua bagian yang terpisah:
+
+| | Catatan | Rencana |
+|---|---|---|
+| Isinya | Dompet (tunai, bank, e-wallet, paylater) dan saldonya. Uang masuk, keluar, dan pindah. | Pembagian persen (mis. 50/30/20), batas belanja, target tabungan. |
+| Mengubah saldo? | Ya | **Tidak.** Hanya membandingkan batas dengan catatan. |
 
 ```
 domain/  Kotlin murni: pembagian persen, siklus gajian, saldo pos, pembaca notifikasi, penebak pos (+ unit test)
@@ -10,7 +15,11 @@ app/     Android: Compose, Room, Hilt, Glance widget, pembaca notifikasi, kunci 
 docs/    BRIEF.md (spesifikasi) · BRAND.md (desain)
 ```
 
-## Cara pakai (paling mudah)
+## Pasang di HP tanpa kabel
+
+Setiap push ke GitHub otomatis membangun APK di **Releases**. Langkahnya ada di [`docs/UPDATE-NIRKABEL.md`](docs/UPDATE-NIRKABEL.md).
+
+## Pasang lewat laptop
 
 Klik dua kali **`jalankan.bat`** lalu pilih:
 
@@ -38,4 +47,4 @@ Kebutuhan (sudah terpasang di komputer ini): JDK 17 (Temurin), Android SDK di `D
 
 ## Status
 
-MVP (Fase 1) — lihat `docs/BRIEF.md` untuk cakupan, koreksi terhadap dokumen riset, dan rencana fase berikutnya.
+v0.6 — lihat `docs/BRIEF.md` untuk cakupan, koreksi terhadap dokumen riset, dan rencana fase berikutnya.
