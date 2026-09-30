@@ -1,5 +1,6 @@
 ﻿package id.cukup.ui.components
 
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.animation.core.spring
@@ -63,13 +64,14 @@ fun DonutChart(
     val sweep = remember { Animatable(0f) }
     LaunchedEffect(Unit) { sweep.animateTo(1f, tween(1100, easing = FastOutSlowInEasing)) }
     val total = slices.sumOf { it.value.toDouble() }.toFloat().takeIf { it > 0f } ?: 1f
-    // Tiap irisan punya animasi pilih sendiri (pegas) supaya menebal/meredup dengan halus.
+    // Tiap irisan punya animasi pilih sendiri (pegas). Nilainya baru dibaca saat menggambar,
+    // jadi animasi hanya menggambar ulang, tidak menyusun ulang seluruh grafik tiap frame.
     val lift = slices.map { s ->
         key(s.key) {
             animateFloatAsState(
                 if (s.key == selected) 1f else if (selected != null) -1f else 0f,
                 spring(dampingRatio = 0.6f, stiffness = 300f), label = "lift",
-            ).value
+            )
         }
     }
 
@@ -108,7 +110,7 @@ fun DonutChart(
             var start = -90f
             slices.forEachIndexed { i, s ->
                 val full = s.value / total * 360f
-                val l = lift[i]
+                val l = lift[i].value
                 val w = thick * (1f + 0.22f * l.coerceAtLeast(0f))
                 val alpha = 1f - 0.6f * (-l).coerceAtLeast(0f)
                 val sweepDeg = ((full - gap).coerceAtLeast(0.5f)) * sweep.value
@@ -138,9 +140,10 @@ fun HBarChart(
     Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
         slices.forEach { s ->
             key(s.key) {
-                val grow by animateFloatAsState(s.value / max, spring(dampingRatio = 0.75f, stiffness = 120f), label = "bar")
+                // State animasi dibaca di drawBehind (fase gambar), bukan saat menyusun layout.
+                val grow = animateFloatAsState(s.value / max, spring(dampingRatio = 0.75f, stiffness = 120f), label = "bar")
                 val dim = selected != null && selected != s.key
-                val fade by animateFloatAsState(if (dim) 0.35f else 1f, tween(250), label = "fade")
+                val fade = animateFloatAsState(if (dim) 0.35f else 1f, tween(250), label = "fade")
                 Row(
                     Modifier.fillMaxWidth().clip(Pill).clickable { onSelect(if (selected == s.key) null else s.key) }.padding(horizontal = 6.dp, vertical = 2.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -158,8 +161,14 @@ fun HBarChart(
                         Spacer(Modifier.height(4.dp))
                         Box(Modifier.fillMaxWidth().height(10.dp).clip(Pill).background(track)) {
                             Box(
-                                Modifier.fillMaxWidth(grow.coerceIn(0.02f, 1f)).height(10.dp).clip(Pill)
-                                    .background(Brush.horizontalGradient(listOf(s.color.copy(alpha = 0.55f * fade), s.color.copy(alpha = fade)))),
+                                Modifier.fillMaxSize().drawBehind {
+                                    val w = size.width * grow.value.coerceIn(0.02f, 1f)
+                                    val a = fade.value
+                                    drawRoundRect(
+                                        Brush.horizontalGradient(listOf(s.color.copy(alpha = 0.55f * a), s.color.copy(alpha = a)), endX = w),
+                                        size = Size(w, size.height), cornerRadius = CornerRadius(size.height / 2, size.height / 2),
+                                    )
+                                },
                             )
                         }
                     }
