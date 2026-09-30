@@ -1,5 +1,7 @@
 package id.cukup.ui.home
 
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.verticalScroll
 import id.cukup.ui.components.ScheduleEditor
 import androidx.compose.material3.TextButton
@@ -357,23 +359,21 @@ private fun SpendingChart(o: Overview, parts: List<CategoryAmount>, type: String
         parts.mapIndexed { i, p -> Slice(p.category?.id ?: -1L, p.category?.name ?: "Tanpa kategori", p.category?.emoji ?: "🧾", p.amount.toFloat(), colorsOf[i], Rupiah.short(p.amount)) }
     }
     val pick: (Long?) -> Unit = { id -> if (id != null) onSelect(id) else if (selected != null) onSelect(selected) }
-    AnimatedContent(
-        type,
-        transitionSpec = {
-            (fadeIn(tween(220, delayMillis = 60)) togetherWith fadeOut(tween(120)))
-                .using(SizeTransform(clip = false) { _, _ -> spring(dampingRatio = 0.85f, stiffness = 400f) })
-        },
-        label = "chart",
-    ) { t ->
+    // Tinggi tetap: saat ganti grafik hanya isinya yang berganti (fade = murah), bagian atas Beranda
+    // tidak perlu dihitung ulang tata letaknya di setiap frame animasi.
+    Crossfade(type, Modifier.fillMaxWidth().height(240.dp), animationSpec = tween(200), label = "chart") { t ->
         when (t) {
-            "BAR" -> HBarChart(slices, selected, pick, Modifier.fillMaxWidth().padding(horizontal = 28.dp, vertical = 18.dp))
+            "BAR" -> HBarChart(
+                slices.take(5), selected, pick,
+                Modifier.fillMaxSize().padding(horizontal = 28.dp, vertical = 12.dp).wrapContentHeight(Alignment.CenterVertically),
+            )
             "BUBBLE" -> BubbleChart(
                 bubbles = slices.map { Bubble(it.key, it.emoji, it.label, it.valueText, it.value.coerceAtLeast(1f), -1f, it.color) },
                 selected = selected,
                 onSelect = onSelect,
-                modifier = Modifier.fillMaxWidth().height(240.dp).padding(horizontal = 28.dp, vertical = 8.dp),
+                modifier = Modifier.fillMaxSize().padding(horizontal = 28.dp, vertical = 8.dp),
             )
-            else -> DonutChart(slices, selected, pick, Modifier.fillMaxWidth().height(220.dp).padding(vertical = 16.dp)) {
+            else -> DonutChart(slices, selected, pick, Modifier.fillMaxSize().padding(vertical = 16.dp)) {
                 val p = parts.firstOrNull { (it.category?.id ?: -1L) == selected }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     GlassIcon(p?.category?.emoji ?: "🧾", Color.White, size = 36.dp, onDark = true)

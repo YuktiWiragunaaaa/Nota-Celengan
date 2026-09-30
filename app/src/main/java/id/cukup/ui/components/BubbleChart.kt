@@ -1,5 +1,7 @@
 package id.cukup.ui.components
 
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -138,7 +140,6 @@ fun BubbleChart(
             val size = with(density) { (rPx * 2).toDp() }
             val left = with(density) { (cx + p.x * scale - rPx).toDp() }
             val top = with(density) { (cy + p.y * scale - rPx).toDp() }
-            val base = if (onDark) Color.White else b.color
             Box(
                 Modifier
                     .offset(left, top)
@@ -159,13 +160,38 @@ fun BubbleChart(
                 contentAlignment = Alignment.Center,
             ) {
                 Canvas(Modifier.fillMaxSize()) {
-                    // Dasar bening; kantong yang bukan untuk belanja diberi tint warnanya sendiri.
-                    drawCircle(if (b.fill < 0f) b.color.copy(alpha = if (isSelected) 0.85f else 0.62f) else base.copy(alpha = if (isSelected) 0.24f else 0.14f))
+                    val r = this.size.minDimension / 2f
+                    val glow = if (isSelected) 1f else 0.75f
+                    // Liquid glass: badan kaca bening, warna kategori hanya jadi inti bercahaya di tengah.
+                    drawCircle(
+                        Brush.radialGradient(
+                            0f to b.color.copy(alpha = 0.85f * glow),
+                            0.3f to b.color.copy(alpha = 0.55f * glow),
+                            0.7f to b.color.copy(alpha = 0.10f * glow),
+                            1f to Color.White.copy(alpha = if (onDark) 0.08f else 0.05f),
+                            center = center, radius = r,
+                        ),
+                    )
                     if (fill > 0f) {
-                        // Irisan berwarna dari atas, searah jarum jam = porsi yang tersisa.
-                        drawArc(b.color.copy(alpha = if (isSelected) 0.85f else 0.62f), -90f, 360f * fill, useCenter = true)
+                        // Irisan dari atas, searah jarum jam = porsi yang tersisa (dipakai di Rencana).
+                        drawArc(b.color.copy(alpha = 0.45f * glow), -90f, 360f * fill, useCenter = true)
                     }
-                    drawCircle(base.copy(alpha = if (isSelected) 0.95f else 0.3f), style = Stroke(width = if (isSelected) 2.dp.toPx() else 1.dp.toPx()))
+                    // Bayangan lembut di bawah supaya terasa bervolume.
+                    drawCircle(Brush.verticalGradient(0.6f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.18f)))
+                    // Kilau kaca di kiri atas.
+                    drawCircle(
+                        Brush.radialGradient(
+                            0f to Color.White.copy(alpha = 0.38f),
+                            1f to Color.Transparent,
+                            center = Offset(this.size.width * 0.34f, this.size.height * 0.26f), radius = r * 0.55f,
+                        ),
+                    )
+                    // Tepi kaca: terang di atas, memudar ke warna kategori di bawah.
+                    drawCircle(
+                        Brush.verticalGradient(listOf(Color.White.copy(alpha = if (isSelected) 0.95f else 0.6f), b.color.copy(alpha = 0.35f), Color.White.copy(alpha = 0.12f))),
+                        radius = r - 0.6.dp.toPx(),
+                        style = Stroke(width = if (isSelected) 2.dp.toPx() else 1.2.dp.toPx()),
+                    )
                 }
                 val big = rPx > with(density) { 46.dp.toPx() }
                 val textColor = if (onDark) Color.White else Color(0xFF17110E)

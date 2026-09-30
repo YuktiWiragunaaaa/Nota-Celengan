@@ -76,6 +76,7 @@ import kotlinx.coroutines.withContext
 @InstallIn(SingletonComponent::class)
 interface WidgetEntryPoint {
     fun repository(): MoneyRepository
+    fun notice(): id.cukup.data.RecordedNotice
 }
 
 class CukupWidget : GlanceAppWidget() {
@@ -89,10 +90,10 @@ class CukupWidget : GlanceAppWidget() {
             // Ikuti aliran data: sesi Glance bisa hidup lama, jadi nilai sekali-muat akan basi.
             val state = repo.overview.collectAsState(initial = first)
             val o = state.value
-            val chips = remember(o) { o?.let { quickChips(context, it) } ?: emptyList() }
             widgetTheme = o?.settings?.theme ?: "DARK"
             // Kunci PIN aktif = saldo tidak ditampilkan di layar utama (bisa dimatikan di Setelan).
             val hidden = o?.settings?.let { it.biometricLock && it.pinHash.isNotEmpty() && it.widgetHide } ?: false
+            val chips = remember(o, hidden) { o?.let { quickChips(context, it, hidden) } ?: emptyList() }
             GlanceTheme {
                 WidgetBody(
                     ready = o != null && o.settings.onboarded && o.accounts.isNotEmpty(),
@@ -123,13 +124,13 @@ private val MerchantKey = ActionParameters.Key<String>("merchant")
  * Belanja yang sering diulang jadi tombol sekali ketuk ("☕ 18 rb").
  * Kalau kurang dari tiga, sisanya kategori favorit yang membuka layar catat dengan kategori terpilih.
  */
-private fun quickChips(context: Context, o: Overview): List<Chip> {
+private fun quickChips(context: Context, o: Overview, hidden: Boolean): List<Chip> {
     val byId = o.categoryById
     val picks = QuickPicks.top(o.transactions, System.currentTimeMillis())
         .filter { p -> o.categories.any { it.id == p.categoryId } }
         .map { p ->
             Chip(
-                "${byId[p.categoryId]?.emoji.orEmpty()} ${Rupiah.short(p.amount)}",
+                "${byId[p.categoryId]?.emoji.orEmpty()} " + if (hidden) byId[p.categoryId]?.name.orEmpty() else Rupiah.short(p.amount),
                 actionRunCallback<QuickLogAction>(
                     actionParametersOf(
                         CategoryKey to p.categoryId,
@@ -159,8 +160,18 @@ class QuickLogAction : ActionCallback {
     override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
         val amount = parameters[AmountKey] ?: return
         val category = parameters[CategoryKey] ?: return
-        val repo = EntryPointAccessors.fromApplication(context, WidgetEntryPoint::class.java).repository()
-        repo.save(
+        val entry = EntryPointAccessors.fromApplication(context, WidgetEntryPoint::class.java)
+        val repo = entry.repository()
+        val s = repo.current().settings
+        // Kunci PIN aktif dan belum dibuka: jangan mencatat diam-diam, buka aplikasinya (lewat PIN) dengan kategori terpilih.
+        if (s.biometricLock && s.pinHash.isNotEmpty() && id.cukup.LockState.locked) {
+            context.startActivity(
+                Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    .putExtra(MainActivity.EXTRA_ADD, true).putExtra(MainActivity.EXTRA_CATEGORY, category),
+            )
+            return
+        }
+        val txId = repo.saveNew(
             Transaction(
                 type = TxType.EXPENSE,
                 amount = amount,
@@ -170,6 +181,8 @@ class QuickLogAction : ActionCallback {
                 occurredAt = System.currentTimeMillis(),
             ),
         )
+        // Tombol Batalkan, jaga-jaga kalau terketuk dua kali.
+        entry.notice().post(txId, "Keluar ${Rupiah.format(amount)}", "Dari widget", id.cukup.data.RecordedNotice.Undo.DELETE)
         withContext(Dispatchers.Main) {
             Toast.makeText(context, "Tercatat ${Rupiah.format(amount)}", Toast.LENGTH_SHORT).show()
         }

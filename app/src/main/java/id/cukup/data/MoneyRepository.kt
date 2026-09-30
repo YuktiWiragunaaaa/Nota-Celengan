@@ -1,5 +1,7 @@
 package id.cukup.data
 
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharingStarted
@@ -81,6 +83,7 @@ data class Overview(
 
 @Singleton
 class MoneyRepository @Inject constructor(
+    @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context,
     private val db: CukupDatabase,
     private val settingsStore: SettingsStore,
     private val widgets: WidgetRefresher,
@@ -114,9 +117,12 @@ class MoneyRepository @Inject constructor(
         build(accounts, cats, txs, plan, goals, s)
     }.flowOn(Dispatchers.Default)
 
-    val overview: Flow<Overview> = computed.conflate()
+    val overview: Flow<Overview> = computed
+        // Data rusak (mis. dari cadangan yang diedit) tidak boleh membuat aplikasi crash terus-menerus.
+        .catch { e -> android.util.Log.e("Cukup", "Gagal menghitung ringkasan", e) }
+        .conflate()
         // Satu perhitungan dibagi ke semua layar & widget, bukan satu per ViewModel.
-        .shareIn(shareScope, SharingStarted.WhileSubscribed(5_000), replay = 1)
+        .shareIn(shareScope, SharingStarted.WhileSubscribed(5_000, replayExpirationMillis = 0), replay = 1)
 
     private fun millis(d: LocalDate) = d.atStartOfDay(zone).toInstant().toEpochMilli()
 
@@ -232,11 +238,22 @@ class MoneyRepository @Inject constructor(
     /** Menyimpan transaksi baru atau hasil edit. */
     suspend fun save(t: Transaction) {
         val clean = t.copy(merchant = t.merchant.trim(), note = t.note.trim())
+        val before = if (clean.id != 0L) dao.transaction(clean.id) else null
         if (clean.id == 0L) dao.insertTransaction(TransactionEntity.from(clean)) else dao.upsertTransaction(TransactionEntity.from(clean))
         if (clean.type != TxType.TRANSFER) clean.categoryId?.let { learn(clean.merchant, it) }
-        if (clean.id != 0L) learnAppLink(clean)
+        // Tautan aplikasi→dompet hanya dipelajari kalau kamu memang mengganti dompetnya.
+        if (before != null && before.accountId != clean.accountId) learnAppLink(clean)
         changed()
         if (clean.type == TxType.EXPENSE && clean.id == 0L) runCatching { alerts.checkSingle(clean.amount, clean.merchant) }
+    }
+
+    /** Menyimpan transaksi baru dan mengembalikan id-nya (untuk tombol Batalkan). */
+    suspend fun saveNew(t: Transaction): Long {
+        val id = dao.insertTransaction(TransactionEntity.from(t.copy(id = 0, merchant = t.merchant.trim(), note = t.note.trim())))
+        if (t.type != TxType.TRANSFER) t.categoryId?.let { learn(t.merchant, it) }
+        changed()
+        if (t.type == TxType.EXPENSE) runCatching { alerts.checkSingle(t.amount, t.merchant) }
+        return id
     }
 
     suspend fun transaction(id: Long): Transaction? = dao.transaction(id)?.toDomain()
@@ -276,48 +293,55 @@ class MoneyRepository @Inject constructor(
      * Dompet ditebak dari nama aplikasi (mis. notifikasi GoPay → dompet bernama "GoPay").
      * Nominal serupa dalam ±3 menit selalu masuk "Perlu dicek" (kemungkinan duplikat bank + e-wallet).
      */
-    suspend fun ingest(packageName: String, title: String?, text: String?, postedAt: Long): Boolean {
-        val parsed = NotificationParser.parse(packageName, title, text) ?: return false
+    suspend fun ingest(packageName: String, title: String?, text: String?, postedAt: Long): Boolean = ingestLock.withLock {
+        val parsed = NotificationParser.parse(packageName, title, text) ?: return@withLock false
         val s = settingsStore.current()
-        if (!s.onboarded) return false
+        if (!s.onboarded) return@withLock false
         val accounts = dao.accounts().map { it.toDomain() }
         val account = guessAccount(packageName, accounts, parsed.isPaylater, s)
+        // Yakin = dompet tertaut/bernama brand ini/satu-satunya sejenis. Kalau hanya tebakan, jangan disimpan diam-diam.
+        val confident = account != null && (parsed.isPaylater || Brands.accountFor(packageName, accounts, s.appLinks) == account)
         val body = listOfNotNull(title, text).joinToString(" ")
         // Transfer antar bank/e-wallet sendiri biasanya memunculkan dua notifikasi dalam 1–2 menit.
-        val window = 5 * 60_000L
+        val window = 3 * 60_000L
         val names = accounts.associate { it.id to it.name }
 
         // Pindah ke dompet sendiri (BCA → Krom): notifikasi keluar dan masuk bernominal sama digabung jadi satu Pindah.
-        if (account != null && parsed.type != TxType.TRANSFER) {
+        if (confident && parsed.type != TxType.TRANSFER) {
             val opposite = if (parsed.type == TxType.INCOME) TxType.EXPENSE else TxType.INCOME
-            // Hanya pasangan yang belum kamu sentuh (tanpa catatan, belum diedit) dari dompet lain.
+            // Hanya pasangan dari notifikasi, dompet lain, dan belum kamu sentuh (tanpa catatan).
             val pair = dao.findNotified(parsed.amount, opposite.name, postedAt - window, postedAt + window)
                 .firstOrNull { it.accountId != null && it.accountId != account && it.note.isBlank() }
             if (pair != null) {
                 val (from, to) = if (parsed.type == TxType.INCOME) pair.accountId to account else account to pair.accountId
                 dao.upsertTransaction(
-                    pair.copy(type = TxType.TRANSFER.name, accountId = from, toAccountId = to, categoryId = null, status = TxStatus.CONFIRMED.name, note = AUTO_TRANSFER_NOTE),
+                    pair.copy(
+                        type = TxType.TRANSFER.name, accountId = from, toAccountId = to, categoryId = null,
+                        status = if (s.autoConfirm) TxStatus.CONFIRMED.name else TxStatus.PENDING.name, note = AUTO_TRANSFER_NOTE,
+                    ),
                 )
                 changed()
                 notice.post(
                     pair.id, "Pindah ${Rupiah.format(parsed.amount)}", "${from?.let(names::get).orEmpty()} → ${to?.let(names::get).orEmpty()} · digabung otomatis",
                     RecordedNotice.Undo.SPLIT,
                 )
-                return true
+                return@withLock true
             }
-            // Masuk yang sudah tercatat sebagai Pindah dari notifikasi sebelumnya ("Top up OVO").
-            if (parsed.type == TxType.INCOME) {
-                val already = dao.findNotified(parsed.amount, TxType.TRANSFER.name, postedAt - window, postedAt + window)
-                if (already.any { it.toAccountId == account }) return false
-            }
+            // Sisi lain dari Pindah yang sudah tercatat (notifikasi masuk "Top up OVO", atau notifikasi keluar
+            // yang muncul lagi setelah digabung): jangan dicatat dobel.
+            val already = dao.findNotified(parsed.amount, TxType.TRANSFER.name, postedAt - window, postedAt + window)
+            if (parsed.type == TxType.INCOME && already.any { it.toAccountId == account }) return@withLock false
+            if (parsed.type == TxType.EXPENSE && already.any { it.accountId == account }) return@withLock false
         }
-        // Keluar yang menyebut dompetmu yang lain ("Top up OVO", "transfer ke Krom") = Pindah.
-        val mentioned = if (parsed.type == TxType.EXPENSE && account != null) Brands.mentionedAccount(body, accounts, account) else null
+        // Top up ke dompetmu yang lain ("Top up OVO", "isi saldo DANA") = Pindah. Tanpa frasa top up,
+        // nama bank di teks ("Transfer ke BRI a.n. Budi") bisa berarti rekening orang lain, jadi tetap Keluar.
+        val topUp = Regex("""\btop\s?-?up\b|\bisi saldo\b""", RegexOption.IGNORE_CASE).containsMatchIn(body)
+        val mentioned = if (parsed.type == TxType.EXPENSE && confident && topUp) Brands.mentionedAccount(body, accounts, account) else null
 
         val fingerprint = NotificationParser.fingerprint(packageName, parsed.amount, postedAt, parsed.merchant)
         val type = if (mentioned != null) TxType.TRANSFER else parsed.type
         val duplicate = dao.countSame(parsed.amount, type.name, account, postedAt - 180_000, postedAt + 180_000) > 0
-        val auto = s.autoConfirm && !duplicate
+        val auto = s.autoConfirm && !duplicate && confident
         val kind = if (parsed.type == TxType.INCOME) CategoryKind.INCOME else CategoryKind.EXPENSE
         val category = if (mentioned != null) null else suggestCategory(parsed.merchant, kind, parsed.isDebtPayment)
         val similar = if (duplicate) 1 else 0
@@ -352,8 +376,10 @@ class MoneyRepository @Inject constructor(
                 notice.post(newId, "$what ${Rupiah.format(tx.amount)}", where, RecordedNotice.Undo.DELETE)
             }
         }
-        return saved
+        saved
     }
+
+    private val ingestLock = kotlinx.coroutines.sync.Mutex()
 
     /**
      * Membatalkan Pindah yang digabung otomatis: kembali jadi Keluar dari dompet asal
@@ -383,7 +409,6 @@ class MoneyRepository @Inject constructor(
         return nonCash.firstOrNull { it.kind == brand?.kind }?.id
             ?: nonCash.firstOrNull { it.id == s.defaultAccountId }?.id
             ?: nonCash.firstOrNull()?.id
-            ?: accounts.firstOrNull()?.id
     }
 
     /** Kalau kamu memindah transaksi notifikasi ke dompet lain, notifikasi berikutnya dari aplikasi itu ikut. */
@@ -481,6 +506,8 @@ class MoneyRepository @Inject constructor(
     /** Menghapus semua data dan pengaturan. Aplikasi kembali ke awal. */
     suspend fun eraseEverything() {
         db.withTransaction { db.clearAllTables() }
+        // "Hapus semua" berarti semua: cadangan otomatis & salinan pra-update di HP juga dihapus.
+        kotlinx.coroutines.withContext(Dispatchers.IO) { DbGuard.backupDir(context).deleteRecursively() }
         settingsStore.update { Settings() }
         widgets.refresh()
     }

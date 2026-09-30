@@ -70,6 +70,7 @@ class Backup @Inject constructor(
                     .put("defaultAccountId", s.defaultAccountId)
                     .put("chart", s.chart)
                     .put("theme", s.theme)
+                    .put("widgetHide", s.widgetHide)
                     .put("appLinks", JSONObject(s.appLinks as Map<*, *>)),
             )
             .put("accounts", accounts.json { a -> put("id", a.id).put("name", a.name).put("emoji", a.emoji).put("kind", a.kind).put("initialBalance", a.initialBalance).put("sortOrder", a.sortOrder).put("color", a.color).put("archived", a.archived) })
@@ -94,7 +95,7 @@ class Backup @Inject constructor(
         require(root.optString("app") == "cukup") { "Ini bukan file cadangan Cukup" }
         require(root.optInt("version") <= VERSION) { "Cadangan dari versi Cukup yang lebih baru" }
         // Simpan isi sekarang dulu, supaya pemulihan yang keliru pun bisa dibatalkan.
-        runCatching { if (settings.current().onboarded) File(DbGuard.backupDir(context), "before-restore.json").writeText(snapshot().first.toString()) }
+        runCatching { if (settings.current().onboarded) File(DbGuard.backupDir(context), "before-restore-${System.currentTimeMillis()}.json").writeText(snapshot().first.toString()) }
 
         val accounts = root.list("accounts") { AccountEntity(getLong("id"), getString("name"), getString("emoji"), getString("kind"), getLong("initialBalance"), getInt("sortOrder"), intOrNull("color"), optBoolean("archived")) }
         val categories = root.list("categories") { CategoryEntity(getLong("id"), getString("name"), getString("emoji"), getString("kind"), getString("tag"), getInt("sortOrder"), intOrNull("color"), longOrNull("planId"), optBoolean("archived")) }
@@ -102,6 +103,15 @@ class Backup @Inject constructor(
         val plan = root.list("plan") { PlanPosEntity(getLong("id"), getString("name"), getString("emoji"), getInt("percent"), getString("kind"), getInt("sortOrder"), intOrNull("color")) }
         val goals = root.list("goals") { GoalEntity(getLong("id"), getString("name"), getString("emoji"), getLong("target"), getLong("saved"), longOrNull("accountId"), intOrNull("color"), getInt("sortOrder")) }
         val rules = root.list("rules") { MerchantRuleEntity(getString("merchantKey"), getLong("categoryId"), getLong("updatedAt")) }
+
+        // Uji semua baris dulu (jenis, status, dll. harus dikenal) sebelum data lama dihapus.
+        runCatching {
+            accounts.forEach { it.toDomain() }
+            categories.forEach { it.toDomain() }
+            txs.forEach { it.toDomain() }
+            plan.forEach { it.toDomain() }
+            goals.forEach { it.toDomain() }
+        }.onFailure { throw IllegalArgumentException("File cadangan rusak: ${it.message}") }
 
         db.withTransaction {
             db.clearAllTables()
@@ -133,6 +143,7 @@ class Backup @Inject constructor(
                 defaultAccountId = s.optLong("defaultAccountId"),
                 chart = s.optString("chart", "DONUT"),
                 theme = s.optString("theme", old.theme),
+                widgetHide = s.optBoolean("widgetHide", old.widgetHide),
                 appLinks = s.optJSONObject("appLinks")?.let { o -> o.keys().asSequence().associateWith { o.getLong(it) } } ?: old.appLinks,
             )
         }
@@ -153,7 +164,7 @@ class Backup @Inject constructor(
         if (summary.accounts == 0) return@withContext null
         val tmp = File(dir, today.name + ".tmp")
         tmp.writeText(root.toString())
-        tmp.renameTo(today)
+        if (!tmp.renameTo(today)) { tmp.delete(); return@withContext null }
         autoBackups().drop(KEEP_AUTO).forEach { it.delete() }
         today
     }
