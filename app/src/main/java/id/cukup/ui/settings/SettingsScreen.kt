@@ -108,6 +108,31 @@ fun SettingsScreen(
             BiometricManager.BIOMETRIC_SUCCESS
     }
     var setPin by remember { mutableStateOf(false) }
+    var restoreUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    val exportFile = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (uri != null) vm.exportBackup(uri)
+    }
+    val importFile = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> restoreUri = uri }
+    val backupMessage by vm.backupMessage.collectAsStateWithLifecycle()
+    backupMessage?.let { msg ->
+        AlertDialog(
+            onDismissRequest = { vm.backupMessage.value = null },
+            title = { Text("Cadangan", style = Type.title) },
+            text = { Text(msg, style = Type.body) },
+            confirmButton = { TextButton({ vm.backupMessage.value = null }) { Text("Oke", color = c.ink) } },
+            containerColor = c.card,
+        )
+    }
+    restoreUri?.let { uri ->
+        AlertDialog(
+            onDismissRequest = { restoreUri = null },
+            title = { Text("Pulihkan cadangan?", style = Type.title) },
+            text = { Text("Semua data di HP ini diganti dengan isi file. PIN tetap yang sekarang.", style = Type.body) },
+            confirmButton = { TextButton({ restoreUri = null; vm.restoreBackup(uri) }) { Text("Pulihkan", color = c.over) } },
+            dismissButton = { TextButton({ restoreUri = null }) { Text("Batal", color = c.ink) } },
+            containerColor = c.card,
+        )
+    }
     if (setPin) {
         PinSetupDialog(onCancel = { setPin = false }) { hash ->
             setPin = false
@@ -193,6 +218,12 @@ fun SettingsScreen(
         }
 
         Group("Data")
+        Link("Simpan cadangan", "Satu file berisi semua dompet, catatan, dan rencana. Simpan di Drive biar aman.", leading = "💾") {
+            exportFile.launch("cukup-${java.time.LocalDate.now()}.json")
+        }
+        Link("Pulihkan dari cadangan", "Ganti semua data di HP ini dengan isi file cadangan.", leading = "📂") {
+            importFile.launch(arrayOf("application/json", "application/octet-stream", "text/plain"))
+        }
         Row(
             Modifier.fillMaxWidth().clickable { confirmErase = true }.padding(horizontal = Gutter, vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -209,7 +240,7 @@ fun SettingsScreen(
             Bullet("Cukup nggak pakai internet, jadi datamu nggak ke mana-mana.")
             Bullet("Datanya nggak ikut backup Google. Kalau aplikasinya dihapus, datanya ikut hilang.")
         }
-        Text("Cukup 0.6", style = Type.bodySmall, color = c.faint, modifier = Modifier.padding(horizontal = Gutter, vertical = 20.dp))
+        Text("Cukup 0.7", style = Type.bodySmall, color = c.faint, modifier = Modifier.padding(horizontal = Gutter, vertical = 20.dp))
     }
 
     if (confirmErase) {

@@ -112,6 +112,7 @@ private val rangeFmt = DateTimeFormatter.ofPattern("d MMM", id.cukup.ui.componen
 fun HomeScreen(
     contentPadding: PaddingValues,
     onAdd: (TxType) -> Unit,
+    onQuickAdd: (Long) -> Unit,
     onOpenAccount: (Long) -> Unit,
     onNewAccount: () -> Unit,
     onOpenInbox: () -> Unit,
@@ -153,6 +154,7 @@ fun HomeScreen(
                 ActionPill("Keluar", Icons.Rounded.ArrowUpward, { onAdd(TxType.EXPENSE) }, Modifier.weight(1f))
             }
         }
+        item { QuickAdd(data, onQuickAdd) }
         item { Accounts(data.accounts, onOpenAccount, onNewAccount) }
         item { PlanCard(data, onOpenPlan) }
         if (insights.isNotEmpty()) item { InsightPager(insights) }
@@ -345,6 +347,40 @@ private fun Flow(label: String, amount: Long, sign: String, modifier: Modifier) 
             (if (amount == 0L) "" else sign) + Rupiah.short(kotlin.math.abs(amount)),
             style = Type.amount, color = Color.White, maxLines = 1,
         )
+    }
+}
+
+/** Kategori yang paling sering dipakai 60 hari terakhir: ketuk, isi nominal, simpan. */
+@Composable
+private fun QuickAdd(data: id.cukup.data.Overview, onPick: (Long) -> Unit) {
+    val c = colors
+    val cats = remember(data) {
+        val since = System.currentTimeMillis() - 60L * 24 * 60 * 60 * 1000
+        val uses = data.confirmed.filter { it.type == TxType.EXPENSE && it.occurredAt >= since }
+            .groupingBy { it.categoryId }.eachCount()
+        data.expenseCategories().sortedByDescending { uses[it.id] ?: 0 }.take(8)
+    }
+    if (cats.isEmpty()) return
+    Column(Modifier.offset(y = (-18).dp)) {
+        SectionHeader("Catat cepat")
+        cats.chunked(4).forEach { row ->
+            Row(Modifier.fillMaxWidth().padding(horizontal = Gutter, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                row.forEach { cat ->
+                    val color = colorOf(cat)
+                    Column(
+                        Modifier.weight(1f).clip(CardShape).clickable(role = Role.Button) { onPick(cat.id) }.padding(vertical = 8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Box(Modifier.size(52.dp).clip(CircleShape).background(color.copy(alpha = 0.18f)), contentAlignment = Alignment.Center) {
+                            Text(cat.emoji, fontSize = 24.sp)
+                        }
+                        Spacer(Modifier.height(6.dp))
+                        Text(cat.name, style = Type.label, color = c.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+                repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
+            }
+        }
     }
 }
 

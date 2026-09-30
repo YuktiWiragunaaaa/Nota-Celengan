@@ -78,7 +78,7 @@ private object Routes {
     const val HISTORY = "history"
     const val PLAN = "plan"
     const val SETTINGS = "settings"
-    const val ADD = "add?type={type}&account={account}&edit={edit}"
+    const val ADD = "add?type={type}&account={account}&edit={edit}&category={category}"
     const val ACCOUNT = "account/{id}"
     const val TX = "tx/{id}"
     const val INBOX = "inbox"
@@ -87,7 +87,8 @@ private object Routes {
     const val CATEGORIES = "categories"
     const val HELP = "help"
 
-    fun add(type: TxType = TxType.EXPENSE, account: Long = 0, edit: Long = 0) = "add?type=${type.name}&account=$account&edit=$edit"
+    fun add(type: TxType = TxType.EXPENSE, account: Long = 0, edit: Long = 0, category: Long = 0) =
+        "add?type=${type.name}&account=$account&edit=$edit&category=$category"
     fun account(id: Long) = "account/$id"
     fun tx(id: Long) = "tx/$id"
 }
@@ -102,7 +103,7 @@ private val tabs = listOf(
 )
 
 @Composable
-fun CukupNav(onboarded: Boolean, openAdd: Boolean, onAddHandled: () -> Unit) {
+fun CukupNav(onboarded: Boolean, openAdd: Boolean, onAddHandled: () -> Unit, addCategory: Long = 0) {
     val nav = rememberNavController()
     val entry by nav.currentBackStackEntryAsState()
     val route = entry?.destination?.route
@@ -113,7 +114,7 @@ fun CukupNav(onboarded: Boolean, openAdd: Boolean, onAddHandled: () -> Unit) {
 
     LaunchedEffect(openAdd, onboarded) {
         if (openAdd && onboarded) {
-            nav.navigate(Routes.add())
+            nav.navigate(Routes.add(category = addCategory))
             onAddHandled()
         }
     }
@@ -141,6 +142,7 @@ fun CukupNav(onboarded: Boolean, openAdd: Boolean, onAddHandled: () -> Unit) {
                 HomeScreen(
                     contentPadding = tabPadding,
                     onAdd = { nav.navigate(Routes.add(it)) },
+                    onQuickAdd = { cat -> nav.navigate(Routes.add(category = cat)) },
                     onOpenAccount = openAccount,
                     onNewAccount = { openAccount(0) },
                     onOpenInbox = { nav.navigate(Routes.INBOX) },
@@ -169,6 +171,7 @@ fun CukupNav(onboarded: Boolean, openAdd: Boolean, onAddHandled: () -> Unit) {
                     navArgument("type") { type = NavType.StringType; defaultValue = TxType.EXPENSE.name },
                     navArgument("account") { type = NavType.LongType; defaultValue = 0L },
                     navArgument("edit") { type = NavType.LongType; defaultValue = 0L },
+                    navArgument("category") { type = NavType.LongType; defaultValue = 0L },
                 ),
             ) { AddScreen(onClose = { nav.popBackStack() }, onNewAccount = { openAccount(0) }) }
             composable(Routes.ACCOUNT, arguments = listOf(navArgument("id") { type = NavType.LongType })) { e ->

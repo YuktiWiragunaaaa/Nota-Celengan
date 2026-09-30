@@ -77,7 +77,10 @@ fun OnboardingScreen(onDone: () -> Unit, vm: OnboardingViewModel = hiltViewModel
         AnimatedContent(s.step, transitionSpec = { fadeIn() togetherWith fadeOut() }, modifier = Modifier.weight(1f), label = "step") { step ->
             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
                 when (step) {
-                    OnboardingStep.NAME -> NameStep(s.name) { vm.onIntent(OnboardingIntent.Name(it)) }
+                    OnboardingStep.NAME -> {
+                        NameStep(s.name) { vm.onIntent(OnboardingIntent.Name(it)) }
+                        RestoreEntry(onDone)
+                    }
                     OnboardingStep.WALLETS -> WalletsStep(s, vm::onIntent)
                     OnboardingStep.SCHEDULE -> {
                         Heading("Biasanya <i>gajian</i> kapan?", "Bisa gaji, uang saku, atau hasil jualan. Ini menentukan awal dan akhir tiap periode (\"bulan ini\" / \"minggu ini\").")
@@ -99,6 +102,24 @@ fun OnboardingScreen(onDone: () -> Unit, vm: OnboardingViewModel = hiltViewModel
                 InkButton("Lanjut", onClick = { vm.onIntent(OnboardingIntent.Next) }, enabled = s.canContinue, modifier = Modifier.fillMaxWidth(0.6f))
             }
         }
+    }
+}
+
+/** Pindah HP atau habis hapus data: langsung pulihkan dari file cadangan, lewati pengenalan. */
+@Composable
+private fun RestoreEntry(onDone: () -> Unit, app: id.cukup.ui.AppViewModel = hiltViewModel()) {
+    val c = colors
+    val message by app.backupMessage.collectAsStateWithLifecycle()
+    val pick = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocument(),
+    ) { uri -> if (uri != null) app.restoreBackup(uri, onDone) }
+    Column(
+        Modifier.padding(horizontal = Gutter).padding(top = 24.dp).fillMaxWidth().clip(CardShape).background(c.card)
+            .clickable { pick.launch(arrayOf("application/json", "application/octet-stream", "text/plain")) }.padding(14.dp),
+    ) {
+        Text("💾  Punya file cadangan Cukup?", style = Type.strong, color = c.ink)
+        Text("Ketuk untuk memulihkan semua data dan langsung mulai.", style = Type.bodySmall, color = c.mute)
+        message?.takeIf { it.startsWith("Gagal") }?.let { Text(it, style = Type.bodySmall, color = c.over) }
     }
 }
 

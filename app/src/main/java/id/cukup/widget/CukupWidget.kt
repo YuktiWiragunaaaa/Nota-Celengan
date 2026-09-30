@@ -59,6 +59,18 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
+import android.net.Uri
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.remember
+import android.widget.Toast
+import androidx.glance.action.Action
+import androidx.glance.action.ActionParameters
+import androidx.glance.action.actionParametersOf
+import androidx.glance.appwidget.action.ActionCallback
+import androidx.glance.appwidget.action.actionRunCallback
+import id.cukup.data.Overview
+import id.cukup.domain.QuickPicks
+import kotlinx.coroutines.withContext
 
 @EntryPoint
 @InstallIn(SingletonComponent::class)
@@ -72,8 +84,12 @@ class CukupWidget : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val repo = EntryPointAccessors.fromApplication(context, WidgetEntryPoint::class.java).repository()
-        val o = runCatching { repo.current() }.getOrNull()
+        val first = runCatching { repo.current() }.getOrNull()
         provideContent {
+            // Ikuti aliran data: sesi Glance bisa hidup lama, jadi nilai sekali-muat akan basi.
+            val state = repo.overview.collectAsState(initial = first)
+            val o = state.value
+            val chips = remember(o) { o?.let { quickChips(context, it) } ?: emptyList() }
             GlanceTheme {
                 WidgetBody(
                     ready = o != null && o.settings.onboarded && o.accounts.isNotEmpty(),
@@ -83,9 +99,75 @@ class CukupWidget : GlanceAppWidget() {
                     plan = o?.planStatus?.takeIf { it.active },
                     pending = o?.pending?.size ?: 0,
                     week = o?.let { lastSevenDays(it.confirmed) } ?: emptyList(),
+                    chips = chips,
                     addIntent = Intent(context, MainActivity::class.java).putExtra(MainActivity.EXTRA_ADD, true),
                 )
             }
+        }
+    }
+}
+
+/** Tombol di widget: [instant] = langsung tercatat, selain itu membuka layar catat. */
+private class Chip(val label: String, val action: Action, val instant: Boolean)
+
+private val CategoryKey = ActionParameters.Key<Long>("category")
+private val AmountKey = ActionParameters.Key<Long>("amount")
+private val AccountKey = ActionParameters.Key<Long>("account")
+private val MerchantKey = ActionParameters.Key<String>("merchant")
+
+/**
+ * Belanja yang sering diulang jadi tombol sekali ketuk ("☕ 18 rb").
+ * Kalau kurang dari tiga, sisanya kategori favorit yang membuka layar catat dengan kategori terpilih.
+ */
+private fun quickChips(context: Context, o: Overview): List<Chip> {
+    val byId = o.categoryById
+    val picks = QuickPicks.top(o.transactions, System.currentTimeMillis())
+        .filter { p -> o.categories.any { it.id == p.categoryId } }
+        .map { p ->
+            Chip(
+                "${byId[p.categoryId]?.emoji.orEmpty()} ${Rupiah.short(p.amount)}",
+                actionRunCallback<QuickLogAction>(
+                    actionParametersOf(
+                        CategoryKey to p.categoryId,
+                        AmountKey to p.amount,
+                        AccountKey to (p.accountId ?: 0L),
+                        MerchantKey to p.merchant,
+                    ),
+                ),
+                instant = true,
+            )
+        }
+    val used = o.confirmed.filter { it.type == TxType.EXPENSE }.groupingBy { it.categoryId }.eachCount()
+    val favorites = o.expenseCategories().sortedByDescending { used[it.id] ?: 0 }
+        .filter { c -> picks.none { it.label.startsWith(c.emoji) } }
+        .map { c ->
+            val intent = Intent(context, MainActivity::class.java)
+                .setData(Uri.parse("cukup://add/${c.id}"))
+                .putExtra(MainActivity.EXTRA_ADD, true)
+                .putExtra(MainActivity.EXTRA_CATEGORY, c.id)
+            Chip("${c.emoji} ${c.name}", actionStartActivity(intent), instant = false)
+        }
+    return (picks + favorites).take(3)
+}
+
+/** Mencatat belanja berulang langsung dari widget, tanpa membuka aplikasi. */
+class QuickLogAction : ActionCallback {
+    override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
+        val amount = parameters[AmountKey] ?: return
+        val category = parameters[CategoryKey] ?: return
+        val repo = EntryPointAccessors.fromApplication(context, WidgetEntryPoint::class.java).repository()
+        repo.save(
+            Transaction(
+                type = TxType.EXPENSE,
+                amount = amount,
+                accountId = parameters[AccountKey]?.takeIf { it > 0 },
+                categoryId = category,
+                merchant = parameters[MerchantKey].orEmpty(),
+                occurredAt = System.currentTimeMillis(),
+            ),
+        )
+        withContext(Dispatchers.Main) {
+            Toast.makeText(context, "Tercatat ${Rupiah.format(amount)}", Toast.LENGTH_SHORT).show()
         }
     }
 }
@@ -97,6 +179,7 @@ private val line = ColorProvider(day = Color(0xFFE6E4DE), night = Color(0xFF3432
 private val caution = ColorProvider(day = Color(0xFF9A6B2F), night = Color(0xFFD1A263))
 private val over = ColorProvider(day = Color(0xFFA3402F), night = Color(0xFFD9826F))
 private val inkInverse = ColorProvider(day = Color(0xFFFBFAF7), night = Color(0xFF1F1E1C))
+private val accent = ColorProvider(day = Color(0xFFFFE9DC), night = Color(0xFF4A2A1C))
 
 @Composable
 private fun WidgetBody(
@@ -107,10 +190,18 @@ private fun WidgetBody(
     plan: PlanStatus?,
     pending: Int,
     week: List<Long>,
+    chips: List<Chip>,
     addIntent: Intent,
 ) {
-    val wide = LocalSize.current.width >= 260.dp && ready
-    Row(
+    val size = LocalSize.current
+    val wide = size.width >= 260.dp && ready
+    // Perkiraan lebar tombol dari panjang label (±7dp per huruf + padding); sisakan 44dp untuk tombol +.
+    val chipCount = if (!ready) 0 else {
+        var room = size.width.value - 32 - 44
+        chips.takeWhile { chip -> room -= 30 + 7 * chip.label.length; room >= 0 }.size
+    }
+    val tall = size.height >= 150.dp
+    Column(
         modifier = GlanceModifier
             .fillMaxSize()
             .background(paper)
@@ -118,10 +209,40 @@ private fun WidgetBody(
             .padding(16.dp)
             .clickable(actionStartActivity<MainActivity>()),
     ) {
-        Summary(ready, total, spent, period, plan, pending, addIntent, GlanceModifier.defaultWeight().fillMaxHeight())
-        if (wide) {
-            Spacer(GlanceModifier.width(16.dp))
-            WeekChart(week, GlanceModifier.defaultWeight().fillMaxHeight())
+        Row(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
+            Summary(ready, total, spent, period, plan.takeIf { tall || chipCount == 0 }, pending, GlanceModifier.defaultWeight().fillMaxHeight())
+            if (wide) {
+                Spacer(GlanceModifier.width(16.dp))
+                WeekChart(week, GlanceModifier.defaultWeight().fillMaxHeight())
+            }
+        }
+        Spacer(GlanceModifier.height(8.dp))
+        Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            chips.take(chipCount).forEach { chip ->
+                Box(
+                    modifier = GlanceModifier
+                        .height(36.dp)
+                        .background(if (chip.instant) accent else line)
+                        .cornerRadius(18.dp)
+                        .padding(horizontal = 12.dp)
+                        .clickable(chip.action),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(chip.label, style = TextStyle(color = ink, fontSize = 12.sp), maxLines = 1)
+                }
+                Spacer(GlanceModifier.width(6.dp))
+            }
+            Spacer(GlanceModifier.defaultWeight())
+            Box(
+                modifier = GlanceModifier
+                    .size(36.dp)
+                    .background(ink)
+                    .cornerRadius(18.dp)
+                    .clickable(actionStartActivity(addIntent)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("+", style = TextStyle(color = inkInverse, fontSize = 20.sp))
+            }
         }
     }
 }
@@ -134,19 +255,26 @@ private fun Summary(
     period: String,
     plan: PlanStatus?,
     pending: Int,
-    addIntent: Intent,
     modifier: GlanceModifier,
 ) {
     Column(modifier = modifier) {
         Text("UANGMU", style = TextStyle(color = mute, fontSize = 10.sp, fontWeight = FontWeight.Medium))
         Spacer(GlanceModifier.height(4.dp))
         Text(
-            if (ready) Rupiah.format(total) else "Buka Cukup dulu",
+            when {
+                !ready -> "Buka Cukup dulu"
+                kotlin.math.abs(total) >= 100_000_000 -> "Rp" + Rupiah.short(total)
+                else -> Rupiah.format(total)
+            },
             style = TextStyle(color = ink, fontSize = if (ready) 24.sp else 16.sp),
             maxLines = 1,
         )
-        Spacer(GlanceModifier.height(4.dp))
-        Text("Keluar $period: ${Rupiah.short(spent)}", style = TextStyle(color = mute, fontSize = 11.sp))
+        Spacer(GlanceModifier.height(2.dp))
+        Text(
+            if (pending > 0) "$pending perlu dicek · keluar ${Rupiah.short(spent)}" else "Keluar $period: ${Rupiah.short(spent)}",
+            style = TextStyle(color = if (pending > 0) caution else mute, fontSize = 11.sp),
+            maxLines = 1,
+        )
         if (plan != null) {
             val tone = when (plan.warning) {
                 Warning.CALM -> ink
@@ -165,25 +293,8 @@ private fun Summary(
                 if (plan.spendLeft < 0) "Lewat rencana ${Rupiah.short(-plan.spendLeft)}"
                 else "Rencana: aman ${Rupiah.short(plan.perDay)}/hari",
                 style = TextStyle(color = tone, fontSize = 11.sp),
+                maxLines = 1,
             )
-        }
-        Spacer(GlanceModifier.defaultWeight())
-        Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                if (pending > 0) "$pending perlu dicek" else "Catat",
-                style = TextStyle(color = if (pending > 0) caution else mute, fontSize = 12.sp),
-                modifier = GlanceModifier.defaultWeight(),
-            )
-            Box(
-                modifier = GlanceModifier
-                    .size(36.dp)
-                    .background(ink)
-                    .cornerRadius(18.dp)
-                    .clickable(actionStartActivity(addIntent)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text("+", style = TextStyle(color = inkInverse, fontSize = 20.sp))
-            }
         }
     }
 }
@@ -232,6 +343,9 @@ class CukupWidgetReceiver : GlanceAppWidgetReceiver() {
 class WidgetRefresher @Inject constructor(@ApplicationContext private val context: Context) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     fun refresh() {
-        scope.launch { runCatching { CukupWidget().updateAll(context) } }
+        scope.launch {
+            runCatching { CukupWidget().updateAll(context) }
+                .onFailure { android.util.Log.w("CukupWidget", "Gagal memperbarui widget", it) }
+        }
     }
 }

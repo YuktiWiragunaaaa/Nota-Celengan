@@ -83,6 +83,8 @@ class AddViewModel @Inject constructor(
             type = savedState.get<String>("type")?.let { runCatching { TxType.valueOf(it) }.getOrNull() } ?: TxType.EXPENSE,
             accountId = savedState.get<Long>("account")?.takeIf { it > 0 },
             editingId = savedState.get<Long>("edit") ?: 0,
+            categoryId = savedState.get<Long>("category")?.takeIf { it > 0 },
+            categoryTouched = (savedState.get<Long>("category") ?: 0) > 0,
         ),
     )
     val state: StateFlow<AddState> = _state.asStateFlow()

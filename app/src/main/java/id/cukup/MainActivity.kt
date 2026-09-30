@@ -57,11 +57,13 @@ class MainActivity : FragmentActivity() {
     @Inject lateinit var settingsStore: SettingsStore
 
     private var openAdd by mutableStateOf(false)
+    private var addCategory by mutableStateOf(0L)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         openAdd = intent?.getBooleanExtra(EXTRA_ADD, false) ?: false
+        addCategory = intent?.getLongExtra(EXTRA_CATEGORY, 0L) ?: 0L
 
         setContent {
             CukupTheme {
@@ -70,7 +72,7 @@ class MainActivity : FragmentActivity() {
                 when {
                     s == null -> Box(Modifier.fillMaxSize().background(colors.paper))
                     s.biometricLock && s.pinHash.isNotEmpty() && LockState.locked -> LockScreen(s)
-                    else -> CukupNav(onboarded = s.onboarded, openAdd = openAdd, onAddHandled = { openAdd = false })
+                    else -> CukupNav(onboarded = s.onboarded, openAdd = openAdd, onAddHandled = { openAdd = false; addCategory = 0 }, addCategory = addCategory)
                 }
             }
         }
@@ -78,7 +80,10 @@ class MainActivity : FragmentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        if (intent.getBooleanExtra(EXTRA_ADD, false)) openAdd = true
+        if (intent.getBooleanExtra(EXTRA_ADD, false)) {
+            addCategory = intent.getLongExtra(EXTRA_CATEGORY, 0L)
+            openAdd = true
+        }
     }
 
     private fun canFingerprint(): Boolean =
@@ -133,5 +138,6 @@ class MainActivity : FragmentActivity() {
 
     companion object {
         const val EXTRA_ADD = "id.cukup.ADD"
+        const val EXTRA_CATEGORY = "id.cukup.CATEGORY"
     }
 }

@@ -107,4 +107,17 @@ interface CukupDao {
 
     @Upsert
     suspend fun upsertRule(rule: MerchantRuleEntity)
+
+    // Cadangan: semua baris termasuk yang diarsipkan/diabaikan.
+    @Query("SELECT * FROM accounts") suspend fun allAccounts(): List<AccountEntity>
+    @Query("SELECT * FROM categories") suspend fun allCategories(): List<CategoryEntity>
+    @Query("SELECT * FROM transactions") suspend fun allTransactions(): List<TransactionEntity>
+    @Query("SELECT * FROM goals") suspend fun allGoals(): List<GoalEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun restoreAccounts(x: List<AccountEntity>)
+    @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun restoreCategories(x: List<CategoryEntity>)
+    @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun restoreTransactions(x: List<TransactionEntity>)
+    @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun restorePlan(x: List<PlanPosEntity>)
+    @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun restoreGoals(x: List<GoalEntity>)
+    @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun restoreRules(x: List<MerchantRuleEntity>)
 }

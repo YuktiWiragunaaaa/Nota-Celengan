@@ -27,7 +27,21 @@ import javax.inject.Inject
 class AppViewModel @Inject constructor(
     val repository: MoneyRepository,
     private val store: SettingsStore,
+    private val backup: id.cukup.data.Backup,
 ) : ViewModel() {
+
+    /** Hasil cadangan/pulihkan terakhir untuk ditampilkan sebagai pesan singkat. */
+    val backupMessage = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
+
+    fun exportBackup(uri: android.net.Uri) = go {
+        backupMessage.value = runCatching { backup.export(uri) }
+            .fold({ "Tersimpan: ${it.accounts} dompet, ${it.transactions} catatan." }, { "Gagal menyimpan: ${it.message}" })
+    }
+
+    fun restoreBackup(uri: android.net.Uri, onDone: () -> Unit = {}) = go {
+        backupMessage.value = runCatching { backup.restore(uri) }
+            .fold({ onDone(); "Dipulihkan: ${it.accounts} dompet, ${it.transactions} catatan." }, { "Gagal memulihkan: ${it.message}" })
+    }
 
     val overview: StateFlow<Overview?> = repository.overview.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
