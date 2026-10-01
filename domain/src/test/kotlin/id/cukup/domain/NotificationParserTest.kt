@@ -114,4 +114,21 @@ class NotificationParserTest {
         assertEquals("1,2 jt", Rupiah.short(1_250_000))
         assertEquals("45 rb", Rupiah.short(45_000))
     }
+
+    @Test
+    fun `bank wording with a closing call to action is still a transaction`() {
+        val out = NotificationParser.parse("com.krom.android", "Transfer Berhasil", "Kamu mentransfer Rp50.000 ke BUDI. Yuk cek detailnya di aplikasi.")!!
+        assertEquals(TxType.EXPENSE, out.type)
+        assertEquals(50_000L, out.amount)
+        val inc = NotificationParser.parse("com.krom.android", "Dana Masuk", "Transfer dari SITI Rp100.000 berhasil diterima.")!!
+        assertEquals(TxType.INCOME, inc.type)
+        assertEquals(100_000L, inc.amount)
+    }
+
+    @Test
+    fun `promos stay skipped and short promo words only match whole words`() {
+        assertEquals(null, NotificationParser.parse("com.krom.android", "Promo", "Belanja Rp50.000 dapatkan cashback hingga Rp10.000"))
+        // "ayo" ada di dalam "Mayora": bukan ajakan promosi.
+        assertEquals(12_000L, NotificationParser.parse("com.gojek.app", "Pembayaran", "Kamu bayar Rp12.000 di Mayora Mart")!!.amount)
+    }
 }

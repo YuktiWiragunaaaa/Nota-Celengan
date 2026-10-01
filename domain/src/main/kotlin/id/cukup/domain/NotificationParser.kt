@@ -26,19 +26,37 @@ object NotificationParser {
 
     private val amountRegex = Regex("""(?:Rp\.?|IDR)\s?([0-9][0-9.,]*)""", RegexOption.IGNORE_CASE)
 
-    private val ignoreWords = listOf(
-        "otp", "kode verifikasi", "kode rahasia", "jangan berikan", "promo", "diskon", "voucher",
-        "cashback s.d", "cashback hingga", "dapatkan", "yuk", "buruan", "ayo", "hemat hingga", "berlaku",
+    /** Selalu dilewati: kode rahasia, transaksi gagal, pengingat. */
+    private val blockWords = listOf(
+        "otp", "kode verifikasi", "kode rahasia", "jangan berikan",
         "gagal", "dibatalkan", "ditolak", "tagihan kamu akan jatuh tempo", "pengingat",
     )
+
+    /** Kata promosi. Hanya membuat notifikasi dilewati kalau tidak ada tanda transaksi yang benar-benar terjadi. */
+    private val promoWords = listOf(
+        "promo", "diskon", "voucher", "cashback s.d", "cashback hingga", "dapatkan", "yuk", "buruan", "ayo", "hemat hingga", "berlaku",
+    )
+
+    /** Tanda transaksi sudah terjadi. Bank sering menutup notifikasi transaksi dengan ajakan ("Yuk cek detailnya"). */
+    private val doneWords = listOf("berhasil", "sukses", "diterima", "terkirim", "masuk ke", "dana masuk", "uang masuk", "transfer masuk", "menerima")
+
+    private fun hasWord(lower: String, word: String): Boolean =
+        if (word.contains(' ') || word.contains('.')) lower.contains(word) else Regex("""(?<![a-z])${Regex.escape(word)}(?![a-z])""").containsMatchIn(lower)
+
+    /** Kata yang membuat notifikasi ini dilewati, atau null bila boleh dibaca. */
+    private fun skipWord(lower: String): String? =
+        blockWords.firstOrNull { hasWord(lower, it) }
+            ?: promoWords.firstOrNull { hasWord(lower, it) }?.takeIf { doneWords.none { d -> lower.contains(d) } }
     private val incomeWords = listOf(
         "pemasukan", "menerima", "diterima", "masuk ke", "dana masuk", "uang masuk", "transfer masuk", "kredit",
         "telah menerima", "kamu dapat", "refund", "pengembalian dana", "saldo bertambah", "top up berhasil",
-        "isi saldo berhasil",
+        "isi saldo berhasil", "transfer dari", "dana dari", "kiriman dari", "uang dari", "bunga", "received", "incoming",
     )
     private val expenseWords = listOf(
         "pengeluaran", "pembayaran", "bayar", "dibayar", "transfer ke", "kirim uang", "mengirim", "pembelian", "debit",
         "transaksi berhasil", "berhasil transfer", "tarik tunai", "belanja", "dipotong", "qris",
+        "transfer berhasil", "transfer keluar", "uang keluar", "dana keluar", "terkirim", "dikirim", "mentransfer", "penarikan",
+        "tarik saldo", "top up ke", "autodebet", "auto debet", "biaya admin", "sent", "outgoing",
     )
     private val debtPaymentWords = listOf("bayar tagihan", "pembayaran tagihan", "pelunasan", "angsuran", "bayar cicilan", "pembayaran cicilan", "tagihan berhasil dibayar", "tagihan kamu sudah lunas")
     private val paylaterWords = listOf("paylater", "pay later", "spaylater", "gopaylater", "cicilan", "kredivo", "akulaku")
@@ -60,7 +78,7 @@ object NotificationParser {
         val body = listOfNotNull(title, text).joinToString(". ").replace('\n', ' ').trim()
         if (body.isEmpty()) return null
         val lower = body.lowercase()
-        if (ignoreWords.any { lower.contains(it) }) return null
+        if (skipWord(lower) != null) return null
 
         val amount = amountRegex.findAll(body)
             .mapNotNull { Rupiah.parse(it.groupValues[1]) }
@@ -104,7 +122,7 @@ object NotificationParser {
         val body = listOfNotNull(title, text).joinToString(". ").replace('\n', ' ').trim()
         if (body.isEmpty()) return "Notifikasinya kosong"
         val lower = body.lowercase()
-        ignoreWords.firstOrNull { lower.contains(it) }?.let { return "Dianggap bukan transaksi (ada kata \"$it\")" }
+        skipWord(lower)?.let { return "Dianggap bukan transaksi (ada kata \"$it\")" }
         if (amountRegex.findAll(body).none { (Rupiah.parse(it.groupValues[1]) ?: 0) > 0 }) return "Tidak ada nominal rupiah"
         if (incomeWords.indexOfFirstIn(lower) == null && expenseWords.indexOfFirstIn(lower) == null) return "Tidak jelas uang masuk atau keluar"
         return null
