@@ -55,6 +55,33 @@ class PlannerTest {
     }
 
     @Test
+    fun `fixed amount pos keeps its own weekly window`() {
+        val weekly = PlanPos(20, "Makan", "🍜", 0, PlanKind.SPEND, 0, amount = 300_000, period = PosPeriod.WEEK)
+        val rest = PlanPos(21, "Lainnya", "☕", 50, PlanKind.SPEND, 1)
+        val eat = food.copy(planId = 20)
+        val other = coffee.copy(planId = 21)
+        val txs = listOf(
+            Transaction(1, TxType.EXPENSE, 200_000, accountId = 1, categoryId = 1, occurredAt = 10), // minggu lalu, periode ini
+            Transaction(2, TxType.EXPENSE, 120_000, accountId = 1, categoryId = 1, occurredAt = 60), // minggu ini
+            Transaction(3, TxType.EXPENSE, 100_000, accountId = 1, categoryId = 2, occurredAt = 61),
+        )
+        val s = Planner.status(
+            listOf(weekly, rest), listOf(eat, other), listOf(wallet), txs, 1_000_000, from = 0, to = 100, daysLeft = 10,
+            weekFrom = 50, dayFrom = 90, weekDaysLeft = 3, cycleDays = 28,
+        )
+        val rows = s.rows.associateBy { it.pos.id }
+        assertEquals(300_000L, rows[20]!!.limit) // nominal tetap, bukan persen
+        assertEquals(120_000L, rows[20]!!.used) // hanya minggu ini
+        assertEquals(3, rows[20]!!.daysLeft)
+        assertEquals(500_000L, rows[21]!!.limit) // persen dari uang yang dibagi, tidak terpengaruh pos tetap
+        assertEquals(1_200_000L + 500_000L, s.spendLimit) // 300 rb x 4 minggu + 500 rb
+        assertEquals(420_000L, s.spendUsed)
+        assertEquals(400_000L / 10 + 180_000L / 3, s.perDay)
+        // Tanpa uang yang dibagi pun rencana bernominal tetap tetap jalan.
+        assertTrue(Planner.status(listOf(weekly), listOf(eat), listOf(wallet), txs, 0, 0, 100, 10, weekFrom = 50).active)
+    }
+
+    @Test
     fun `basis modes`() {
         assertEquals(4_000_000L, Planner.basis(PlanBasis(PlanBasis.Mode.FIXED, 4_000_000), 1, 2))
         assertEquals(2L, Planner.basis(PlanBasis(PlanBasis.Mode.LAST_PERIOD), 1, 2))

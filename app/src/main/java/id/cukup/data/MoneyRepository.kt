@@ -163,7 +163,13 @@ class MoneyRepository @Inject constructor(
             previousStart = prevStart,
             totals = totals,
             lastTotals = last,
-            planStatus = Planner.status(plan, categories, accounts, txs, basis, start, end, cycle.daysLeft(today)),
+            planStatus = Planner.status(
+                plan, categories, accounts, txs, basis, start, end, cycle.daysLeft(today),
+                weekFrom = millis(today.with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY))),
+                dayFrom = millis(today),
+                weekDaysLeft = 8 - today.dayOfWeek.value,
+                cycleDays = cycle.length.coerceAtLeast(1),
+            ),
         )
     }
 

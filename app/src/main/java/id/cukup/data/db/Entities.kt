@@ -10,6 +10,7 @@ import id.cukup.domain.CategoryKind
 import id.cukup.domain.Goal
 import id.cukup.domain.PlanKind
 import id.cukup.domain.PlanPos
+import id.cukup.domain.PosPeriod
 import id.cukup.domain.Tag
 import id.cukup.domain.Transaction
 import id.cukup.domain.TxSource
@@ -96,11 +97,16 @@ data class PlanPosEntity(
     val kind: String,
     val sortOrder: Int,
     val color: Int? = null,
+    @androidx.room.ColumnInfo(defaultValue = "0") val amount: Long = 0,
+    @androidx.room.ColumnInfo(defaultValue = "CYCLE") val period: String = "CYCLE",
 ) {
-    fun toDomain() = PlanPos(id, name, emoji, percent, PlanKind.valueOf(kind), sortOrder, color)
+    fun toDomain() = PlanPos(
+        id, name, emoji, percent, PlanKind.valueOf(kind), sortOrder, color, amount,
+        runCatching { PosPeriod.valueOf(period) }.getOrDefault(PosPeriod.CYCLE),
+    )
 
     companion object {
-        fun from(p: PlanPos) = PlanPosEntity(p.id, p.name, p.emoji, p.percent, p.kind.name, p.sortOrder, p.color)
+        fun from(p: PlanPos) = PlanPosEntity(p.id, p.name, p.emoji, p.percent, p.kind.name, p.sortOrder, p.color, p.amount, p.period.name)
     }
 }
 

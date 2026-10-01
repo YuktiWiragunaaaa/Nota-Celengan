@@ -13,17 +13,25 @@ import androidx.room.RoomDatabase
         AccountEntity::class, CategoryEntity::class, TransactionEntity::class,
         PlanPosEntity::class, GoalEntity::class, MerchantRuleEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = true,
 )
 abstract class CukupDatabase : RoomDatabase() {
     abstract fun dao(): CukupDao
 
     companion object {
+        /** v5: pos rencana bisa bernominal tetap dengan jangka sendiri (per gajian / minggu / hari). */
+        private val MIGRATION_4_5 = object : androidx.room.migration.Migration(4, 5) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE plan ADD COLUMN amount INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE plan ADD COLUMN period TEXT NOT NULL DEFAULT 'CYCLE'")
+            }
+        }
+
         /**
          * Setiap kenaikan versi WAJIB punya migrasi di sini (mis. MIGRATION_4_5), dan skema barunya
          * ikut di-commit di app/schemas. Tanpa migrasi, aplikasi berhenti dan data tidak disentuh.
          */
-        val MIGRATIONS: Array<androidx.room.migration.Migration> = arrayOf()
+        val MIGRATIONS: Array<androidx.room.migration.Migration> = arrayOf(MIGRATION_4_5)
     }
 }

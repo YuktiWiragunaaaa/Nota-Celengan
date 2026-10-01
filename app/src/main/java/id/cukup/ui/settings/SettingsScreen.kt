@@ -210,7 +210,7 @@ fun SettingsScreen(
         Group("Rencana (batas yang kamu tetapkan)")
         Link(
             "Rencana belanja",
-            if (data.planStatus.active) data.plan.joinToString(" · ") { "${it.name} ${it.percent}%" } else "Belum ada",
+            if (data.planStatus.active) data.plan.joinToString(" · ") { "${it.name} ${it.share}" } else "Belum ada",
             onClick = onOpenPlan,
         )
         Link(

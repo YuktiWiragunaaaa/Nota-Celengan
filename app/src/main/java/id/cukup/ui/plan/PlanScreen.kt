@@ -46,6 +46,7 @@ import id.cukup.domain.Goal
 import id.cukup.domain.GoalProgress
 import id.cukup.domain.PlanBasis
 import id.cukup.domain.PlanKind
+import id.cukup.domain.PosPeriod
 import id.cukup.domain.PosStatus
 import id.cukup.domain.Presets
 import id.cukup.domain.Rupiah
@@ -89,7 +90,7 @@ fun PlanScreen(contentPadding: PaddingValues, onEditPlan: () -> Unit, vm: AppVie
         InfoBox(
             "Rencana tidak memindahkan uang",
             listOf(
-                "Uangmu tetap di dompet seperti yang tercatat. Di sini kamu hanya menetapkan batas, misalnya \"belanja keinginan maksimal 30% dari gaji\".",
+                "Uangmu tetap di dompet seperti yang tercatat. Di sini kamu hanya menetapkan batas, misalnya \"makan maksimal Rp300 rb per minggu\" atau \"keinginan maksimal 30% dari gaji\".",
                 "Cukup lalu membandingkan batas itu dengan catatanmu, dan memberi tahu kalau hampir lewat.",
             ),
             Modifier.padding(horizontal = Gutter),
@@ -98,10 +99,20 @@ fun PlanScreen(contentPadding: PaddingValues, onEditPlan: () -> Unit, vm: AppVie
         if (data.plan.isEmpty()) {
             SectionHeader("Pilih cara membagi")
             Text(
-                "Pilih satu untuk mulai. Persen dan kategorinya bisa diubah kapan saja.",
+                "Tentukan batasmu sendiri, atau mulai dari pola yang sudah jadi. Semuanya bisa diubah kapan saja.",
                 style = Type.bodySmall, color = c.mute, modifier = Modifier.padding(horizontal = Gutter),
             )
             Spacer(Modifier.height(10.dp))
+            Column(
+                Modifier.padding(horizontal = Gutter, vertical = 5.dp).fillMaxWidth().clip(CardShape).background(c.accent.copy(alpha = 0.12f))
+                    .clickable(onClick = onEditPlan).padding(16.dp),
+            ) {
+                Text("Atur sendiri", style = Type.title, color = c.ink)
+                Text(
+                    "Ketik batasnya langsung, misalnya Makan Rp300 rb per minggu atau Jajan Rp20 rb per hari. Tanpa persen, tanpa pola.",
+                    style = Type.bodySmall, color = c.mute,
+                )
+            }
             Presets.plans.forEach { p ->
                 Column(
                     Modifier.padding(horizontal = Gutter, vertical = 5.dp).fillMaxWidth().clip(CardShape).background(c.card)
@@ -115,7 +126,8 @@ fun PlanScreen(contentPadding: PaddingValues, onEditPlan: () -> Unit, vm: AppVie
                 }
             }
         } else {
-            Basis(data) { editBasis = true }
+            // Uang yang dibagi hanya dipakai pos berpersen.
+            if (data.plan.any { !it.fixed }) Basis(data) { editBasis = true }
             Totals(data)
             SectionHeader("Pos rencana", trailing = { TextAction("Ubah", onEditPlan) })
             data.planStatus.rows.forEach { row -> PosRow(row, data) }
@@ -207,9 +219,14 @@ private fun PosRow(row: PosStatus, o: Overview) {
             GlassIcon(row.pos.emoji, colorOf(row.pos), size = 40.dp)
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
-                Text("${row.pos.name} · ${row.pos.percent}%", style = Type.strong, color = c.ink)
+                Text("${row.pos.name} · ${row.pos.share}", style = Type.strong, color = c.ink)
                 Text(
-                    if (row.pos.kind == PlanKind.SPEND) "Batas belanja ${Rupiah.format(row.limit)}" else "Target sisihan ${Rupiah.format(row.limit)}",
+                    (if (row.pos.kind == PlanKind.SPEND) "Batas belanja ${Rupiah.format(row.limit)}" else "Target sisihan ${Rupiah.format(row.limit)}") +
+                        when (row.pos.period) {
+                            PosPeriod.WEEK -> " minggu ini · ${row.daysLeft} hari lagi"
+                            PosPeriod.DAY -> " hari ini"
+                            PosPeriod.CYCLE -> ""
+                        },
                     style = Type.bodySmall, color = c.mute,
                 )
             }
@@ -254,7 +271,7 @@ private fun BasisDialog(o: Overview, onDismiss: () -> Unit, onSave: (PlanBasis) 
         title = { Text("Uang yang dibagi", style = Type.title) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
-                Text("Rencana membagi angka ini ke pos-pos sesuai persen. Pilih sumbernya:", style = Type.bodySmall, color = c.mute)
+                Text("Hanya untuk pos berpersen: angka ini yang dibagi sesuai persennya. Pos bernominal tidak terpengaruh. Pilih sumbernya:", style = Type.bodySmall, color = c.mute)
                 Spacer(Modifier.height(8.dp))
                 Option("Angka tetap", "Misalnya gajimu Rp4 jt sebulan. Cocok kalau penghasilan rutin.", mode == PlanBasis.Mode.FIXED) { mode = PlanBasis.Mode.FIXED }
                 if (mode == PlanBasis.Mode.FIXED) {
@@ -263,7 +280,7 @@ private fun BasisDialog(o: Overview, onDismiss: () -> Unit, onSave: (PlanBasis) 
                 }
                 Option(
                     "Uang masuk periode lalu",
-                    "Otomatis dari catatan: ${Rupiah.format(o.lastTotals.income)}. Contoh: belanja maksimal 50% dari gaji minggu kemarin.",
+                    "Otomatis dari catatan: ${Rupiah.format(o.lastTotals.income)}. Cocok kalau penghasilan tidak tetap: yang masuk periode lalu, itu yang dibagi sekarang.",
                     mode == PlanBasis.Mode.LAST_PERIOD,
                 ) { mode = PlanBasis.Mode.LAST_PERIOD }
                 Option(

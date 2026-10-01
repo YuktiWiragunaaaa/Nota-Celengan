@@ -15,10 +15,15 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import id.cukup.MainActivity
 import id.cukup.R
 import id.cukup.domain.PayCycle
+import id.cukup.domain.PlanKind
+import id.cukup.domain.PosPeriod
+import id.cukup.domain.Schedule
 import id.cukup.domain.Rupiah
 import id.cukup.domain.PlanStatus
 import id.cukup.domain.Warning
+import java.time.DayOfWeek
 import java.time.LocalDate
+import java.time.temporal.TemporalAdjusters
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -34,7 +39,9 @@ class BudgetAlerts @Inject constructor(
 ) {
     suspend fun check(plan: PlanStatus) {
         val s = settings.current()
-        if (!s.budgetAlerts || !s.onboarded || !plan.active || plan.spendLimit <= 0) return
+        if (!s.budgetAlerts || !s.onboarded || !plan.active) return
+        checkRows(plan, s.schedule)
+        if (plan.spendLimit <= 0) return
         val level = plan.warning
         if (level == Warning.CALM) return
 
@@ -56,6 +63,42 @@ class BudgetAlerts @Inject constructor(
                 "Kelebihan ${Rupiah.format(-plan.spendLeft)}. Kalau bisa, tahan dulu sampai gajian.",
             )
         }
+    }
+
+    /**
+     * Pengingat per pos, di jangka pos itu sendiri: "Makan minggu ini tinggal Rp40 rb".
+     * Sekali per pos, per jangka, per tingkat (hampir habis / lewat).
+     */
+    private fun checkRows(plan: PlanStatus, schedule: Schedule) {
+        val today = LocalDate.now()
+        val prefs = context.getSharedPreferences("budget_alerts", Context.MODE_PRIVATE)
+        val sent = prefs.getStringSet("sent", emptySet()).orEmpty()
+        val fresh = mutableSetOf<String>()
+        // Kalau cuma ada satu pos belanja, pengingat keseluruhan sudah mewakilinya.
+        val rows = plan.rows.filter { it.pos.kind == PlanKind.SPEND && it.limit > 0 }
+        if (rows.size < 2 && rows.all { it.pos.period == PosPeriod.CYCLE }) return
+        for (row in rows) {
+            val level = row.warning
+            if (level == Warning.CALM) continue
+            val (window, word) = when (row.pos.period) {
+                PosPeriod.WEEK -> today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)).toString() to "minggu ini"
+                PosPeriod.DAY -> today.toString() to "hari ini"
+                PosPeriod.CYCLE -> PayCycle.of(today, schedule).start.toString() to schedule.periodName
+            }
+            val key = "${row.pos.id}:$window:${level.name}"
+            if (key in sent || (level == Warning.NEAR && "${row.pos.id}:$window:${Warning.OVER.name}" in sent)) continue
+            fresh += key
+            if (level == Warning.NEAR) post(
+                ID_POS + (row.pos.id % 500).toInt(),
+                "${row.pos.name} $word tinggal ${Rupiah.format(row.left)}",
+                "Sudah ${Rupiah.format(row.used)} dari batas ${Rupiah.format(row.limit)}.",
+            ) else post(
+                ID_POS + (row.pos.id % 500).toInt(),
+                "${row.pos.name} $word sudah lewat batas",
+                "Kelebihan ${Rupiah.format(-row.left)} dari batas ${Rupiah.format(row.limit)}.",
+            )
+        }
+        if (fresh.isNotEmpty()) prefs.edit().putStringSet("sent", (sent + fresh).toList().takeLast(120).toSet()).apply()
     }
 
     /** Dipanggil untuk belanja yang tercatat otomatis dari notifikasi. */
@@ -103,5 +146,6 @@ class BudgetAlerts @Inject constructor(
         const val CHANNEL = "budget_alerts"
         const val ID_BUDGET = 1
         const val ID_SINGLE = 2
+        const val ID_POS = 1000
     }
 }

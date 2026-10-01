@@ -85,7 +85,19 @@ data class PlanPos(
     val kind: PlanKind,
     val sortOrder: Int = 0,
     val color: Int? = null,
-)
+    /** Batas bernominal tetap (rupiah). Bila > 0, [percent] diabaikan. */
+    val amount: Long = 0,
+    /** Jangka batas bernominal tetap. Pos berpersen selalu satu periode gajian. */
+    val period: PosPeriod = PosPeriod.CYCLE,
+) {
+    val fixed: Boolean get() = amount > 0
+
+    /** "50%" atau "Rp300 rb/minggu". */
+    val share: String get() = if (fixed) "${Rupiah.short(amount)}/${period.word}" else "$percent%"
+}
+
+/** Jangka sebuah pos: satu periode gajian, per minggu (Senin–Minggu), atau per hari. */
+enum class PosPeriod(val word: String) { CYCLE("gajian"), WEEK("minggu"), DAY("hari") }
 
 /**
  * Dari mana rencana menghitung "uang masuk" yang dibagi ke pos.

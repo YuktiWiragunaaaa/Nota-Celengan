@@ -42,9 +42,11 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import id.cukup.domain.PlanKind
 import id.cukup.domain.PlanPos
+import id.cukup.domain.PosPeriod
 import id.cukup.domain.Planner
 import id.cukup.domain.Rupiah
 import id.cukup.ui.AppViewModel
+import id.cukup.ui.components.AmountDialog
 import id.cukup.ui.components.CardShape
 import id.cukup.ui.components.Choice
 import id.cukup.ui.components.Gutter
@@ -65,9 +67,9 @@ import kotlin.math.roundToInt
 /** Ubah persen satu pos; kelebihan di atas 100% diambil dari pos lain, yang terbesar dulu. */
 private fun setPercent(pos: MutableList<PlanPos>, i: Int, value: Int) {
     pos[i] = pos[i].copy(percent = value)
-    var excess = pos.sumOf { it.percent } - 100
+    var excess = pos.filter { !it.fixed }.sumOf { it.percent } - 100
     while (excess > 0) {
-        val j = pos.indices.filter { it != i && pos[it].percent > 0 }.maxByOrNull { pos[it].percent } ?: break
+        val j = pos.indices.filter { it != i && !pos[it].fixed && pos[it].percent > 0 }.maxByOrNull { pos[it].percent } ?: break
         val cut = minOf(5, excess, pos[j].percent)
         pos[j] = pos[j].copy(percent = pos[j].percent - cut)
         excess -= cut
@@ -85,6 +87,8 @@ fun PlanEditScreen(onBack: () -> Unit, vm: AppViewModel = hiltViewModel()) {
     var loaded by remember { mutableStateOf(false) }
     var nextTemp by remember { mutableStateOf(-1L) }
     var looking by remember { mutableStateOf<Int?>(null) }
+    var typingPercent by remember { mutableStateOf<Int?>(null) }
+    var typingAmount by remember { mutableStateOf<Int?>(null) }
     LaunchedEffect(data) {
         if (!loaded) {
             pos.addAll(data.plan)
@@ -92,7 +96,8 @@ fun PlanEditScreen(onBack: () -> Unit, vm: AppViewModel = hiltViewModel()) {
             loaded = true
         }
     }
-    val total = pos.sumOf { it.percent }
+    val total = pos.filter { !it.fixed }.sumOf { it.percent }
+    val anyPercent = pos.any { !it.fixed }
     val preview = Planner.split(data.planStatus.basis, pos).toMap()
 
     Column(Modifier.fillMaxSize().background(c.paper).systemBarsPadding().imePadding()) {
@@ -101,15 +106,15 @@ fun PlanEditScreen(onBack: () -> Unit, vm: AppViewModel = hiltViewModel()) {
             InfoBox(
                 "Cara kerjanya",
                 listOf(
-                    "1. Tiap pos dapat persen dari uang yang dibagi (${Rupiah.short(data.planStatus.basis)}).",
+                    "1. Tiap pos punya batas. Pilih sendiri: nominal bebas (mis. Rp300 rb per minggu) atau persen dari uang yang dibagi (${Rupiah.short(data.planStatus.basis)}).",
                     "2. Pilih kategori mana yang dihitung ke pos mana.",
                     "3. Tiap kamu catat pengeluaran di kategori itu, sisa batas posnya berkurang.",
                 ),
                 Modifier.padding(horizontal = Gutter),
             )
             SectionHeader("Pos", trailing = {
-                Text(
-                    "Total $total%", style = Type.strong,
+                if (anyPercent) Text(
+                    "Total persen $total%", style = Type.strong,
                     color = when {
                         total > 100 -> c.over
                         total < 100 -> c.caution
@@ -117,11 +122,17 @@ fun PlanEditScreen(onBack: () -> Unit, vm: AppViewModel = hiltViewModel()) {
                     },
                 )
             })
-            if (total != 100) {
+            if (anyPercent && total != 100) {
                 Text(
                     if (total > 100) "Lebih dari 100%. Batasnya dibagi rata supaya totalnya tetap sama dengan uang yang dibagi."
                     else "Sisa ${100 - total}% tidak masuk pos mana pun (bebas).",
                     style = Type.bodySmall, color = c.mute, modifier = Modifier.padding(horizontal = Gutter),
+                )
+            }
+            if (pos.isEmpty()) {
+                Text(
+                    "Belum ada pos. Tekan \"+ Tambah pos\", beri nama (mis. Makan), lalu isi batasnya.",
+                    style = Type.body, color = c.mute, modifier = Modifier.padding(horizontal = Gutter, vertical = 8.dp),
                 )
             }
             pos.forEachIndexed { i, p ->
@@ -140,15 +151,46 @@ fun PlanEditScreen(onBack: () -> Unit, vm: AppViewModel = hiltViewModel()) {
                             }.padding(6.dp),
                         )
                     }
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
-                        Text("${p.percent}%", style = Type.number, color = c.ink, modifier = Modifier.width(70.dp))
-                        Slider(
-                            value = p.percent.toFloat(), onValueChange = { v -> setPercent(pos, i, (v / 5f).roundToInt() * 5) },
-                            valueRange = 0f..100f, modifier = Modifier.weight(1f),
-                            colors = SliderDefaults.colors(thumbColor = colorOf(p), activeTrackColor = colorOf(p), inactiveTrackColor = c.line),
-                        )
+                    Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Choice("Nominal bebas", p.fixed, { if (!p.fixed) typingAmount = i })
+                        Choice("Persen", !p.fixed, { pos[i] = p.copy(amount = 0, period = PosPeriod.CYCLE) })
                     }
-                    Text("= ${Rupiah.format(preview[p.id] ?: 0)}", style = Type.bodySmall, color = c.mute)
+                    if (p.fixed) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 10.dp)) {
+                            Text(
+                                Rupiah.format(p.amount), style = Type.number, color = c.ink,
+                                modifier = Modifier.clip(CardShape).clickable { typingAmount = i }.padding(vertical = 4.dp),
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text("ketuk untuk ubah", style = Type.bodySmall, color = c.faint)
+                        }
+                        Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Choice("per gajian", p.period == PosPeriod.CYCLE, { pos[i] = p.copy(period = PosPeriod.CYCLE) })
+                            Choice("per minggu", p.period == PosPeriod.WEEK, { pos[i] = p.copy(period = PosPeriod.WEEK) })
+                            Choice("per hari", p.period == PosPeriod.DAY, { pos[i] = p.copy(period = PosPeriod.DAY) })
+                        }
+                        Text(
+                            when (p.period) {
+                                PosPeriod.WEEK -> "Batasnya kembali penuh tiap Senin."
+                                PosPeriod.DAY -> "Batasnya kembali penuh tiap hari."
+                                PosPeriod.CYCLE -> "Batasnya kembali penuh tiap gajian."
+                            },
+                            style = Type.bodySmall, color = c.mute, modifier = Modifier.padding(top = 6.dp),
+                        )
+                    } else {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
+                            Text(
+                                "${p.percent}%", style = Type.number, color = c.ink,
+                                modifier = Modifier.width(70.dp).clip(CardShape).clickable { typingPercent = i },
+                            )
+                            Slider(
+                                value = p.percent.toFloat(), onValueChange = { v -> setPercent(pos, i, (v / 5f).roundToInt() * 5) },
+                                valueRange = 0f..100f, modifier = Modifier.weight(1f),
+                                colors = SliderDefaults.colors(thumbColor = colorOf(p), activeTrackColor = colorOf(p), inactiveTrackColor = c.line),
+                            )
+                        }
+                        Text("= ${Rupiah.format(preview[p.id] ?: 0)} per gajian · ketuk angkanya untuk isi persen sendiri", style = Type.bodySmall, color = c.mute)
+                    }
                     Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Choice("Batas belanja", p.kind == PlanKind.SPEND, { pos[i] = p.copy(kind = PlanKind.SPEND) })
                         Choice("Untuk ditabung", p.kind == PlanKind.SAVE, { pos[i] = p.copy(kind = PlanKind.SAVE) })
@@ -201,6 +243,24 @@ fun PlanEditScreen(onBack: () -> Unit, vm: AppViewModel = hiltViewModel()) {
         )
     }
 
+    typingAmount?.let { i ->
+        val p = pos.getOrNull(i)
+        if (p == null) typingAmount = null
+        else AmountDialog(
+            "Batas ${p.name}", "Isi jumlahnya langsung. Jangkanya (per gajian, minggu, atau hari) dipilih setelah ini.", p.amount,
+            onDismiss = { typingAmount = null },
+        ) { v ->
+            // Nol berarti kembali ke persen.
+            pos[i] = if (v > 0) p.copy(amount = v) else p.copy(amount = 0, period = PosPeriod.CYCLE)
+            typingAmount = null
+        }
+    }
+    typingPercent?.let { i ->
+        val p = pos.getOrNull(i)
+        if (p == null) typingPercent = null
+        else PercentDialog(p.name, p.percent, { typingPercent = null }) { v -> setPercent(pos, i, v); typingPercent = null }
+    }
+
     val lookIndex = looking
     val lookPos = lookIndex?.let { pos.getOrNull(it) }
     if (lookIndex != null && lookPos != null) {
@@ -216,4 +276,26 @@ fun PlanEditScreen(onBack: () -> Unit, vm: AppViewModel = hiltViewModel()) {
             )
         }
     }
+}
+
+/** Isi persen sendiri (1–100), tidak harus kelipatan 5. */
+@Composable
+private fun PercentDialog(name: String, initial: Int, onDismiss: () -> Unit, onConfirm: (Int) -> Unit) {
+    val c = colors
+    var draft by remember { mutableStateOf(initial.toString()) }
+    val value = (draft.toIntOrNull() ?: 0).coerceIn(0, 100)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Persen $name", style = Type.title) },
+        text = {
+            Column {
+                Text("Angka bebas dari 0 sampai 100. Kalau totalnya lewat 100%, pos lain dikurangi otomatis.", style = Type.body, color = c.mute)
+                Spacer(Modifier.height(12.dp))
+                LineField(draft, { v -> draft = v.filter(Char::isDigit).take(3) }, "0", keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
+            }
+        },
+        confirmButton = { TextButton({ onConfirm(value) }) { Text("Simpan", color = c.ink) } },
+        dismissButton = { TextButton(onDismiss) { Text("Batal", color = c.mute) } },
+        containerColor = c.card,
+    )
 }
