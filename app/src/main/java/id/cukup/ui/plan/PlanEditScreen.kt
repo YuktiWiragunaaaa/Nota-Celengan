@@ -48,6 +48,7 @@ import id.cukup.domain.Rupiah
 import id.cukup.ui.AppViewModel
 import id.cukup.ui.components.AmountDialog
 import id.cukup.ui.components.CardShape
+import id.cukup.ui.components.cardSurface
 import id.cukup.ui.components.Choice
 import id.cukup.ui.components.Gutter
 import id.cukup.ui.components.Hairline
@@ -136,7 +137,7 @@ fun PlanEditScreen(onBack: () -> Unit, vm: AppViewModel = hiltViewModel()) {
                 )
             }
             pos.forEachIndexed { i, p ->
-                Column(Modifier.padding(horizontal = Gutter, vertical = 8.dp).fillMaxWidth().clip(CardShape).background(c.card).padding(14.dp)) {
+                Column(Modifier.padding(horizontal = Gutter, vertical = 8.dp).fillMaxWidth().cardSurface().padding(14.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         GlassIcon(p.emoji, colorOf(p), Modifier.clickable { looking = i }, size = 40.dp)
                         Spacer(Modifier.width(8.dp))

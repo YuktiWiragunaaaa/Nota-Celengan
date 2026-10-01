@@ -90,6 +90,14 @@ object NotificationParser {
         )
     }
 
+    private val secretWords = listOf("otp", "kode verifikasi", "kode rahasia", "kode keamanan", "jangan berikan", "password", "kata sandi", " pin ", "pin:", "cvv", "token")
+
+    /** True bila teks tampak berisi kode rahasia (OTP, PIN, kata sandi): tidak boleh disimpan di mana pun. */
+    fun isSecret(text: String): Boolean {
+        val lower = " ${text.lowercase()} "
+        return secretWords.any { lower.contains(it) }
+    }
+
     /** Alasan singkat kenapa [parse] melewati notifikasi ini; null bila terbaca. */
     fun whySkipped(packageName: String, title: String?, text: String?): String? {
         if (packageName !in byPackage) return "Aplikasi ini tidak dibaca"

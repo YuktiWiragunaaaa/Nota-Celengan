@@ -53,6 +53,7 @@ import id.cukup.domain.Rupiah
 import id.cukup.ui.AppViewModel
 import id.cukup.ui.components.AmountDialog
 import id.cukup.ui.components.CardShape
+import id.cukup.ui.components.cardSurface
 import id.cukup.ui.components.ChipPicker
 import id.cukup.ui.components.Eyebrow
 import id.cukup.ui.components.Gutter
@@ -118,7 +119,7 @@ fun PlanScreen(contentPadding: PaddingValues, onEditPlan: () -> Unit, onOpenRepo
             }
             Presets.plans.forEach { p ->
                 Column(
-                    Modifier.padding(horizontal = Gutter, vertical = 5.dp).fillMaxWidth().clip(CardShape).background(c.card)
+                    Modifier.padding(horizontal = Gutter, vertical = 5.dp).fillMaxWidth().cardSurface()
                         .clickable { vm.applyPlanPreset(p); if (data.settings.planBasis.fixedAmount <= 0 && data.settings.planBasis.mode == PlanBasis.Mode.FIXED) editBasis = true }
                         .padding(16.dp),
                 ) {
@@ -174,7 +175,7 @@ private fun Basis(o: Overview, onEdit: () -> Unit) {
     val c = colors
     val b = o.settings.planBasis
     Column(
-        Modifier.padding(horizontal = Gutter).padding(top = 16.dp).fillMaxWidth().clip(CardShape).background(c.card).clickable(onClick = onEdit).padding(16.dp),
+        Modifier.padding(horizontal = Gutter).padding(top = 16.dp).fillMaxWidth().cardSurface().clickable(onClick = onEdit).padding(16.dp),
     ) {
         Eyebrow("Uang yang dibagi ${o.periodName}")
         Text(Rupiah.format(o.planStatus.basis), style = Type.number, color = c.ink)
@@ -205,7 +206,7 @@ private fun Totals(o: Overview) {
 @Composable
 private fun Stat(label: String, value: String, color: Color, modifier: Modifier) {
     val c = colors
-    Column(modifier.clip(CardShape).background(c.card).padding(12.dp)) {
+    Column(modifier.cardSurface().padding(12.dp)) {
         Text(label, style = Type.label, color = c.mute)
         Text(value, style = Type.amount, color = color)
     }

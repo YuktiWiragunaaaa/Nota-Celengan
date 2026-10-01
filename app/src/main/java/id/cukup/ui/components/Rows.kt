@@ -86,7 +86,7 @@ fun Link(
 ) {
     val c = colors
     Row(
-        Modifier.padding(horizontal = Gutter, vertical = 4.dp).fillMaxWidth().clip(CardShape).background(c.card)
+        Modifier.padding(horizontal = Gutter, vertical = 4.dp).fillMaxWidth().cardSurface()
             .clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -106,7 +106,7 @@ fun Link(
 fun Toggle(title: String, subtitle: String, checked: Boolean, enabled: Boolean = true, onChange: (Boolean) -> Unit) {
     val c = colors
     Row(
-        Modifier.padding(horizontal = Gutter, vertical = 4.dp).fillMaxWidth().clip(CardShape).background(c.card)
+        Modifier.padding(horizontal = Gutter, vertical = 4.dp).fillMaxWidth().cardSurface()
             .toggleable(checked, enabled = enabled, role = Role.Switch, onValueChange = onChange)
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,

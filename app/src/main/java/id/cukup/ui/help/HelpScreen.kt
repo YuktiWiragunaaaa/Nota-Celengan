@@ -48,6 +48,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import id.cukup.domain.Rupiah
 import id.cukup.ui.components.CardShape
+import id.cukup.ui.components.cardSurface
 import id.cukup.ui.components.Choice
 import id.cukup.ui.components.Eyebrow
 import id.cukup.ui.components.GlassIcon
@@ -97,7 +98,7 @@ fun HelpScreen(onBack: () -> Unit) {
                 // Kartu setinggi isinya (tidak ada ruang kosong besar), tetap bisa digulir kalau panjang.
                 Modifier.fillMaxWidth().wrapContentHeight(Alignment.Top, unbounded = false).padding(vertical = 8.dp)
                     .graphicsLayer { scaleX = focus; scaleY = focus }
-                    .clip(CardShape).background(c.card).border(1.dp, c.line, CardShape)
+                    .cardSurface().border(1.dp, c.line, CardShape)
                     .verticalScroll(rememberScrollState()).padding(20.dp),
             ) {
                 Eyebrow(p.eyebrow, color = c.accent)

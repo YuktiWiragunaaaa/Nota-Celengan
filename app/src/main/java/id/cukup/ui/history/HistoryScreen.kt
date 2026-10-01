@@ -51,6 +51,7 @@ import id.cukup.domain.Transaction
 import id.cukup.domain.TxStatus
 import id.cukup.domain.TxType
 import id.cukup.ui.components.CardShape
+import id.cukup.ui.components.cardSurface
 import id.cukup.ui.components.Choice
 import id.cukup.ui.components.DayBarChart
 import id.cukup.ui.components.CategoryLookDialog
@@ -177,7 +178,7 @@ fun HistoryScreen(
 
         // Grafik harian: sentuh batang untuk memilih hari.
         item {
-            Column(Modifier.padding(Gutter).fillMaxWidth().clip(CardShape).background(c.card).padding(18.dp)) {
+            Column(Modifier.padding(Gutter).fillMaxWidth().cardSurface().padding(18.dp)) {
                 AnimatedContent(selectedDay, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "day") { d ->
                     Row(verticalAlignment = Alignment.Bottom) {
                         Column(Modifier.weight(1f)) {
@@ -227,7 +228,7 @@ fun HistoryScreen(
         val cats = if (incomeView) s.incomeByCategory else s.byCategory
         if (s.byCategory.isNotEmpty() || s.incomeByCategory.isNotEmpty()) {
             item {
-                Column(Modifier.padding(horizontal = Gutter).fillMaxWidth().clip(CardShape).background(c.card).padding(18.dp)) {
+                Column(Modifier.padding(horizontal = Gutter).fillMaxWidth().cardSurface().padding(18.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(if (incomeView) "Dari mana saja" else "Ke mana saja", style = Type.title, color = c.ink, modifier = Modifier.weight(1f))
                         RoundIcon(

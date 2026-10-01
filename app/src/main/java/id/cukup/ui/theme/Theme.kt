@@ -57,7 +57,7 @@ data class CukupColors(
     /** Sapuan lembut di belakang saldo Beranda; memudar ke warna halaman. Putih di tema terang, biru tua di tema gelap. */
     val heroBrush: Brush
         get() = Brush.verticalGradient(
-            if (isDark) listOf(Color(0xFF0D2548), Color(0xFF0A1830), paper) else listOf(Color(0xFFFFFFFF), Color(0xFFF6F9FD), paper),
+            if (isDark) listOf(Color(0xFF0D2548), Color(0xFF0A1830), paper) else listOf(Color(0xFFEFF5FD), Color(0xFFFFFFFF), paper),
         )
 }
 
@@ -82,14 +82,14 @@ val PocketPalette = listOf(
 )
 
 private val Light = CukupColors(
-    // Halaman sedikit lebih pekat dari kartu supaya kartu putih terangkat tanpa perlu bayangan.
-    paper = Color(0xFFEAF0F8),
+    // Halaman dan kartu sama-sama putih; kartu dibedakan dengan garis tepi tipis (lihat cardSurface).
+    paper = Color(0xFFFFFFFF),
     card = Color(0xFFFFFFFF),
-    surface = Color(0xFFDFE8F4),
+    surface = Color(0xFFEDF2F9),
     ink = Color(0xFF0B1B33),
     mute = Color(0xFF475973),
     faint = Color(0xFF7C8DA6),
-    line = Color(0xFFD3DDEB),
+    line = Color(0xFFDAE2EE),
     dark = Color(0xFF0B1B33),
     onDark = Color(0xFFFFFFFF),
     onDarkMute = Color(0xB3FFFFFF),

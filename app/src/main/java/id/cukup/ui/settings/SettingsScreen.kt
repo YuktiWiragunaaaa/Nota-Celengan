@@ -2,6 +2,7 @@ package id.cukup.ui.settings
 
 import androidx.compose.ui.draw.clip
 import id.cukup.ui.components.CardShape
+import id.cukup.ui.components.cardSurface
 import androidx.compose.foundation.layout.Arrangement
 import id.cukup.ui.components.Choice
 import id.cukup.ui.components.colorOf
@@ -283,7 +284,7 @@ fun SettingsScreen(
             leading = "🛟",
         ) { showAutos = true }
         Row(
-            Modifier.padding(horizontal = Gutter, vertical = 4.dp).fillMaxWidth().clip(CardShape).background(c.card)
+            Modifier.padding(horizontal = Gutter, vertical = 4.dp).fillMaxWidth().cardSurface()
                 .clickable { confirmErase = true }.padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {

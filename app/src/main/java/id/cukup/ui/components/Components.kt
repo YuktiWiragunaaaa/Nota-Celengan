@@ -344,10 +344,20 @@ fun SectionHeader(title: String, modifier: Modifier = Modifier, trailing: @Compo
     }
 }
 
+/**
+ * Permukaan kartu. Di tema terang halaman dan kartu sama-sama putih, jadi kartu dibedakan dengan garis tepi tipis;
+ * di tema gelap warna kartunya sendiri sudah cukup.
+ */
+@Composable
+fun Modifier.cardSurface(shape: androidx.compose.ui.graphics.Shape = CardShape): Modifier {
+    val c = colors
+    return clip(shape).background(c.card).then(if (c.isDark) Modifier else Modifier.border(1.dp, c.line, shape))
+}
+
 /** Kartu putih membulat. */
 @Composable
 fun Card(modifier: Modifier = Modifier, padding: Dp = 18.dp, content: @Composable () -> Unit) {
-    Box(modifier.clip(CardShape).background(colors.card).padding(padding)) { content() }
+    Box(modifier.cardSurface().padding(padding)) { content() }
 }
 
 /**

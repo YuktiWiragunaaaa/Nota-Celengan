@@ -45,6 +45,7 @@ import id.cukup.domain.AccountKind
 import id.cukup.domain.Presets
 import id.cukup.domain.Rupiah
 import id.cukup.ui.components.CardShape
+import id.cukup.ui.components.cardSurface
 import id.cukup.ui.components.Choice
 import id.cukup.ui.components.Eyebrow
 import id.cukup.ui.components.Gutter
@@ -115,7 +116,7 @@ private fun RestoreEntry(onDone: () -> Unit, app: id.cukup.ui.AppViewModel = hil
         androidx.activity.result.contract.ActivityResultContracts.OpenDocument(),
     ) { uri -> if (uri != null) app.restoreBackup(uri, onDone) }
     Column(
-        Modifier.padding(horizontal = Gutter).padding(top = 24.dp).fillMaxWidth().clip(CardShape).background(c.card)
+        Modifier.padding(horizontal = Gutter).padding(top = 24.dp).fillMaxWidth().cardSurface()
             .clickable { pick.launch(arrayOf("application/json", "application/octet-stream", "text/plain")) }.padding(14.dp),
     ) {
         Text("Punya file cadangan Cukup?", style = Type.strong, color = c.ink)
@@ -141,11 +142,11 @@ private fun NameStep(name: String, onName: (String) -> Unit) {
     val c = colors
     Heading("Hai! Ini <i>Cukup</i>.", "Aplikasi untuk tahu uangmu ada di mana, habis ke mana, dan masih cukup atau tidak.")
     Row(Modifier.padding(horizontal = Gutter), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        Column(Modifier.weight(1f).clip(CardShape).background(c.card).padding(14.dp)) {
+        Column(Modifier.weight(1f).cardSurface().padding(14.dp)) {
             Eyebrow("CATATAN", color = c.accent)
             Text("Uang sungguhan: dompet, saldo, masuk & keluar.", style = Type.bodySmall, color = c.mute)
         }
-        Column(Modifier.weight(1f).clip(CardShape).background(c.card).padding(14.dp)) {
+        Column(Modifier.weight(1f).cardSurface().padding(14.dp)) {
             Eyebrow("RENCANA", color = c.accent)
             Text("Batas yang kamu buat sendiri. Tidak mengubah saldo.", style = Type.bodySmall, color = c.mute)
         }
@@ -174,7 +175,7 @@ private fun WalletsStep(s: OnboardingState, onIntent: (OnboardingIntent) -> Unit
     }
     Spacer(Modifier.height(20.dp))
     s.accounts.forEach { a ->
-        Column(Modifier.padding(horizontal = Gutter, vertical = 6.dp).fillMaxWidth().clip(CardShape).background(c.card).padding(14.dp)) {
+        Column(Modifier.padding(horizontal = Gutter, vertical = 6.dp).fillMaxWidth().cardSurface().padding(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 GlassIcon(a.emoji, Presets.accounts.firstOrNull { it.name == a.name }?.color?.let { androidx.compose.ui.graphics.Color(it) } ?: c.accent, size = 32.dp, mark = id.cukup.domain.Brands.forAccountName(a.name)?.mark)
                 Spacer(Modifier.width(10.dp))

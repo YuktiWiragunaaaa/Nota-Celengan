@@ -301,7 +301,9 @@ class MoneyRepository @Inject constructor(
      * Nominal serupa dalam ±3 menit selalu masuk "Perlu dicek" (kemungkinan duplikat bank + e-wallet).
      */
     suspend fun ingest(packageName: String, title: String?, text: String?, postedAt: Long): Boolean = ingestLock.withLock {
+        // Kode OTP, PIN, dan sejenisnya tidak pernah disimpan, walau hanya di log HP ini.
         val raw = listOfNotNull(title, text).joinToString(" · ").take(240)
+            .let { if (NotificationParser.isSecret(it)) "(isi tidak disimpan: berisi kode rahasia)" else it }
         val appName = Brands.forPackage(packageName)?.name ?: packageName
         fun note(result: NoticeLog.Result, detail: String) = log.add(NoticeLog.Entry(postedAt, appName, raw, result, detail))
         val parsed = NotificationParser.parse(packageName, title, text) ?: run {

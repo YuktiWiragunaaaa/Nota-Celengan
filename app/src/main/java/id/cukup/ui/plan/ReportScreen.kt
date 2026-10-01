@@ -29,6 +29,7 @@ import id.cukup.domain.Insight
 import id.cukup.domain.Rupiah
 import id.cukup.ui.AppViewModel
 import id.cukup.ui.components.CardShape
+import id.cukup.ui.components.cardSurface
 import id.cukup.ui.components.GlassIcon
 import id.cukup.ui.components.Gutter
 import id.cukup.ui.components.LineButton
@@ -77,7 +78,7 @@ fun ReportScreen(onBack: () -> Unit, onOpenPlan: () -> Unit, vm: AppViewModel = 
 
         SectionHeader("Keluar ke mana")
         val base = if (income > 0) income else spent.coerceAtLeast(1)
-        Column(Modifier.padding(horizontal = Gutter).fillMaxWidth().clip(CardShape).background(c.card).padding(16.dp)) {
+        Column(Modifier.padding(horizontal = Gutter).fillMaxWidth().cardSurface().padding(16.dp)) {
             Text(
                 if (income > 0) "Persen dihitung dari uang masuk ${Rupiah.short(income)}." else "Tidak ada uang masuk tercatat, jadi persen dihitung dari total keluar.",
                 style = Type.bodySmall, color = c.faint,
@@ -104,7 +105,7 @@ fun ReportScreen(onBack: () -> Unit, onOpenPlan: () -> Unit, vm: AppViewModel = 
             SectionHeader("Kesimpulan")
             report.findings.forEach { f ->
                 Row(
-                    Modifier.padding(horizontal = Gutter, vertical = 4.dp).fillMaxWidth().clip(CardShape).background(c.card).padding(14.dp),
+                    Modifier.padding(horizontal = Gutter, vertical = 4.dp).fillMaxWidth().cardSurface().padding(14.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Spacer(
@@ -142,7 +143,7 @@ fun ReportScreen(onBack: () -> Unit, onOpenPlan: () -> Unit, vm: AppViewModel = 
 @Composable
 private fun Figure(label: String, value: String, modifier: Modifier, warn: Boolean = false) {
     val c = colors
-    Column(modifier.clip(CardShape).background(c.card).padding(14.dp)) {
+    Column(modifier.cardSurface().padding(14.dp)) {
         Text(label, style = Type.bodySmall, color = c.mute)
         Text(value, style = Type.amount, color = if (warn) c.over else c.ink)
     }

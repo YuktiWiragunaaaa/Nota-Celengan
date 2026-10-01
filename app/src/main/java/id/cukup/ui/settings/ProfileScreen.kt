@@ -52,6 +52,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import id.cukup.ui.components.Avatar
 import id.cukup.ui.components.CardShape
+import id.cukup.ui.components.cardSurface
 import id.cukup.ui.components.Gutter
 import id.cukup.ui.components.LineField
 import id.cukup.ui.components.Pill
@@ -86,7 +87,7 @@ fun ProfileScreen(
     }
 
     // Keping tembus pandang di tema gelap, putih bersih di tema terang (sama seperti Beranda).
-    val chip = if (c.isDark) Color.White.copy(alpha = 0.08f) else c.card
+    val chip = if (c.isDark) Color.White.copy(alpha = 0.08f) else c.surface
     Column(Modifier.fillMaxSize().background(c.paper).verticalScroll(rememberScrollState())) {
         Column(
             Modifier
@@ -117,7 +118,7 @@ fun ProfileScreen(
             }
         }
         Column(Modifier.padding(horizontal = Gutter).offset(y = (-28).dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Column(Modifier.fillMaxWidth().clip(CardShape).background(c.card).padding(16.dp)) {
+            Column(Modifier.fillMaxWidth().cardSurface().padding(16.dp)) {
                 Text("Nama panggilan", style = Type.bodySmall, color = c.mute)
                 Spacer(Modifier.height(8.dp))
                 LineField(s.name, { v -> vm.update { it.copy(name = v.take(20)) } }, "Nama panggilan")
@@ -132,7 +133,7 @@ fun ProfileScreen(
 private fun ProfileLink(icon: ImageVector, title: String, onClick: () -> Unit) {
     val c = colors
     Row(
-        Modifier.fillMaxWidth().clip(CardShape).background(c.card).clickable(onClick = onClick).padding(16.dp),
+        Modifier.fillMaxWidth().cardSurface().clickable(onClick = onClick).padding(16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(Modifier.size(40.dp).clip(Pill).background(c.surface), contentAlignment = Alignment.Center) {

@@ -42,6 +42,7 @@ import id.cukup.domain.TxType
 import id.cukup.ui.AppViewModel
 import id.cukup.ui.components.AmountDialog
 import id.cukup.ui.components.CardShape
+import id.cukup.ui.components.cardSurface
 import id.cukup.ui.components.Choice
 import id.cukup.ui.components.Eyebrow
 import id.cukup.ui.components.Gutter
@@ -86,7 +87,7 @@ fun AccountScreen(id: Long, onBack: () -> Unit, onOpenTx: (Long) -> Unit, onAdd:
     LazyColumn(Modifier.fillMaxSize().background(c.paper).systemBarsPadding()) {
         item { TopBar(ab.account.name, onBack) }
         item {
-            Column(Modifier.padding(horizontal = Gutter).fillMaxWidth().clip(CardShape).background(c.card).padding(18.dp)) {
+            Column(Modifier.padding(horizontal = Gutter).fillMaxWidth().cardSurface().padding(18.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     AccountIcon(ab.account, size = 52.dp)
                     Spacer(Modifier.padding(4.dp))

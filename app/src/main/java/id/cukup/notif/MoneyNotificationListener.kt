@@ -91,7 +91,7 @@ class MoneyNotificationListener : NotificationListenerService() {
                 // Baru ditandai selesai kalau memang tersimpan/terbaca; kalau gagal, dicoba lagi saat menyusul.
                 .onSuccess { log.markSeen(key) }
                 .onFailure {
-                    log.add(NoticeLog.Entry(postedAt, packageName, listOfNotNull(title, text).joinToString(" · ").take(240), NoticeLog.Result.SKIPPED, "Gagal disimpan: ${it.message ?: it.javaClass.simpleName}"))
+                    log.add(NoticeLog.Entry(postedAt, packageName, listOfNotNull(title, text).joinToString(" · ").take(240).let { if (NotificationParser.isSecret(it)) "(isi tidak disimpan: berisi kode rahasia)" else it }, NoticeLog.Result.SKIPPED, "Gagal disimpan: ${it.message ?: it.javaClass.simpleName}"))
                 }
             working.remove(key)
         }

@@ -99,6 +99,7 @@ import id.cukup.notif.MoneyNotificationListener
 import id.cukup.ui.settings.span
 import id.cukup.ui.components.AmountDialog
 import id.cukup.ui.components.CardShape
+import id.cukup.ui.components.cardSurface
 import id.cukup.ui.components.OTHER_KEY
 import id.cukup.ui.components.merged
 import id.cukup.ui.components.CategoryLookDialog
@@ -178,7 +179,7 @@ fun HomeScreen(
             ) {
                 ActionPill("Masuk", Icons.Rounded.ArrowDownward, { onAdd(TxType.INCOME) }, Modifier.weight(1f))
                 Box(
-                    Modifier.size(52.dp).clip(CircleShape).background(c.card).clickable(role = Role.Button) { onAdd(TxType.TRANSFER) },
+                    Modifier.size(52.dp).cardSurface(CircleShape).clickable(role = Role.Button) { onAdd(TxType.TRANSFER) },
                     contentAlignment = Alignment.Center,
                 ) { Icon(Icons.Rounded.SwapHoriz, "Pindah antar dompet", tint = c.ink) }
                 ActionPill("Keluar", Icons.Rounded.ArrowUpward, { onAdd(TxType.EXPENSE) }, Modifier.weight(1f))
@@ -191,7 +192,7 @@ fun HomeScreen(
         item { AutoHealth(vm, onOpenAuto) }
         item {
             // Data, bukan tombol: diberi kartu sendiri supaya terbaca terpisah dari fitur di atasnya.
-            Column(Modifier.padding(horizontal = Gutter).padding(top = 28.dp).fillMaxWidth().clip(CardShape).background(c.card)) {
+            Column(Modifier.padding(horizontal = Gutter).padding(top = 28.dp).fillMaxWidth().cardSurface()) {
                 Row(
                     Modifier.fillMaxWidth().padding(start = Gutter, end = 8.dp, top = 14.dp, bottom = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -247,7 +248,7 @@ private fun Hero(
     val c = colors
     val white = c.ink
     // Keping tembus pandang di tema gelap, putih bersih di tema terang.
-    val chip = if (c.isDark) Color.White.copy(alpha = 0.08f) else c.card
+    val chip = if (c.isDark) Color.White.copy(alpha = 0.08f) else c.surface
     // Hampir semua angka di bagian atas bisa diketuk untuk melihat rinciannya.
     var sheet by remember { mutableStateOf<HeroSheet?>(null) }
     var editSchedule by remember { mutableStateOf(false) }
@@ -362,7 +363,7 @@ private fun Hero(
         var chart by rememberSaveable { mutableStateOf(o.settings.chart) }
         Spacer(Modifier.height(14.dp))
         // Grafik duduk di kartu berlatar netral supaya warna kategori tidak bertabrakan dengan latar.
-        Column(Modifier.padding(horizontal = Gutter).fillMaxWidth().clip(CardShape).background(c.card).padding(vertical = 14.dp)) {
+        Column(Modifier.padding(horizontal = Gutter).fillMaxWidth().cardSurface().padding(vertical = 14.dp)) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
             Row(Modifier.weight(1f)) {
                 FlowToggle(incomeView) { incomeView = it; selected = null }
@@ -510,7 +511,7 @@ private fun Accounts(accounts: List<AccountBalance>, onOpen: (Long) -> Unit, onN
         accounts.forEach { ab ->
             val color = colorOf(ab.account)
             Column(
-                Modifier.width(172.dp).clip(CardShape).background(c.card).clickable { onOpen(ab.account.id) }.padding(14.dp),
+                Modifier.width(172.dp).cardSurface().clickable { onOpen(ab.account.id) }.padding(14.dp),
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     AccountIcon(ab.account, size = 34.dp)
@@ -544,7 +545,7 @@ private fun PlanCard(o: Overview, onOpen: () -> Unit) {
     val c = colors
     val s = o.planStatus
     Column(
-        Modifier.padding(horizontal = Gutter).fillMaxWidth().clip(CardShape).background(c.card).clickable(onClick = onOpen).padding(16.dp),
+        Modifier.padding(horizontal = Gutter).fillMaxWidth().cardSurface().clickable(onClick = onOpen).padding(16.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("RENCANA", style = Type.label, color = c.accent, modifier = Modifier.weight(1f))
@@ -580,7 +581,7 @@ private fun PlanCard(o: Overview, onOpen: () -> Unit) {
 private fun ActionPill(text: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit, modifier: Modifier) {
     val c = colors
     Row(
-        modifier.height(52.dp).clip(Pill).background(c.card).clickable(role = Role.Button, onClick = onClick),
+        modifier.height(52.dp).cardSurface(Pill).clickable(role = Role.Button, onClick = onClick),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -604,7 +605,7 @@ private fun InsightPager(insights: List<Insight>) {
                 Insight.Tone.WARN -> c.caution
             }
             Row(
-                Modifier.fillMaxWidth().height(92.dp).clip(CardShape).background(c.card).padding(16.dp),
+                Modifier.fillMaxWidth().height(92.dp).cardSurface().padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Box(Modifier.size(40.dp).clip(CircleShape).background(tone.copy(alpha = 0.14f)), contentAlignment = Alignment.Center) {

@@ -43,6 +43,7 @@ import id.cukup.data.NoticeLog
 import id.cukup.notif.MoneyNotificationListener
 import id.cukup.ui.AppViewModel
 import id.cukup.ui.components.CardShape
+import id.cukup.ui.components.cardSurface
 import id.cukup.ui.components.Gutter
 import id.cukup.ui.components.Link
 import id.cukup.ui.components.SectionHeader
@@ -203,7 +204,7 @@ fun AutoScreen(onBack: () -> Unit, onOpenInbox: () -> Unit, vm: AppViewModel = h
                 NoticeLog.Result.SKIPPED -> "Dilewati" to c.faint
             }
             Column(
-                Modifier.padding(horizontal = Gutter, vertical = 4.dp).fillMaxWidth().clip(CardShape).background(c.card)
+                Modifier.padding(horizontal = Gutter, vertical = 4.dp).fillMaxWidth().cardSurface()
                     .then(if (e.result == NoticeLog.Result.PENDING) Modifier.clickable(onClick = onOpenInbox) else Modifier).padding(14.dp),
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
