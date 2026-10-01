@@ -129,8 +129,10 @@ fun AccountScreen(id: Long, onBack: () -> Unit, onOpenTx: (Long) -> Unit, onAdd:
         if (ab.account.kind != AccountKind.CASH) {
             item {
                 val accounts = data.accounts.map { it.account }
-                // Aplikasi yang notifikasinya sekarang masuk ke dompet ini (tautan atau tebakan otomatis).
-                val linked = Brands.all.filter { b -> b.packages.any { Brands.accountFor(it, accounts, data.settings.appLinks) == id } }
+                // Hanya yang benar-benar tertaut: yang kamu tautkan (atau ditautkan otomatis saat notifikasi pertamanya datang)
+                // dan merek yang sama dengan nama dompet ini. Tebakan "semua bank masuk ke sini" tidak ditampilkan lagi.
+                val byName = Brands.forAccountName(ab.account.name)
+                val linked = Brands.all.filter { b -> data.settings.appLinks[b.key] == id || b.key == byName?.key }
                 SectionHeader("Notifikasi dari")
                 // Yang sudah tertaut tampil sebagai keping (ketuk untuk melepas); menambah lewat pencarian, bukan daftar centang panjang.
                 if (linked.isNotEmpty()) {
@@ -138,7 +140,11 @@ fun AccountScreen(id: Long, onBack: () -> Unit, onOpenTx: (Long) -> Unit, onAdd:
                         Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = Gutter).padding(bottom = 8.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        linked.forEach { b -> Choice("${b.name}  ×", true, { vm.linkApp(b.key, null) }) }
+                        linked.forEach { b ->
+                            // Merek yang sama dengan nama dompet tidak bisa dilepas: ganti nama dompetnya kalau memang bukan itu.
+                            if (b.key == byName?.key && data.settings.appLinks[b.key] != id) Choice(b.name, true, {})
+                            else Choice("${b.name}  ×", true, { vm.linkApp(b.key, null) })
+                        }
                     }
                 }
                 var query by remember { mutableStateOf("") }
