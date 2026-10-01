@@ -89,6 +89,7 @@ class MoneyRepository @Inject constructor(
     private val widgets: WidgetRefresher,
     private val alerts: BudgetAlerts,
     private val notice: RecordedNotice,
+    private val log: NoticeLog,
 ) {
     private val dao = db.dao()
     private val shareScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -294,7 +295,13 @@ class MoneyRepository @Inject constructor(
      * Nominal serupa dalam ±3 menit selalu masuk "Perlu dicek" (kemungkinan duplikat bank + e-wallet).
      */
     suspend fun ingest(packageName: String, title: String?, text: String?, postedAt: Long): Boolean = ingestLock.withLock {
-        val parsed = NotificationParser.parse(packageName, title, text) ?: return@withLock false
+        val raw = listOfNotNull(title, text).joinToString(" · ").take(240)
+        val appName = Brands.forPackage(packageName)?.name ?: packageName
+        fun note(result: NoticeLog.Result, detail: String) = log.add(NoticeLog.Entry(postedAt, appName, raw, result, detail))
+        val parsed = NotificationParser.parse(packageName, title, text) ?: run {
+            note(NoticeLog.Result.SKIPPED, NotificationParser.whySkipped(packageName, title, text) ?: "Tidak terbaca")
+            return@withLock false
+        }
         val s = settingsStore.current()
         if (!s.onboarded) return@withLock false
         val accounts = dao.accounts().map { it.toDomain() }
@@ -325,13 +332,18 @@ class MoneyRepository @Inject constructor(
                     pair.id, "Pindah ${Rupiah.format(parsed.amount)}", "${from?.let(names::get).orEmpty()} → ${to?.let(names::get).orEmpty()} · digabung otomatis",
                     RecordedNotice.Undo.SPLIT,
                 )
+                note(NoticeLog.Result.RECORDED, "Digabung jadi Pindah ${from?.let(names::get).orEmpty()} → ${to?.let(names::get).orEmpty()}")
                 return@withLock true
             }
             // Sisi lain dari Pindah yang sudah tercatat (notifikasi masuk "Top up OVO", atau notifikasi keluar
             // yang muncul lagi setelah digabung): jangan dicatat dobel.
             val already = dao.findNotified(parsed.amount, TxType.TRANSFER.name, postedAt - window, postedAt + window)
-            if (parsed.type == TxType.INCOME && already.any { it.toAccountId == account }) return@withLock false
-            if (parsed.type == TxType.EXPENSE && already.any { it.accountId == account }) return@withLock false
+            if ((parsed.type == TxType.INCOME && already.any { it.toAccountId == account }) ||
+                (parsed.type == TxType.EXPENSE && already.any { it.accountId == account })
+            ) {
+                note(NoticeLog.Result.SKIPPED, "Sudah tercatat sebagai Pindah")
+                return@withLock false
+            }
         }
         // Top up ke dompetmu yang lain ("Top up OVO", "isi saldo DANA") = Pindah. Tanpa frasa top up,
         // nama bank di teks ("Transfer ke BRI a.n. Budi") bisa berarti rekening orang lain, jadi tetap Keluar.
@@ -362,6 +374,15 @@ class MoneyRepository @Inject constructor(
         )
         val newId = dao.insertTransaction(TransactionEntity.from(tx))
         val saved = newId > 0
+        val label = "${if (type == TxType.INCOME) "Masuk" else if (type == TxType.TRANSFER) "Pindah" else "Keluar"} ${Rupiah.format(parsed.amount)}"
+        when {
+            !saved -> note(NoticeLog.Result.SKIPPED, "Sudah pernah dicatat")
+            auto -> note(NoticeLog.Result.RECORDED, "$label · ${account?.let(names::get).orEmpty()}")
+            account == null -> note(NoticeLog.Result.PENDING, "$label · belum ada dompet untuk $appName. Buat dompetnya atau tautkan di halaman dompet.")
+            !confident -> note(NoticeLog.Result.PENDING, "$label · dompetnya masih tebakan. Tautkan $appName ke dompet yang benar.")
+            duplicate -> note(NoticeLog.Result.PENDING, "$label · mirip catatan lain, mungkin dobel")
+            else -> note(NoticeLog.Result.PENDING, "$label · menunggu kamu simpan (simpan otomatis sedang mati)")
+        }
         if (saved) {
             changed()
             if (tx.type == TxType.EXPENSE) runCatching { alerts.checkSingle(tx.amount, tx.merchant) }

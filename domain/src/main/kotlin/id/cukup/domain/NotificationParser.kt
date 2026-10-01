@@ -90,6 +90,18 @@ object NotificationParser {
         )
     }
 
+    /** Alasan singkat kenapa [parse] melewati notifikasi ini; null bila terbaca. */
+    fun whySkipped(packageName: String, title: String?, text: String?): String? {
+        if (packageName !in byPackage) return "Aplikasi ini tidak dibaca"
+        val body = listOfNotNull(title, text).joinToString(". ").replace('\n', ' ').trim()
+        if (body.isEmpty()) return "Notifikasinya kosong"
+        val lower = body.lowercase()
+        ignoreWords.firstOrNull { lower.contains(it) }?.let { return "Dianggap bukan transaksi (ada kata \"$it\")" }
+        if (amountRegex.findAll(body).none { (Rupiah.parse(it.groupValues[1]) ?: 0) > 0 }) return "Tidak ada nominal rupiah"
+        if (incomeWords.indexOfFirstIn(lower) == null && expenseWords.indexOfFirstIn(lower) == null) return "Tidak jelas uang masuk atau keluar"
+        return null
+    }
+
     private fun List<String>.indexOfFirstIn(text: String): Int? =
         mapNotNull { w -> text.indexOf(w).takeIf { it >= 0 } }.minOrNull()
 

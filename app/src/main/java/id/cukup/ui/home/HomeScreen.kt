@@ -64,6 +64,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -93,7 +95,10 @@ import id.cukup.ui.AppViewModel
 import id.cukup.ui.components.Avatar
 import id.cukup.ui.components.Bubble
 import id.cukup.ui.components.BubbleChart
+import id.cukup.notif.MoneyNotificationListener
+import id.cukup.ui.settings.span
 import id.cukup.ui.components.CardShape
+import id.cukup.ui.components.Hairline
 import id.cukup.ui.components.ChartSwitch
 import id.cukup.ui.components.DonutChart
 import id.cukup.ui.components.Gutter
@@ -131,6 +136,7 @@ fun HomeScreen(
     onOpenProfile: () -> Unit,
     onOpenPlan: () -> Unit,
     onOpenHelp: () -> Unit,
+    onOpenAuto: () -> Unit,
     vm: AppViewModel = hiltViewModel(),
 ) {
     val o by vm.overview.collectAsStateWithLifecycle()
@@ -174,31 +180,42 @@ fun HomeScreen(
         item { Accounts(data.accounts, onOpenAccount, onNewAccount) }
         item { PlanCard(data, onOpenPlan) }
         if (insights.isNotEmpty()) item { InsightPager(insights) }
+        item { AutoHealth(vm, onOpenAuto) }
         item {
-            SectionHeader("Catatan terakhir", trailing = {
-                if (recent.isNotEmpty()) TextAction("Lihat semua", onOpenHistory)
-            })
-        }
-        if (recent.isEmpty()) {
-            item {
-                Text(
-                    "Belum ada catatan. Tekan Keluar setiap kali belanja (termasuk tunai), dan Masuk setiap dapat uang.",
-                    style = Type.body, color = c.faint,
-                    modifier = Modifier.padding(horizontal = Gutter, vertical = 8.dp),
-                )
-            }
-        } else {
-            items(recent, key = { "t" + it.id }) { tx ->
-                val cat = tx.categoryId?.let(data.categoryById::get)
-                val accounts = data.accountById
-                TxRow(
-                    tx = tx,
-                    category = cat,
-                    account = tx.accountId?.let(accounts::get),
-                    toAccount = tx.toAccountId?.let(accounts::get),
-                    color = colorOf(cat),
-                    onClick = { onOpenTx(tx.id) },
-                )
+            // Data, bukan tombol: diberi kartu sendiri supaya terbaca terpisah dari fitur di atasnya.
+            Column(Modifier.padding(horizontal = Gutter).padding(top = 28.dp).fillMaxWidth().clip(CardShape).background(c.card)) {
+                Row(
+                    Modifier.fillMaxWidth().padding(start = Gutter, end = 8.dp, top = 14.dp, bottom = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Catatan terakhir", style = Type.title, color = c.ink)
+                        if (recent.isNotEmpty()) Text("${recent.size} terbaru · ketuk untuk rincian", style = Type.bodySmall, color = c.faint)
+                    }
+                    if (recent.isNotEmpty()) TextAction("Lihat semua", onOpenHistory)
+                }
+                if (recent.isEmpty()) {
+                    Text(
+                        "Belum ada catatan. Tekan Keluar setiap kali belanja (termasuk tunai), dan Masuk setiap dapat uang.",
+                        style = Type.body, color = c.faint,
+                        modifier = Modifier.padding(horizontal = Gutter).padding(top = 4.dp, bottom = 16.dp),
+                    )
+                } else {
+                    val accounts = data.accountById
+                    recent.forEachIndexed { i, tx ->
+                        if (i > 0) Hairline(Modifier.padding(horizontal = Gutter))
+                        val cat = tx.categoryId?.let(data.categoryById::get)
+                        TxRow(
+                            tx = tx,
+                            category = cat,
+                            account = tx.accountId?.let(accounts::get),
+                            toAccount = tx.toAccountId?.let(accounts::get),
+                            color = colorOf(cat),
+                            onClick = { onOpenTx(tx.id) },
+                        )
+                    }
+                    Spacer(Modifier.height(6.dp))
+                }
             }
         }
         item { Spacer(Modifier.height(24.dp)) }
@@ -666,6 +683,38 @@ private fun FlowToggle(income: Boolean, onChange: (Boolean) -> Unit) {
                 modifier = Modifier.clip(Pill).background(if (on) Color.White else Color.Transparent)
                     .clickable { onChange(value) }.padding(horizontal = 14.dp, vertical = 6.dp),
             )
+        }
+    }
+}
+
+/** Peringatan kalau catat otomatis belum nyala atau sempat dimatikan sistem; diam kalau sehat. */
+@Composable
+private fun AutoHealth(vm: AppViewModel, onOpen: () -> Unit) {
+    val c = colors
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val n by vm.notices.collectAsStateWithLifecycle()
+    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+    var on by remember { mutableStateOf(true) }
+    LaunchedEffect(lifecycle) {
+        lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.RESUMED) { on = MoneyNotificationListener.isEnabled(context) }
+    }
+    val gap = n.gap
+    val (title, body) = when {
+        !on -> "Catat otomatis belum nyala" to "Transfer dan pembayaran belum tercatat sendiri. Ketuk untuk menyalakan."
+        gap != null -> "Catat otomatis sempat mati ${span(gap.to - gap.from)}" to
+            "Notifikasi bank selama itu mungkin terlewat. Ketuk untuk lihat dan cegah terulang."
+        else -> return
+    }
+    Row(
+        Modifier.padding(horizontal = Gutter).padding(top = 4.dp).fillMaxWidth().clip(CardShape)
+            .background(c.caution.copy(alpha = 0.14f)).clickable(onClick = onOpen).padding(14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Rounded.Notifications, null, tint = c.caution, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, style = Type.strong, color = c.ink)
+            Text(body, style = Type.bodySmall, color = c.mute)
         }
     }
 }

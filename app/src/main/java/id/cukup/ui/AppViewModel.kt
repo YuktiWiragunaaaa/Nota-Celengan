@@ -28,7 +28,13 @@ class AppViewModel @Inject constructor(
     val repository: MoneyRepository,
     private val store: SettingsStore,
     private val backup: id.cukup.data.Backup,
+    private val noticeLog: id.cukup.data.NoticeLog,
 ) : ViewModel() {
+
+    /** Notifikasi keuangan terakhir + kesehatan pembaca notifikasi. */
+    val notices = noticeLog.state
+    fun dismissGap() = noticeLog.dismissGap()
+    fun clearNotices() = noticeLog.clear()
 
     /** Hasil cadangan/pulihkan terakhir untuk ditampilkan sebagai pesan singkat. */
     val backupMessage = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)

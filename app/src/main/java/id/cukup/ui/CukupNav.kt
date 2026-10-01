@@ -68,6 +68,7 @@ import id.cukup.ui.onboarding.OnboardingScreen
 import id.cukup.ui.settings.ProfileScreen
 import id.cukup.ui.review.InboxScreen
 import id.cukup.ui.review.TxDetailScreen
+import id.cukup.ui.settings.AutoScreen
 import id.cukup.ui.settings.SettingsScreen
 import id.cukup.ui.theme.Type
 import id.cukup.ui.theme.colors
@@ -86,6 +87,7 @@ private object Routes {
     const val PROFILE = "profile"
     const val CATEGORIES = "categories"
     const val HELP = "help"
+    const val AUTO = "auto"
 
     fun add(type: TxType = TxType.EXPENSE, account: Long = 0, edit: Long = 0, category: Long = 0) =
         "add?type=${type.name}&account=$account&edit=$edit&category=$category"
@@ -151,6 +153,7 @@ fun CukupNav(onboarded: Boolean, openAdd: Boolean, onAddHandled: () -> Unit, add
                     onOpenProfile = { nav.navigate(Routes.PROFILE) },
                     onOpenPlan = { nav.switchTab(Routes.PLAN) },
                     onOpenHelp = { nav.navigate(Routes.HELP) },
+                    onOpenAuto = { nav.navigate(Routes.AUTO) },
                 )
             }
             composable(Routes.HISTORY) { HistoryScreen(tabPadding, onOpenTx = openTx) }
@@ -163,6 +166,7 @@ fun CukupNav(onboarded: Boolean, openAdd: Boolean, onAddHandled: () -> Unit, add
                     onOpenPlan = { nav.switchTab(Routes.PLAN) },
                     onOpenProfile = { nav.navigate(Routes.PROFILE) },
                     onOpenHelp = { nav.navigate(Routes.HELP) },
+                    onOpenAuto = { nav.navigate(Routes.AUTO) },
                 )
             }
             composable(
@@ -193,6 +197,7 @@ fun CukupNav(onboarded: Boolean, openAdd: Boolean, onAddHandled: () -> Unit, add
             composable(Routes.PLAN_EDIT) { PlanEditScreen(onBack = { nav.popBackStack() }) }
             composable(Routes.CATEGORIES) { CategoriesScreen(onBack = { nav.popBackStack() }) }
             composable(Routes.HELP) { HelpScreen(onBack = { nav.popBackStack() }) }
+            composable(Routes.AUTO) { AutoScreen(onBack = { nav.popBackStack() }, onOpenInbox = { nav.navigate(Routes.INBOX) }) }
             composable(Routes.PROFILE) {
                 ProfileScreen(
                     onBack = { nav.popBackStack() },

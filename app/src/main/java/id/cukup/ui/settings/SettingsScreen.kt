@@ -88,6 +88,7 @@ fun SettingsScreen(
     onOpenPlan: () -> Unit,
     onOpenProfile: () -> Unit,
     onOpenHelp: () -> Unit,
+    onOpenAuto: () -> Unit,
     vm: AppViewModel = hiltViewModel(),
 ) {
     val o by vm.overview.collectAsStateWithLifecycle()
@@ -229,9 +230,9 @@ fun SettingsScreen(
         Group("Catat otomatis")
         Link(
             "Baca notifikasi e-wallet & bank",
-            if (listenerOn) "Aktif" else "Belum nyala. Ketuk di sini.",
+            if (listenerOn) "Aktif. Ketuk untuk lihat status dan notifikasi terakhir." else "Belum nyala. Ketuk di sini.",
             valueColor = if (listenerOn) null else c.caution,
-        ) { context.startActivity(Intent(AndroidSettings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
+        ) { onOpenAuto() }
         Toggle(
             "Langsung simpan tanpa dicek",
             "Kalau mati, transaksi masuk \"Perlu dicek\" dulu dan saldo belum berubah sampai kamu simpan.",
