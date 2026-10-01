@@ -8,13 +8,26 @@
 
     <!-- Supaya bisa memeriksa aplikasi keuangan mana yang terpasang (Android 11+). -->
     <queries>
-        <package android:name="com.gojek.app" />
-        <package android:name="ovo.id" />
-        <package android:name="id.dana" />
-        <package android:name="com.shopee.id" />
-        <package android:name="id.co.bri.brimo" />
         <package android:name="com.bca" />
+        <package android:name="com.bca.mybca.omni.android" />
+        <package android:name="com.bcadigital.blu" />
+        <package android:name="com.btpn.dc" />
+        <package android:name="com.finaccel.android" />
+        <package android:name="com.gojek.app" />
+        <package android:name="com.gojek.gopay" />
+        <package android:name="com.jago.digitalBanking" />
+        <package android:name="com.krom.android" />
+        <package android:name="com.shopee.id" />
+        <package android:name="com.shopeepay.id" />
+        <package android:name="com.telkom.mwallet" />
         <package android:name="id.bmri.livin" />
+        <package android:name="id.bni.wondr" />
+        <package android:name="id.co.bankbkemobile.digitalbank" />
+        <package android:name="id.co.bri.brimo" />
+        <package android:name="id.dana" />
+        <package android:name="io.silvrr.installment" />
+        <package android:name="ovo.id" />
+        <package android:name="src.com.bni" />
     </queries>
 
     <application

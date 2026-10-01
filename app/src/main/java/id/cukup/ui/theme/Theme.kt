@@ -55,7 +55,7 @@ data class CukupColors(
     /** Sapuan lembut di belakang saldo Beranda; memudar ke warna halaman. */
     val heroBrush: Brush
         get() = Brush.verticalGradient(
-            if (isDark) listOf(Color(0xFF0D2548), Color(0xFF0A1830), paper) else listOf(Color(0xFFD6E6FB), Color(0xFFE9F1FC), paper),
+            if (isDark) listOf(Color(0xFF0D2548), Color(0xFF0A1830), paper) else listOf(Color(0xFFC9DEFA), Color(0xFFDDE9F9), paper),
         )
 }
 
@@ -80,19 +80,20 @@ val PocketPalette = listOf(
 )
 
 private val Light = CukupColors(
-    paper = Color(0xFFF3F6FB),
+    // Halaman sedikit lebih pekat dari kartu supaya kartu putih terangkat tanpa perlu bayangan.
+    paper = Color(0xFFEAF0F8),
     card = Color(0xFFFFFFFF),
-    surface = Color(0xFFE8EEF6),
+    surface = Color(0xFFDFE8F4),
     ink = Color(0xFF0B1B33),
-    mute = Color(0xFF586A82),
-    faint = Color(0xFF9AA9BD),
-    line = Color(0xFFE0E7F0),
+    mute = Color(0xFF475973),
+    faint = Color(0xFF7C8DA6),
+    line = Color(0xFFD3DDEB),
     dark = Color(0xFF0B1B33),
     onDark = Color(0xFFFFFFFF),
     onDarkMute = Color(0xB3FFFFFF),
-    good = Color(0xFF1F9D6B),
-    caution = Color(0xFFE08A1E),
-    over = Color(0xFFD9392B),
+    good = Color(0xFF12855A),
+    caution = Color(0xFFC06F0C),
+    over = Color(0xFFCC2F22),
     // Biru tua ke biru sedang: latar grafik tetap gelap dan netral, bukan biru menyala.
     brand = listOf(Color(0xFF081C3A), Color(0xFF0E2F5C), Color(0xFF13427F), Color(0xFF1A559F)),
     pockets = PocketPalette,
@@ -110,6 +111,9 @@ private val Dark = Light.copy(
     faint = Color(0xFF63748C),
     line = Color(0xFF1C2A40),
     dark = Color(0xFF000000),
+    good = Color(0xFF2FBF86),
+    caution = Color(0xFFF0A23A),
+    over = Color(0xFFF0584A),
     brand = listOf(Color(0xFF03070F), Color(0xFF081A35), Color(0xFF0E2F5C), Color(0xFF164A8C)),
     isDark = true,
     accent = Color(0xFF5AA2FF),

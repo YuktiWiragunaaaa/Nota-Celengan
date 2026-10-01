@@ -105,7 +105,9 @@ class CukupWidget : GlanceAppWidget() {
                     week = o?.let { lastSevenDays(it.confirmed) } ?: emptyList(),
                     chips = chips,
                     hidden = hidden,
-                    addIntent = Intent(context, MainActivity::class.java).putExtra(MainActivity.EXTRA_ADD, true),
+                    addIntent = Intent(context, MainActivity::class.java).setData(Uri.parse("cukup://add/keluar")).putExtra(MainActivity.EXTRA_ADD, true),
+                    incomeIntent = Intent(context, MainActivity::class.java).setData(Uri.parse("cukup://add/masuk"))
+                        .putExtra(MainActivity.EXTRA_ADD, true).putExtra(MainActivity.EXTRA_INCOME, true),
                 )
             }
         }
@@ -203,7 +205,9 @@ private val ink get() = pal(0xFF0B1B33, 0xFFEEF3FA)
 private val mute get() = pal(0xFF586A82, 0xFF9FB0C7)
 private val line get() = pal(0xFFE0E7F0, 0xFF1C2A40)
 private val caution get() = pal(0xFFE08A1E, 0xFFD1A263)
-private val over get() = pal(0xFFD9392B, 0xFFD9826F)
+private val over get() = pal(0xFFCC2F22, 0xFFE0564A)
+private val good get() = pal(0xFF12855A, 0xFF1FA06F)
+private val onColor get() = pal(0xFFFFFFFF, 0xFFFFFFFF)
 private val inkInverse get() = pal(0xFFFFFFFF, 0xFF0F1828)
 private val accent get() = pal(0xFFDCE9FA, 0xFF16304F)
 private val brand get() = pal(0xFF1D63C8, 0xFF5AA2FF)
@@ -220,12 +224,13 @@ private fun WidgetBody(
     chips: List<Chip>,
     hidden: Boolean,
     addIntent: Intent,
+    incomeIntent: Intent,
 ) {
     val size = LocalSize.current
     val wide = size.width >= 260.dp && ready
-    // Perkiraan lebar tombol dari panjang label (±7dp per huruf + padding); sisakan 44dp untuk tombol +.
+    // Perkiraan lebar tombol dari panjang label (±7dp per huruf + padding); sisakan 90dp untuk tombol − dan +.
     val chipCount = if (!ready) 0 else {
-        var room = size.width.value - 32 - 44
+        var room = size.width.value - 32 - 90
         chips.takeWhile { chip -> room -= 30 + 7 * chip.label.length; room >= 0 }.size
     }
     val tall = size.height >= 150.dp
@@ -261,15 +266,19 @@ private fun WidgetBody(
                 Spacer(GlanceModifier.width(6.dp))
             }
             Spacer(GlanceModifier.defaultWeight())
+            // Dua tombol tetap: − untuk uang keluar, + untuk uang masuk.
             Box(
-                modifier = GlanceModifier
-                    .size(36.dp)
-                    .background(ink)
-                    .cornerRadius(18.dp)
-                    .clickable(actionStartActivity(addIntent)),
+                modifier = GlanceModifier.size(38.dp).background(over).cornerRadius(19.dp).clickable(actionStartActivity(addIntent)),
                 contentAlignment = Alignment.Center,
             ) {
-                Text("+", style = TextStyle(color = inkInverse, fontSize = 20.sp))
+                Text("−", style = TextStyle(color = onColor, fontSize = 22.sp, fontWeight = FontWeight.Medium))
+            }
+            Spacer(GlanceModifier.width(8.dp))
+            Box(
+                modifier = GlanceModifier.size(38.dp).background(good).cornerRadius(19.dp).clickable(actionStartActivity(incomeIntent)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("+", style = TextStyle(color = onColor, fontSize = 22.sp, fontWeight = FontWeight.Medium))
             }
         }
     }

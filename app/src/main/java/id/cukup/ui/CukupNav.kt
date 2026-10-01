@@ -108,7 +108,7 @@ private val tabs = listOf(
 
 @Composable
 fun CukupNav(
-    onboarded: Boolean, openAdd: Boolean, onAddHandled: () -> Unit, addCategory: Long = 0,
+    onboarded: Boolean, openAdd: Boolean, onAddHandled: () -> Unit, addCategory: Long = 0, addIncome: Boolean = false,
     openReport: Boolean = false, onReportHandled: () -> Unit = {},
 ) {
     val nav = rememberNavController()
@@ -121,7 +121,7 @@ fun CukupNav(
 
     LaunchedEffect(openAdd, onboarded) {
         if (openAdd && onboarded) {
-            nav.navigate(Routes.add(category = addCategory))
+            nav.navigate(Routes.add(type = if (addIncome) TxType.INCOME else TxType.EXPENSE, category = addCategory))
             onAddHandled()
         }
     }

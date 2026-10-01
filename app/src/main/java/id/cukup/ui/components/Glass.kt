@@ -7,7 +7,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.Image
 import androidx.compose.material.icons.Icons
+import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.graphics.drawable.toBitmap
 import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.automirrored.rounded.TrendingUp
 import androidx.compose.material.icons.rounded.AccountBalance
@@ -138,17 +144,23 @@ fun GlassIcon(
     val shape = RoundedCornerShape(size * 0.34f)
     val base = if (onDark) Color.White else tint
     val fill = Brush.linearGradient(
-        listOf(base.copy(alpha = if (onDark) 0.26f else 0.30f), base.copy(alpha = if (onDark) 0.10f else 0.10f)),
+        // Di tema terang kacanya diberi warna lebih pekat; kalau tidak, ikon nyaris hilang di atas kartu putih.
+        listOf(
+            base.copy(alpha = if (onDark) 0.26f else if (c.isDark) 0.30f else 0.40f),
+            base.copy(alpha = if (onDark || c.isDark) 0.10f else 0.20f),
+        ),
     )
     val rim = Brush.linearGradient(
-        listOf(Color.White.copy(alpha = if (c.isDark) 0.35f else 0.9f), base.copy(alpha = 0.25f), Color.White.copy(alpha = 0.15f)),
+        if (c.isDark || onDark) listOf(Color.White.copy(alpha = 0.35f), base.copy(alpha = 0.25f), Color.White.copy(alpha = 0.15f))
+        // Tepi putih tidak terlihat di atas putih: di tema terang tepinya memakai warna ikon.
+        else listOf(Color.White.copy(alpha = 0.9f), base.copy(alpha = 0.45f), base.copy(alpha = 0.30f)),
     )
     // Ikon sedikit lebih gelap dari warna aslinya supaya kontras di atas kaca terang.
     // Di tema gelap, warna brand yang sangat gelap (mis. ungu OVO) dicerahkan lebih banyak supaya tetap terbaca.
     val ink = when {
         onDark -> Color.White
         c.isDark -> lerp(tint, Color.White, if (tint.luminance() < 0.15f) 0.55f else 0.25f)
-        else -> lerp(tint, Color.Black, 0.28f)
+        else -> lerp(tint, Color(0xFF0B1B33), 0.42f)
     }
     Box(
         modifier.size(size).clip(shape).background(fill).border(1.dp, rim, shape),
@@ -158,7 +170,7 @@ fun GlassIcon(
         Box(
             Modifier.fillMaxSize().background(
                 Brush.verticalGradient(
-                    0f to Color.White.copy(alpha = if (c.isDark) 0.10f else 0.45f),
+                    0f to Color.White.copy(alpha = if (c.isDark) 0.10f else 0.38f),
                     0.5f to Color.White.copy(alpha = 0f),
                 ),
             ),
@@ -179,5 +191,21 @@ fun GlassIcon(
 @Composable
 fun AccountIcon(account: Account?, modifier: Modifier = Modifier, size: Dp = 44.dp, onDark: Boolean = false) {
     val brand = account?.let { Brands.forAccountName(it.name) }
+    // Kalau aplikasi bank/e-wallet-nya terpasang di HP ini, pakai logo aslinya (dibaca dari HP, tidak ikut dibundel).
+    val context = LocalContext.current
+    val logo = remember(brand?.key) {
+        brand?.packages?.firstNotNullOfOrNull { p ->
+            runCatching { context.packageManager.getApplicationIcon(p).toBitmap(144, 144).asImageBitmap() }.getOrNull()
+        }
+    }
+    if (logo != null) {
+        val shape = RoundedCornerShape(size * 0.34f)
+        Image(
+            logo, brand?.name,
+            modifier = modifier.size(size).clip(shape).border(1.dp, Color.White.copy(alpha = if (colors.isDark || onDark) 0.18f else 0.6f), shape),
+            contentScale = ContentScale.Crop,
+        )
+        return
+    }
     GlassIcon(account?.emoji ?: "👛", colorOf(account), modifier, size, mark = brand?.mark, onDark = onDark)
 }
