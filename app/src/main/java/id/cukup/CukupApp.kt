@@ -15,6 +15,7 @@ class CukupApp : Application() {
 
     @Inject lateinit var backup: Backup
     @Inject lateinit var paydayReport: id.cukup.data.PaydayReport
+    @Inject lateinit var repository: id.cukup.data.MoneyRepository
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -27,6 +28,16 @@ class CukupApp : Application() {
             runCatching { backup.autoBackup() }
                 .onFailure { android.util.Log.w("Cukup", "Cadangan otomatis gagal", it) }
             runCatching { paydayReport.check() }
+            // Perapian satu kali: catatan lama dari notifikasi dipindah ke dompet bank/e-wallet masing-masing.
+            runCatching {
+                val prefs = getSharedPreferences("one_time", MODE_PRIVATE)
+                if (!prefs.getBoolean("brand_wallets_v1", false)) {
+                    backup.safetyCopy("rapikan-dompet")
+                    val moved = repository.tidyBrandWallets()
+                    prefs.edit().putBoolean("brand_wallets_v1", true).apply()
+                    android.util.Log.i("Cukup", "Perapian dompet: $moved catatan dipindah")
+                }
+            }.onFailure { android.util.Log.w("Cukup", "Perapian dompet gagal", it) }
         }
     }
 }

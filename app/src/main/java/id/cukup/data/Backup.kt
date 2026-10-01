@@ -169,6 +169,13 @@ class Backup @Inject constructor(
         today
     }
 
+    /** Salinan pengaman sebelum Cukup mengubah catatan lama secara otomatis; muncul di daftar cadangan otomatis. */
+    suspend fun safetyCopy(tag: String): File? = withContext(Dispatchers.IO) {
+        val (root, summary) = snapshot()
+        if (summary.accounts == 0) return@withContext null
+        File(DbGuard.backupDir(context), "auto-${LocalDate.now()}-sebelum-$tag.json").also { it.writeText(root.toString()) }
+    }
+
     /** Cadangan otomatis, terbaru dulu. */
     fun autoBackups(): List<File> =
         DbGuard.backupDir(context).listFiles { f -> f.isFile && f.name.startsWith("auto-") && f.name.endsWith(".json") }

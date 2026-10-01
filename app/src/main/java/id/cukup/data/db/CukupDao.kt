@@ -79,6 +79,24 @@ interface CukupDao {
     )
     suspend fun findNotified(amount: Long, type: String, from: Long, to: Long): List<TransactionEntity>
 
+    /** Semua aplikasi yang notifikasinya pernah dicatat, yang paling sering dulu. */
+    @Query("SELECT sourceApp FROM transactions WHERE source = 'NOTIFICATION' AND sourceApp IS NOT NULL GROUP BY sourceApp ORDER BY COUNT(*) DESC")
+    suspend fun notifiedLabels(): List<String>
+
+    /** Berapa catatan dari [label] yang ada di dompet [accountId]. */
+    @Query("SELECT COUNT(*) FROM transactions WHERE source = 'NOTIFICATION' AND sourceApp = :label AND accountId = :accountId")
+    suspend fun countNotified(label: String, accountId: Long): Int
+
+    /**
+     * Memindahkan catatan notifikasi [label] ke dompet [target]. Pindah antar dompet dan catatan di dompet paylater
+     * dibiarkan: dua-duanya memang sengaja berada di dompet lain.
+     */
+    @Query(
+        "UPDATE transactions SET accountId = :target WHERE source = 'NOTIFICATION' AND sourceApp = :label AND type != 'TRANSFER' " +
+            "AND (accountId IS NULL OR (accountId != :target AND accountId NOT IN (SELECT id FROM accounts WHERE kind = 'PAYLATER')))",
+    )
+    suspend fun moveNotified(label: String, target: Long): Int
+
     /** Aplikasi yang notifikasinya pernah dicatat ke dompet ini. */
     @Query("SELECT DISTINCT sourceApp FROM transactions WHERE accountId = :accountId AND source = 'NOTIFICATION' AND sourceApp IS NOT NULL")
     suspend fun notifiedApps(accountId: Long): List<String>

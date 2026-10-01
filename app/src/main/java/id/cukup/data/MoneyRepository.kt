@@ -440,6 +440,41 @@ class MoneyRepository @Inject constructor(
     private val ingestLock = kotlinx.coroutines.sync.Mutex()
 
     /**
+     * Perapian satu kali untuk catatan lama: tiap bank/e-wallet yang notifikasinya pernah dicatat mendapat dompetnya
+     * sendiri, lalu catatan-catatannya dipindah ke sana. Dompet umum (mis. "Rekening bank") tetap milik aplikasi
+     * yang paling banyak mengisinya. Mengembalikan jumlah catatan yang dipindah.
+     */
+    suspend fun tidyBrandWallets(): Int = ingestLock.withLock {
+        if (!settingsStore.current().onboarded) return@withLock 0
+        var moved = 0
+        for (label in dao.notifiedLabels()) {
+            val brand = Brands.forName(label) ?: continue
+            val s = settingsStore.current()
+            val accounts = dao.accounts().map { it.toDomain() }
+            val own = accounts.firstOrNull { Brands.forAccountName(it.name)?.key == brand.key }?.id
+                ?: s.appLinks[brand.key]?.takeIf { id -> accounts.any { it.id == id } }
+            val target = own ?: run {
+                // Label diproses dari yang paling sering, jadi dompet umum jatuh ke aplikasi yang paling banyak mengisinya.
+                val free = accounts
+                    .filter { it.kind == brand.kind && Brands.forAccountName(it.name) == null && s.appLinks.none { (key, id) -> id == it.id && key != brand.key } }
+                    .maxByOrNull { dao.countNotified(label, it.id) }
+                    ?.takeIf { dao.countNotified(label, it.id) > 0 }
+                val id = free?.id ?: dao.upsertAccount(
+                    AccountEntity(
+                        name = brand.name, emoji = if (brand.kind == AccountKind.BANK) "🏦" else "👛", kind = brand.kind.name,
+                        initialBalance = 0, sortOrder = accounts.size,
+                    ),
+                )
+                settingsStore.update { it.copy(appLinks = it.appLinks + (brand.key to id)) }
+                id
+            }
+            moved += dao.moveNotified(label, target)
+        }
+        if (moved > 0) changed()
+        moved
+    }
+
+    /**
      * Membatalkan Pindah yang digabung otomatis: kembali jadi Keluar dari dompet asal
      * dan Masuk ke dompet tujuan, tanpa kategori (bisa diisi setelahnya).
      */
