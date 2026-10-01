@@ -57,7 +57,7 @@ data class CukupColors(
     /** Sapuan lembut di belakang saldo Beranda; memudar ke warna halaman. Putih di tema terang, biru tua di tema gelap. */
     val heroBrush: Brush
         get() = Brush.verticalGradient(
-            if (isDark) listOf(Color(0xFF0D2548), Color(0xFF0A1830), paper) else listOf(Color(0xFFEFF5FD), Color(0xFFFFFFFF), paper),
+            if (isDark) listOf(Color(0xFF0D2548), Color(0xFF0A1830), paper) else listOf(Color(0xFF86B2F4), Color(0xFFBDD6F9), Color(0xFFEAF2FD), paper),
         )
 }
 

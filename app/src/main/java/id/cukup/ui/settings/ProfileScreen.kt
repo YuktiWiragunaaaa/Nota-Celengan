@@ -87,7 +87,7 @@ fun ProfileScreen(
     }
 
     // Keping tembus pandang di tema gelap, putih bersih di tema terang (sama seperti Beranda).
-    val chip = if (c.isDark) Color.White.copy(alpha = 0.08f) else c.surface
+    val chip = if (c.isDark) Color.White.copy(alpha = 0.08f) else c.card
     Column(Modifier.fillMaxSize().background(c.paper).verticalScroll(rememberScrollState())) {
         Column(
             Modifier

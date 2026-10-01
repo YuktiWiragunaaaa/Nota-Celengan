@@ -248,7 +248,7 @@ private fun Hero(
     val c = colors
     val white = c.ink
     // Keping tembus pandang di tema gelap, putih bersih di tema terang.
-    val chip = if (c.isDark) Color.White.copy(alpha = 0.08f) else c.surface
+    val chip = if (c.isDark) Color.White.copy(alpha = 0.08f) else c.card
     // Hampir semua angka di bagian atas bisa diketuk untuk melihat rinciannya.
     var sheet by remember { mutableStateOf<HeroSheet?>(null) }
     var editSchedule by remember { mutableStateOf(false) }
