@@ -142,6 +142,16 @@ fun GlassIcon(
 ) {
     val c = colors
     val shape = RoundedCornerShape(size * 0.34f)
+    // Merek yang aplikasinya terpasang di HP ini memakai logo aslinya (dibaca dari HP, tidak ikut dibundel).
+    val logo = if (mark == null) null else brandLogo(mark)
+    if (logo != null) {
+        Image(
+            logo, mark,
+            modifier = modifier.size(size).clip(shape).border(1.dp, Color.White.copy(alpha = if (c.isDark || onDark) 0.18f else 0.6f), shape),
+            contentScale = ContentScale.Crop,
+        )
+        return
+    }
     val base = if (onDark) Color.White else tint
     val fill = Brush.linearGradient(
         // Di tema terang kacanya diberi warna lebih pekat; kalau tidak, ikon nyaris hilang di atas kartu putih.
@@ -189,25 +199,27 @@ fun GlassIcon(
     }
 }
 
+/** Logo aplikasi untuk monogram [mark] ("BCA", "GP"), atau null bila aplikasinya tidak terpasang. Disimpan selama aplikasi hidup. */
+@Composable
+private fun brandLogo(mark: String): androidx.compose.ui.graphics.ImageBitmap? {
+    val context = LocalContext.current
+    return remember(mark) {
+        logoCache.getOrPut(mark) {
+            val brand = Brands.all.firstOrNull { it.mark == mark }
+            java.util.Optional.ofNullable(
+                brand?.packages?.firstNotNullOfOrNull { p ->
+                    runCatching { context.packageManager.getApplicationIcon(p).toBitmap(144, 144).asImageBitmap() }.getOrNull()
+                },
+            )
+        }.orElse(null)
+    }
+}
+
+private val logoCache = java.util.concurrent.ConcurrentHashMap<String, java.util.Optional<androidx.compose.ui.graphics.ImageBitmap>>()
+
 /** Ikon dompet: monogram brand (BCA, OVO) atau ikon jenisnya. */
 @Composable
 fun AccountIcon(account: Account?, modifier: Modifier = Modifier, size: Dp = 44.dp, onDark: Boolean = false) {
     val brand = account?.let { Brands.forAccountName(it.name) }
-    // Kalau aplikasi bank/e-wallet-nya terpasang di HP ini, pakai logo aslinya (dibaca dari HP, tidak ikut dibundel).
-    val context = LocalContext.current
-    val logo = remember(brand?.key) {
-        brand?.packages?.firstNotNullOfOrNull { p ->
-            runCatching { context.packageManager.getApplicationIcon(p).toBitmap(144, 144).asImageBitmap() }.getOrNull()
-        }
-    }
-    if (logo != null) {
-        val shape = RoundedCornerShape(size * 0.34f)
-        Image(
-            logo, brand?.name,
-            modifier = modifier.size(size).clip(shape).border(1.dp, Color.White.copy(alpha = if (colors.isDark || onDark) 0.18f else 0.6f), shape),
-            contentScale = ContentScale.Crop,
-        )
-        return
-    }
     GlassIcon(account?.emoji ?: "👛", colorOf(account), modifier, size, mark = brand?.mark, onDark = onDark)
 }
