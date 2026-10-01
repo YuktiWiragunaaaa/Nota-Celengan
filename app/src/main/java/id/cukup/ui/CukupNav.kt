@@ -169,7 +169,10 @@ fun CukupNav(
                 )
             }
             composable(Routes.HISTORY) { HistoryScreen(tabPadding, onOpenTx = openTx) }
-            composable(Routes.PLAN) { PlanScreen(tabPadding, onEditPlan = { nav.navigate(Routes.PLAN_EDIT) }, onOpenReport = { nav.navigate(Routes.REPORT) }) }
+            composable(Routes.PLAN) { PlanScreen(
+                    tabPadding, onEditPlan = { nav.navigate(Routes.PLAN_EDIT) }, onOpenReport = { nav.navigate(Routes.REPORT) },
+                    onTransfer = { nav.navigate(Routes.add(TxType.TRANSFER)) }, onOpenAccount = openAccount,
+                ) }
             composable(Routes.SETTINGS) {
                 SettingsScreen(
                     tabPadding,

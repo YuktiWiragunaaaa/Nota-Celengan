@@ -485,6 +485,7 @@ class MoneyRepository @Inject constructor(
             val removed = (existing - keep).toList()
             if (removed.isNotEmpty()) {
                 dao.unlinkPlan(removed)
+                dao.unlinkPlanAccounts(removed)
                 dao.deletePlan(removed)
             }
             val saved = dao.upsertPlan(pos.mapIndexed { i, p -> PlanPosEntity.from(p.copy(id = p.id.coerceAtLeast(0), sortOrder = i)) })
@@ -504,6 +505,7 @@ class MoneyRepository @Inject constructor(
             val ids = dao.plan().map { it.id }
             if (ids.isNotEmpty()) {
                 dao.unlinkPlan(ids)
+                dao.unlinkPlanAccounts(ids)
                 dao.deletePlan(ids)
             }
         }

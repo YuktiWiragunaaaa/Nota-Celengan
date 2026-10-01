@@ -13,7 +13,7 @@ import androidx.room.RoomDatabase
         AccountEntity::class, CategoryEntity::class, TransactionEntity::class,
         PlanPosEntity::class, GoalEntity::class, MerchantRuleEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = true,
 )
 abstract class CukupDatabase : RoomDatabase() {
@@ -28,10 +28,17 @@ abstract class CukupDatabase : RoomDatabase() {
             }
         }
 
+        /** v6: dompet bisa dikelompokkan ke pos rencana. */
+        private val MIGRATION_5_6 = object : androidx.room.migration.Migration(5, 6) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE accounts ADD COLUMN planId INTEGER")
+            }
+        }
+
         /**
          * Setiap kenaikan versi WAJIB punya migrasi di sini (mis. MIGRATION_4_5), dan skema barunya
          * ikut di-commit di app/schemas. Tanpa migrasi, aplikasi berhenti dan data tidak disentuh.
          */
-        val MIGRATIONS: Array<androidx.room.migration.Migration> = arrayOf(MIGRATION_4_5)
+        val MIGRATIONS: Array<androidx.room.migration.Migration> = arrayOf(MIGRATION_4_5, MIGRATION_5_6)
     }
 }

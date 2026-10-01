@@ -82,6 +82,19 @@ class PlannerTest {
     }
 
     @Test
+    fun `spending from a wallet grouped into a pos counts there when the category has no pos`() {
+        val gopay = Account(5, "GoPay", "👛", AccountKind.EWALLET, planId = 11)
+        val txs = listOf(
+            Transaction(1, TxType.EXPENSE, 50_000, accountId = 5, categoryId = 3, occurredAt = 10), // hadiah: tanpa pos, ikut pos dompet
+            Transaction(2, TxType.EXPENSE, 70_000, accountId = 5, categoryId = 1, occurredAt = 11), // makan: tetap ke pos kategorinya
+            Transaction(3, TxType.EXPENSE, 20_000, accountId = 1, categoryId = 3, occurredAt = 12), // dompet tanpa pos: tidak dihitung
+        )
+        val rows = Planner.status(plan, listOf(food, coffee, gift), listOf(wallet, gopay), txs, 1_000_000, 0, 100, 10).rows.associateBy { it.pos.id }
+        assertEquals(50_000L, rows[11]!!.used)
+        assertEquals(70_000L, rows[10]!!.used)
+    }
+
+    @Test
     fun `basis modes`() {
         assertEquals(4_000_000L, Planner.basis(PlanBasis(PlanBasis.Mode.FIXED, 4_000_000), 1, 2))
         assertEquals(2L, Planner.basis(PlanBasis(PlanBasis.Mode.LAST_PERIOD), 1, 2))

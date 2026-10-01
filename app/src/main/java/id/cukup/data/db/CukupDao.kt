@@ -102,6 +102,9 @@ interface CukupDao {
     @Query("UPDATE categories SET planId = NULL WHERE planId IN (:ids)")
     suspend fun unlinkPlan(ids: List<Long>)
 
+    @Query("UPDATE accounts SET planId = NULL WHERE planId IN (:ids)")
+    suspend fun unlinkPlanAccounts(ids: List<Long>)
+
     // Target
     @Query("SELECT * FROM goals ORDER BY sortOrder")
     fun observeGoals(): Flow<List<GoalEntity>>

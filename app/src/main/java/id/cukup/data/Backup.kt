@@ -73,7 +73,7 @@ class Backup @Inject constructor(
                     .put("widgetHide", s.widgetHide)
                     .put("appLinks", JSONObject(s.appLinks as Map<*, *>)),
             )
-            .put("accounts", accounts.json { a -> put("id", a.id).put("name", a.name).put("emoji", a.emoji).put("kind", a.kind).put("initialBalance", a.initialBalance).put("sortOrder", a.sortOrder).put("color", a.color).put("archived", a.archived) })
+            .put("accounts", accounts.json { a -> put("id", a.id).put("name", a.name).put("emoji", a.emoji).put("kind", a.kind).put("initialBalance", a.initialBalance).put("sortOrder", a.sortOrder).put("color", a.color).put("archived", a.archived).put("planId", a.planId) })
             .put("categories", dao.allCategories().json { c -> put("id", c.id).put("name", c.name).put("emoji", c.emoji).put("kind", c.kind).put("tag", c.tag).put("sortOrder", c.sortOrder).put("color", c.color).put("planId", c.planId).put("archived", c.archived) })
             .put("transactions", txs.json { t -> put("id", t.id).put("type", t.type).put("amount", t.amount).put("accountId", t.accountId).put("toAccountId", t.toAccountId).put("categoryId", t.categoryId).put("merchant", t.merchant).put("note", t.note).put("occurredAt", t.occurredAt).put("source", t.source).put("sourceApp", t.sourceApp).put("status", t.status).put("fingerprint", t.fingerprint) })
             .put("plan", dao.plan().json { p -> put("id", p.id).put("name", p.name).put("emoji", p.emoji).put("percent", p.percent).put("kind", p.kind).put("sortOrder", p.sortOrder).put("color", p.color).put("amount", p.amount).put("period", p.period) })
@@ -97,7 +97,7 @@ class Backup @Inject constructor(
         // Simpan isi sekarang dulu, supaya pemulihan yang keliru pun bisa dibatalkan.
         runCatching { if (settings.current().onboarded) File(DbGuard.backupDir(context), "before-restore-${System.currentTimeMillis()}.json").writeText(snapshot().first.toString()) }
 
-        val accounts = root.list("accounts") { AccountEntity(getLong("id"), getString("name"), getString("emoji"), getString("kind"), getLong("initialBalance"), getInt("sortOrder"), intOrNull("color"), optBoolean("archived")) }
+        val accounts = root.list("accounts") { AccountEntity(getLong("id"), getString("name"), getString("emoji"), getString("kind"), getLong("initialBalance"), getInt("sortOrder"), intOrNull("color"), optBoolean("archived"), longOrNull("planId")) }
         val categories = root.list("categories") { CategoryEntity(getLong("id"), getString("name"), getString("emoji"), getString("kind"), getString("tag"), getInt("sortOrder"), intOrNull("color"), longOrNull("planId"), optBoolean("archived")) }
         val txs = root.list("transactions") { TransactionEntity(getLong("id"), getString("type"), getLong("amount"), longOrNull("accountId"), longOrNull("toAccountId"), longOrNull("categoryId"), optString("merchant"), optString("note"), getLong("occurredAt"), getString("source"), stringOrNull("sourceApp"), getString("status"), stringOrNull("fingerprint")) }
         val plan = root.list("plan") { PlanPosEntity(getLong("id"), getString("name"), getString("emoji"), getInt("percent"), getString("kind"), getInt("sortOrder"), intOrNull("color"), optLong("amount"), optString("period", "CYCLE")) }

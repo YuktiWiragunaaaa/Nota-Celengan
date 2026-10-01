@@ -28,11 +28,12 @@ data class AccountEntity(
     val sortOrder: Int,
     val color: Int? = null,
     val archived: Boolean = false,
+    val planId: Long? = null,
 ) {
-    fun toDomain() = Account(id, name, emoji, AccountKind.valueOf(kind), initialBalance, sortOrder, color)
+    fun toDomain() = Account(id, name, emoji, AccountKind.valueOf(kind), initialBalance, sortOrder, color, planId)
 
     companion object {
-        fun from(a: Account) = AccountEntity(a.id, a.name, a.emoji, a.kind.name, a.initialBalance, a.sortOrder, a.color)
+        fun from(a: Account) = AccountEntity(a.id, a.name, a.emoji, a.kind.name, a.initialBalance, a.sortOrder, a.color, planId = a.planId)
     }
 }
 

@@ -51,7 +51,11 @@ import id.cukup.domain.PosStatus
 import id.cukup.domain.Presets
 import id.cukup.domain.Rupiah
 import id.cukup.ui.AppViewModel
+import id.cukup.domain.AccountKind
+import id.cukup.domain.Planner
+import id.cukup.ui.components.AccountIcon
 import id.cukup.ui.components.AmountDialog
+import id.cukup.ui.components.Choice
 import id.cukup.ui.components.CardShape
 import id.cukup.ui.components.cardSurface
 import id.cukup.ui.components.ChipPicker
@@ -82,13 +86,18 @@ import id.cukup.ui.theme.colors
  * Tidak ada uang yang dipindah di sini.
  */
 @Composable
-fun PlanScreen(contentPadding: PaddingValues, onEditPlan: () -> Unit, onOpenReport: () -> Unit, vm: AppViewModel = hiltViewModel()) {
+fun PlanScreen(
+    contentPadding: PaddingValues, onEditPlan: () -> Unit, onOpenReport: () -> Unit,
+    onTransfer: () -> Unit, onOpenAccount: (Long) -> Unit, vm: AppViewModel = hiltViewModel(),
+) {
     val o by vm.overview.collectAsStateWithLifecycle()
     val c = colors
     val data = o ?: return
     var editBasis by remember { mutableStateOf(false) }
     var confirmClear by remember { mutableStateOf(false) }
     var editSchedule by remember { mutableStateOf(false) }
+    // "Gajian" = rencana periode ini; "Semua" = seluruh uang yang kamu punya sekarang, dibagi menurut rencana yang sama.
+    var all by rememberSaveable { mutableStateOf(false) }
     var goalEditing by remember { mutableStateOf<Goal?>(null) }
     var goalAdding by remember { mutableStateOf<Goal?>(null) }
 
@@ -103,9 +112,19 @@ fun PlanScreen(contentPadding: PaddingValues, onEditPlan: () -> Unit, onOpenRepo
             Modifier.padding(horizontal = Gutter),
         )
         Spacer(Modifier.height(8.dp))
+        Row(Modifier.padding(horizontal = Gutter).padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Choice("Gajian ini", !all, { all = false })
+            Choice("Semua uangku", all, { all = true })
+        }
+        if (all) {
+            AllMoney(data, onTransfer, onOpenAccount, onEditPlan)
+        } else {
         PayRules(data, onIncome = { editBasis = true }, onSchedule = { editSchedule = true }, onSplit = onEditPlan)
         Link("Laporan periode lalu", "Pengeluaran terbanyak, kesimpulan, dan saran. Dikirim juga tiap tanggal gajian.", leading = "🧾", onClick = onOpenReport)
 
+        }
+
+        if (all) Unit else
         if (data.plan.isEmpty()) {
             SectionHeader("Pilih cara membagi")
             Text(
@@ -183,6 +202,107 @@ fun PlanScreen(contentPadding: PaddingValues, onEditPlan: () -> Unit, onOpenRepo
             0, onDismiss = { goalAdding = null }, allowNegative = true, confirmText = "Tambah",
         ) { vm.addToGoal(g.id, it); goalAdding = null }
     }
+}
+
+/**
+ * "Semua uangku": seluruh saldo yang kamu punya sekarang (semua dompet), dibagi menurut persen rencana,
+ * plus di dompet mana uangnya berada dan jalan pintas untuk memindahkannya.
+ */
+@Composable
+private fun AllMoney(o: Overview, onTransfer: () -> Unit, onOpenAccount: (Long) -> Unit, onEditPlan: () -> Unit) {
+    val c = colors
+    val total = o.netWorth
+    val percentPos = o.plan.filter { !it.fixed }
+    val shares = remember(o) { Planner.split(total.coerceAtLeast(0), percentPos).toMap() }
+    Column(Modifier.padding(horizontal = Gutter).padding(top = 14.dp).fillMaxWidth().cardSurface().padding(16.dp)) {
+        Eyebrow("Uangmu sekarang", color = c.accent)
+        Text(Rupiah.format(total), style = Type.number, color = if (total < 0) c.over else c.ink)
+        Text(
+            "Jumlah saldo ${o.accounts.count { it.account.kind != AccountKind.PAYLATER }} dompet" + if (o.debt > 0) " · hutang ${Rupiah.short(o.debt)} belum dikurangkan" else "",
+            style = Type.bodySmall, color = c.mute,
+        )
+    }
+
+    SectionHeader("Kalau dibagi menurut rencana", trailing = { TextAction("Ubah", onEditPlan) })
+    when {
+        o.plan.isEmpty() -> Text(
+            "Belum ada rencana. Ketuk Ubah untuk menentukan pembagiannya, lalu seluruh uangmu ikut terbagi di sini.",
+            style = Type.body, color = c.mute, modifier = Modifier.padding(horizontal = Gutter),
+        )
+        percentPos.isEmpty() -> Text(
+            "Rencanamu memakai batas bernominal (mis. Rp300 rb per minggu), jadi tidak ada persen untuk membagi seluruh uangmu. Tambah pos berpersen di Ubah kalau mau melihat pembagiannya.",
+            style = Type.body, color = c.mute, modifier = Modifier.padding(horizontal = Gutter),
+        )
+        else -> Column(Modifier.padding(horizontal = Gutter).fillMaxWidth().cardSurface().padding(vertical = 6.dp)) {
+            percentPos.forEach { p ->
+                val part = shares[p.id] ?: 0
+                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    GlassIcon(p.emoji, colorOf(p), size = 38.dp)
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Row {
+                            Text("${p.name} · ${p.percent}%", style = Type.strong, color = c.ink, modifier = Modifier.weight(1f))
+                            Text(Rupiah.format(part), style = Type.amount, color = c.ink)
+                        }
+                        Spacer(Modifier.height(6.dp))
+                        UsageBar(p.percent / 100f, colorOf(p))
+                        val inPos = o.accounts.filter { it.account.planId == p.id }
+                        if (inPos.isNotEmpty()) {
+                            val have = inPos.sumOf { it.balance }
+                            val diff = part - have
+                            Text(
+                                "Di ${inPos.joinToString { it.account.name }}: ${Rupiah.format(have)} · " + when {
+                                    diff > 0 -> "kurang ${Rupiah.format(diff)}"
+                                    diff < 0 -> "lebih ${Rupiah.format(-diff)}"
+                                    else -> "pas"
+                                },
+                                style = Type.bodySmall, color = if (diff > 0) c.caution else c.mute, modifier = Modifier.padding(top = 6.dp),
+                            )
+                        }
+                    }
+                }
+            }
+            val free = total.coerceAtLeast(0) - shares.values.sum()
+            if (free > 0) Text(
+                "Belum terbagi: ${Rupiah.format(free)} (persen rencanamu belum 100%).",
+                style = Type.bodySmall, color = c.mute, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            )
+        }
+    }
+
+    SectionHeader("Di mana uangnya")
+    val posName = o.plan.associate { it.id to it.name }
+    // Dikelompokkan per pos rencana; yang belum dikelompokkan di paling bawah.
+    val groups = o.accounts.groupBy { it.account.planId?.takeIf(posName::containsKey) }
+        .toList().sortedBy { (id, _) -> if (id == null) Int.MAX_VALUE else o.plan.indexOfFirst { it.id == id } }
+    groups.forEach { (posId, list) ->
+        Text(
+            (posId?.let(posName::get) ?: "Belum dikelompokkan") + " · " + Rupiah.format(list.sumOf { it.balance }),
+            style = Type.label, color = c.mute, modifier = Modifier.padding(horizontal = Gutter).padding(top = 10.dp, bottom = 6.dp),
+        )
+        Column(Modifier.padding(horizontal = Gutter).fillMaxWidth().cardSurface().padding(vertical = 6.dp)) {
+            list.sortedByDescending { it.balance }.forEach { ab ->
+            Row(
+                Modifier.fillMaxWidth().clickable { onOpenAccount(ab.account.id) }.padding(horizontal = 16.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                AccountIcon(ab.account, size = 38.dp)
+                Spacer(Modifier.width(12.dp))
+                Text(ab.account.name, style = Type.strong, color = c.ink, modifier = Modifier.weight(1f))
+                Text(Rupiah.format(ab.balance), style = Type.amount, color = if (ab.balance < 0) c.over else c.ink)
+            }
+            }
+        }
+    }
+    if (o.plan.isNotEmpty()) Text(
+        "Ketuk sebuah dompet untuk memasukkannya ke pos rencana.",
+        style = Type.bodySmall, color = c.faint, modifier = Modifier.padding(horizontal = Gutter).padding(top = 8.dp),
+    )
+    InkButton("Pindah uang antar dompet", onTransfer, Modifier.padding(horizontal = Gutter, vertical = 12.dp).fillMaxWidth())
+    Text(
+        "Pembagian di atas hanya hitungan: uangmu tidak dipindahkan sampai kamu sendiri yang memindahkannya.",
+        style = Type.bodySmall, color = c.faint, modifier = Modifier.padding(horizontal = Gutter),
+    )
 }
 
 /**

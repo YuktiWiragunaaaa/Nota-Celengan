@@ -93,6 +93,8 @@ object Planner {
     ): PlanStatus {
         val limits = split(basis, plan).toMap()
         val planOf = categories.associate { it.id to it.planId }
+        // Dompet yang dikelompokkan ke sebuah pos: pengeluaran darinya ikut pos itu bila kategorinya belum diarahkan ke pos mana pun.
+        val planOfAccount = accounts.associate { it.id to it.planId }
         val savings = accounts.filter { it.kind == AccountKind.SAVINGS }.map { it.id }.toSet()
         val periodOf = plan.associate { it.id to it.period }
         val used = mutableMapOf<Long, Long>()
@@ -101,7 +103,7 @@ object Planner {
         for (t in transactions) {
             if (t.status != TxStatus.CONFIRMED || t.occurredAt !in minOf(from, weekFrom) until to) continue
             val posId = when {
-                t.type == TxType.EXPENSE -> t.categoryId?.let { planOf[it] }
+                t.type == TxType.EXPENSE -> t.categoryId?.let { planOf[it] } ?: t.accountId?.let { planOfAccount[it] }
                 t.type == TxType.TRANSFER && t.toAccountId in savings && t.accountId !in savings -> firstSave
                 else -> null
             } ?: continue

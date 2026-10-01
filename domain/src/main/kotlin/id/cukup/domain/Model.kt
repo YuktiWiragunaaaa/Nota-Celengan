@@ -27,6 +27,8 @@ data class Account(
     val initialBalance: Long = 0,
     val sortOrder: Int = 0,
     val color: Int? = null,
+    /** Pos rencana tempat dompet ini dikelompokkan (mis. Krom → Investasi). null = belum dikelompokkan. */
+    val planId: Long? = null,
 )
 
 /** Kategori untuk uang keluar atau uang masuk. */

@@ -40,7 +40,11 @@ import id.cukup.domain.Presets
 import id.cukup.domain.Rupiah
 import id.cukup.domain.TxType
 import id.cukup.ui.AppViewModel
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.graphics.Color
 import id.cukup.ui.components.AmountDialog
+import id.cukup.ui.components.GlassIcon
 import id.cukup.ui.components.CardShape
 import id.cukup.ui.components.cardSurface
 import id.cukup.ui.components.Choice
@@ -128,18 +132,61 @@ fun AccountScreen(id: Long, onBack: () -> Unit, onOpenTx: (Long) -> Unit, onAdd:
                 // Aplikasi yang notifikasinya sekarang masuk ke dompet ini (tautan atau tebakan otomatis).
                 val linked = Brands.all.filter { b -> b.packages.any { Brands.accountFor(it, accounts, data.settings.appLinks) == id } }
                 SectionHeader("Notifikasi dari")
+                // Yang sudah tertaut tampil sebagai keping (ketuk untuk melepas); menambah lewat pencarian, bukan daftar centang panjang.
+                if (linked.isNotEmpty()) {
+                    Row(
+                        Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = Gutter).padding(bottom = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        linked.forEach { b -> Choice("${b.name}  ×", true, { vm.linkApp(b.key, null) }) }
+                    }
+                }
+                var query by remember { mutableStateOf("") }
+                Column(Modifier.padding(horizontal = Gutter)) {
+                    LineField(query, { query = it.take(24) }, "Cari bank atau e-wallet, mis. BCA")
+                    val q = query.trim().lowercase()
+                    val hits = if (q.isEmpty()) emptyList() else Brands.all
+                        .filter { b -> b !in linked && (b.name.lowercase().contains(q) || b.aliases.any { it.contains(q) }) }
+                        .take(5)
+                    hits.forEach { b ->
+                        Row(
+                            Modifier.padding(top = 6.dp).fillMaxWidth().cardSurface().clickable { vm.linkApp(b.key, id); query = "" }.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            GlassIcon(if (b.kind == AccountKind.BANK) "🏦" else "👛", Color(b.color.toInt()), size = 34.dp, mark = b.mark)
+                            Spacer(Modifier.width(12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(b.name, style = Type.strong, color = c.ink)
+                                Text(b.kind.label(), style = Type.bodySmall, color = c.mute)
+                            }
+                            Text("Tautkan", style = Type.strong, color = c.accent)
+                        }
+                    }
+                    if (q.isNotEmpty() && hits.isEmpty()) {
+                        Text("Tidak ketemu. Cukup baru mengenali ${Brands.all.size} bank dan e-wallet.", style = Type.bodySmall, color = c.mute, modifier = Modifier.padding(top = 6.dp))
+                    }
+                }
+                Text(
+                    if (linked.isEmpty()) "Belum ada. Cari aplikasi bank/e-wallet yang notifikasinya dicatat ke ${ab.account.name}."
+                    else "Notifikasi ${linked.joinToString { it.name }} dicatat ke ${ab.account.name}. Ketuk kepingnya untuk melepas.",
+                    style = Type.bodySmall, color = c.faint, modifier = Modifier.padding(horizontal = Gutter, vertical = 8.dp),
+                )
+            }
+        }
+        if (data.plan.isNotEmpty()) {
+            item {
+                SectionHeader("Masuk pos rencana")
                 Row(
                     Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = Gutter),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Brands.all.forEach { b ->
-                        val on = b in linked
-                        Choice(b.name, on, { vm.linkApp(b.key, if (on) null else id) })
+                    data.plan.forEach { p ->
+                        Choice(p.name, ab.account.planId == p.id, { vm.saveAccount(ab.account.copy(planId = p.id)) })
                     }
+                    Choice("Tidak ada", ab.account.planId == null, { vm.saveAccount(ab.account.copy(planId = null)) })
                 }
                 Text(
-                    if (linked.isEmpty()) "Pilih aplikasi bank/e-wallet yang notifikasinya dicatat ke ${ab.account.name}."
-                    else "Notifikasi ${linked.joinToString { it.name }} dicatat ke ${ab.account.name}.",
+                    "Dompet ini dihitung sebagai bagian dari pos itu di Rencana › Semua uangku. Pengeluaran dari dompet ini juga ikut pos itu kalau kategorinya belum diarahkan ke pos lain.",
                     style = Type.bodySmall, color = c.faint, modifier = Modifier.padding(horizontal = Gutter, vertical = 8.dp),
                 )
             }
