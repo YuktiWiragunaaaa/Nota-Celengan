@@ -746,7 +746,7 @@ private fun FlowToggle(income: Boolean, onChange: (Boolean) -> Unit) {
             Text(
                 label,
                 style = Type.strong,
-                color = if (on) Color.White else colors.mute,
+                color = if (on) colors.onAccent else colors.mute,
                 modifier = Modifier.clip(Pill).background(if (on) colors.accent else Color.Transparent)
                     .clickable { onChange(value) }.padding(horizontal = 14.dp, vertical = 6.dp),
             )

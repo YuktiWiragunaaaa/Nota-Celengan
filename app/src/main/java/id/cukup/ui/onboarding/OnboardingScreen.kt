@@ -118,7 +118,7 @@ private fun RestoreEntry(onDone: () -> Unit, app: id.cukup.ui.AppViewModel = hil
         Modifier.padding(horizontal = Gutter).padding(top = 24.dp).fillMaxWidth().clip(CardShape).background(c.card)
             .clickable { pick.launch(arrayOf("application/json", "application/octet-stream", "text/plain")) }.padding(14.dp),
     ) {
-        Text("💾  Punya file cadangan Cukup?", style = Type.strong, color = c.ink)
+        Text("Punya file cadangan Cukup?", style = Type.strong, color = c.ink)
         Text("Ketuk untuk memulihkan semua data dan langsung mulai.", style = Type.bodySmall, color = c.mute)
         message?.takeIf { it.startsWith("Gagal") }?.let { Text(it, style = Type.bodySmall, color = c.over) }
     }
@@ -142,11 +142,11 @@ private fun NameStep(name: String, onName: (String) -> Unit) {
     Heading("Hai! Ini <i>Cukup</i>.", "Aplikasi untuk tahu uangmu ada di mana, habis ke mana, dan masih cukup atau tidak.")
     Row(Modifier.padding(horizontal = Gutter), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         Column(Modifier.weight(1f).clip(CardShape).background(c.card).padding(14.dp)) {
-            Eyebrow("📒 CATATAN", color = c.accent)
+            Eyebrow("CATATAN", color = c.accent)
             Text("Uang sungguhan: dompet, saldo, masuk & keluar.", style = Type.bodySmall, color = c.mute)
         }
         Column(Modifier.weight(1f).clip(CardShape).background(c.card).padding(14.dp)) {
-            Eyebrow("🎯 RENCANA", color = c.accent)
+            Eyebrow("RENCANA", color = c.accent)
             Text("Batas yang kamu buat sendiri. Tidak mengubah saldo.", style = Type.bodySmall, color = c.mute)
         }
     }
@@ -241,10 +241,10 @@ private fun Option(title: String, subtitle: String, selected: Boolean, onClick: 
     val c = colors
     Column(
         Modifier.padding(horizontal = Gutter, vertical = 5.dp).fillMaxWidth().clip(CardShape)
-            .background(if (selected) c.ink else c.card).clickable(onClick = onClick).padding(16.dp),
+            .background(if (selected) c.accent else c.card).clickable(onClick = onClick).padding(16.dp),
     ) {
-        Text(title, style = Type.strong, color = if (selected) c.card else c.ink)
-        Text(subtitle, style = Type.bodySmall, color = if (selected) c.card.copy(alpha = 0.75f) else c.mute)
+        Text(title, style = Type.strong, color = if (selected) c.onAccent else c.ink)
+        Text(subtitle, style = Type.bodySmall, color = if (selected) c.onAccent.copy(alpha = 0.8f) else c.mute)
     }
 }
 

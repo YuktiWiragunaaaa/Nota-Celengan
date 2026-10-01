@@ -42,8 +42,10 @@ data class CukupColors(
     val brand: List<Color>,
     val pockets: List<Color>,
     val isDark: Boolean,
-    /** Satu-satunya warna aksen: tombol terpilih, tautan, penanda aktif. */
+    /** Satu-satunya warna aksen: tombol utama, pilihan terpilih, tautan, penanda aktif. */
     val accent: Color,
+    /** Teks/ikon di atas [accent]. */
+    val onAccent: Color,
 ) {
     fun pocket(index: Int): Color = pockets[((index % pockets.size) + pockets.size) % pockets.size]
 
@@ -52,10 +54,10 @@ data class CukupColors(
 
     val brandBrush: Brush get() = Brush.verticalGradient(brand)
 
-    /** Sapuan lembut di belakang saldo Beranda; memudar ke warna halaman. */
+    /** Sapuan lembut di belakang saldo Beranda; memudar ke warna halaman. Putih di tema terang, biru tua di tema gelap. */
     val heroBrush: Brush
         get() = Brush.verticalGradient(
-            if (isDark) listOf(Color(0xFF0D2548), Color(0xFF0A1830), paper) else listOf(Color(0xFFC9DEFA), Color(0xFFDDE9F9), paper),
+            if (isDark) listOf(Color(0xFF0D2548), Color(0xFF0A1830), paper) else listOf(Color(0xFFFFFFFF), Color(0xFFF6F9FD), paper),
         )
 }
 
@@ -99,6 +101,7 @@ private val Light = CukupColors(
     pockets = PocketPalette,
     isDark = false,
     accent = Color(0xFF1D63C8),
+    onAccent = Color(0xFFFFFFFF),
 )
 
 private val Dark = Light.copy(
@@ -117,6 +120,8 @@ private val Dark = Light.copy(
     brand = listOf(Color(0xFF03070F), Color(0xFF081A35), Color(0xFF0E2F5C), Color(0xFF164A8C)),
     isDark = true,
     accent = Color(0xFF5AA2FF),
+    // Biru terang di tema gelap butuh teks gelap supaya terbaca.
+    onAccent = Color(0xFF05142B),
 )
 
 val LocalCukupColors = staticCompositionLocalOf { Light }

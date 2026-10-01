@@ -93,9 +93,9 @@ fun ChipPicker(
             val selected = p.id == selectedId
             Row(
                 Modifier
-                    .clip(RoundedCornerShape(100))
-                    .background(if (selected) c.ink else c.card)
-                    .border(1.dp, if (selected) c.ink else c.line, RoundedCornerShape(100))
+                    .clip(Pill)
+                    .background(if (selected) c.accent else c.card)
+                    .border(1.dp, if (selected) c.accent else c.line, Pill)
                     .clickable(role = Role.RadioButton) { onSelect(p.id) }
                     .padding(horizontal = 14.dp, vertical = 9.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -103,9 +103,9 @@ fun ChipPicker(
                 GlassIcon(p.emoji, p.color, size = 26.dp, mark = p.mark)
                 Spacer(Modifier.width(8.dp))
                 Column {
-                    Text(p.label, style = Type.bodySmall, color = if (selected) c.card else c.ink, maxLines = 1)
+                    Text(p.label, style = Type.bodySmall, color = if (selected) c.onAccent else c.ink, maxLines = 1)
                     if (p.detail.isNotBlank()) {
-                        Text(p.detail, style = Type.label, color = if (selected) c.card.copy(alpha = 0.7f) else c.faint, maxLines = 1)
+                        Text(p.detail, style = Type.label, color = if (selected) c.onAccent.copy(alpha = 0.75f) else c.faint, maxLines = 1)
                     }
                 }
             }

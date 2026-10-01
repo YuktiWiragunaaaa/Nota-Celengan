@@ -111,6 +111,6 @@ private fun Cell(text: String, selected: Boolean, modifier: Modifier, onClick: (
             .clickable(role = Role.RadioButton, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Text(text, style = Type.bodySmall, color = if (selected) Color.White else c.ink)
+        Text(text, style = Type.bodySmall, color = if (selected) c.onAccent else c.ink)
     }
 }

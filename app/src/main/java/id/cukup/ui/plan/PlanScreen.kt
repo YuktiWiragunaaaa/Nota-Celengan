@@ -336,7 +336,7 @@ private fun Goals(o: Overview, onNew: () -> Unit, onEdit: (Goal) -> Unit, onAdd:
                 Text("${Rupiah.short(progress.saved)} dari ${Rupiah.short(g.target)} · ${(progress.ratio * 100).toInt()}%", style = Type.bodySmall, color = c.mute)
                 Text(
                     when {
-                        progress.reached -> "Tercapai! 🎉"
+                        progress.reached -> "Tercapai!"
                         progress.periodsLeft == null -> if (g.accountId != null) "Mengikuti saldo dompet" else "Tambah sedikit-sedikit, ya"
                         else -> "Kira-kira ${progress.periodsLeft} periode lagi, sesuai rencana tabungan"
                     },
@@ -369,7 +369,7 @@ private fun GoalDialog(g: Goal, o: Overview, onDismiss: () -> Unit, onDelete: ()
                 Spacer(Modifier.height(14.dp))
                 Eyebrow("Terkumpul dihitung dari")
                 Spacer(Modifier.height(8.dp))
-                val items = listOf(PickItem(-1, "Isi sendiri", "✍️", c.mute)) +
+                val items = listOf(PickItem(-1, "Isi sendiri", "✏️", c.mute)) +
                     o.accounts.map { PickItem(it.account.id, it.account.name, it.account.emoji, colorOf(it.account), Rupiah.short(it.balance), id.cukup.domain.Brands.forAccountName(it.account.name)?.mark) }
                 ChipPicker(items, account ?: -1, { account = it.takeIf { id -> id > 0 } }, Modifier.padding(horizontal = 0.dp))
                 Text(

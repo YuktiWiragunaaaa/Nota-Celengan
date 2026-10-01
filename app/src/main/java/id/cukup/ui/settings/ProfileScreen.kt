@@ -85,34 +85,35 @@ fun ProfileScreen(
         })
     }
 
+    // Keping tembus pandang di tema gelap, putih bersih di tema terang (sama seperti Beranda).
+    val chip = if (c.isDark) Color.White.copy(alpha = 0.08f) else c.card
     Column(Modifier.fillMaxSize().background(c.paper).verticalScroll(rememberScrollState())) {
         Column(
             Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp))
-                .background(c.brandBrush)
+                .background(c.heroBrush)
                 .windowInsetsPadding(WindowInsets.statusBars)
                 .padding(bottom = 56.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
-                RoundIcon(Icons.AutoMirrored.Rounded.ArrowBack, "Kembali", onBack, background = Color.White.copy(alpha = 0.2f), tint = Color.White)
+                RoundIcon(Icons.AutoMirrored.Rounded.ArrowBack, "Kembali", onBack, background = chip, tint = c.ink)
             }
             Box {
-                Avatar(s.name, s.avatarVersion, size = 112.dp, background = Color.White.copy(alpha = 0.2f))
+                Avatar(s.name, s.avatarVersion, size = 112.dp, background = chip, textColor = c.accent)
                 Box(
-                    Modifier.align(Alignment.BottomEnd).size(38.dp).clip(CircleShape).background(Color.White)
+                    Modifier.align(Alignment.BottomEnd).size(38.dp).clip(CircleShape).background(c.accent)
                         .clickable { pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
                     contentAlignment = Alignment.Center,
-                ) { Icon(Icons.Rounded.CameraAlt, "Ganti foto", tint = c.accent, modifier = Modifier.size(20.dp)) }
+                ) { Icon(Icons.Rounded.CameraAlt, "Ganti foto", tint = c.onAccent, modifier = Modifier.size(20.dp)) }
             }
             Spacer(Modifier.height(14.dp))
-            Text(s.name.ifBlank { "Tanpa nama" }, style = Type.title, color = Color.White)
+            Text(s.name.ifBlank { "Tanpa nama" }, style = Type.title, color = c.ink)
             if (s.avatarVersion > 0) {
                 TextAction("Hapus foto", onClick = {
                     deleteAvatar(context)
                     vm.update { it.copy(avatarVersion = 0) }
-                }, color = Color.White.copy(alpha = 0.7f))
+                }, color = c.mute)
             }
         }
         Column(Modifier.padding(horizontal = Gutter).offset(y = (-28).dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {

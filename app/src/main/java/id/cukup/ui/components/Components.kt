@@ -89,17 +89,17 @@ fun InkButton(
         modifier = modifier
             .height(52.dp)
             .clip(Pill)
-            .background(if (enabled) c.ink else c.line)
+            .background(if (enabled) c.accent else c.line)
             .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
             .padding(horizontal = 18.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center,
     ) {
         if (icon != null) {
-            Icon(icon, null, tint = if (enabled) c.card else c.faint, modifier = Modifier.size(18.dp))
+            Icon(icon, null, tint = if (enabled) c.onAccent else c.faint, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
         }
-        Text(text, style = Type.strong, color = if (enabled) c.card else c.faint, maxLines = 1)
+        Text(text, style = Type.strong, color = if (enabled) c.onAccent else c.faint, maxLines = 1)
     }
 }
 
@@ -189,13 +189,13 @@ fun Choice(text: String, selected: Boolean, onClick: () -> Unit, modifier: Modif
     Box(
         modifier = modifier
             .clip(Pill)
-            .background(if (selected) c.ink else c.card)
-            .border(1.dp, if (selected) c.ink else c.line, Pill)
+            .background(if (selected) c.accent else c.card)
+            .border(1.dp, if (selected) c.accent else c.line, Pill)
             .clickable(role = Role.RadioButton, onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 10.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(text, style = Type.bodySmall, color = if (selected) c.card else c.ink, maxLines = 1)
+        Text(text, style = Type.bodySmall, color = if (selected) c.onAccent else c.ink, maxLines = 1)
     }
 }
 

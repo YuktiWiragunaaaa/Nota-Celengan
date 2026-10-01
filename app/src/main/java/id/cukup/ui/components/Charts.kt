@@ -285,7 +285,7 @@ fun ChartSwitch(options: List<Pair<String, androidx.compose.ui.graphics.vector.I
                     .padding(horizontal = 12.dp, vertical = 6.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                androidx.compose.material3.Icon(icon, id, tint = if (on) Color.White else colors.mute, modifier = Modifier.width(18.dp).height(18.dp))
+                androidx.compose.material3.Icon(icon, id, tint = if (on) colors.onAccent else colors.mute, modifier = Modifier.width(18.dp).height(18.dp))
             }
         }
     }

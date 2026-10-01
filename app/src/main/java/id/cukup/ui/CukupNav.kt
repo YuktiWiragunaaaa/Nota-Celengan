@@ -116,7 +116,7 @@ fun CukupNav(
     val route = entry?.destination?.route
     val showBar = route in tabs.map { it.route }
     // Layar bergradien gelap memakai ikon status bar terang; Beranda sekarang mengikuti tema.
-    LightStatusBarIcons(light = route == Routes.PROFILE)
+    LightStatusBarIcons(light = false)
     val c = colors
 
     LaunchedEffect(openAdd, onboarded) {
@@ -260,11 +260,11 @@ private fun BottomBar(current: String?, onTab: (String) -> Unit, onAdd: () -> Un
             Modifier
                 .size(50.dp)
                 .clip(CircleShape)
-                .background(c.brandBrush)
+                .background(c.accent)
                 .clickable(role = Role.Button, onClick = onAdd)
                 .semantics { contentDescription = "Catat" },
             contentAlignment = Alignment.Center,
-        ) { Icon(Icons.Rounded.Add, null, tint = Color.White) }
+        ) { Icon(Icons.Rounded.Add, null, tint = c.onAccent) }
         tabs.drop(2).forEach { t -> Tab(t, t.route == current) { onTab(t.route) } }
     }
 }
@@ -281,9 +281,9 @@ private fun Tab(tab: TabItem, selected: Boolean, onClick: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box(
-            Modifier.height(30.dp).width(46.dp).clip(Pill).background(if (selected) c.ink else Color.Transparent),
+            Modifier.height(30.dp).width(46.dp).clip(Pill).background(if (selected) c.accent else Color.Transparent),
             contentAlignment = Alignment.Center,
-        ) { Icon(tab.icon, null, tint = if (selected) c.card else c.mute, modifier = Modifier.size(20.dp)) }
+        ) { Icon(tab.icon, null, tint = if (selected) c.onAccent else c.mute, modifier = Modifier.size(20.dp)) }
         Text(tab.label, style = Type.label.copy(fontSize = 10.sp), color = if (selected) c.ink else c.mute)
     }
 }
