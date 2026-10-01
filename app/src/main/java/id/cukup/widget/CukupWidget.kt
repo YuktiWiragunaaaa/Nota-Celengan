@@ -90,7 +90,7 @@ class CukupWidget : GlanceAppWidget() {
             // Ikuti aliran data: sesi Glance bisa hidup lama, jadi nilai sekali-muat akan basi.
             val state = repo.overview.collectAsState(initial = first)
             val o = state.value
-            widgetTheme = o?.settings?.theme ?: "DARK"
+            widgetTheme = o?.settings?.theme ?: "LIGHT"
             // Kunci PIN aktif = saldo tidak ditampilkan di layar utama (bisa dimatikan di Setelan).
             val hidden = o?.settings?.let { it.biometricLock && it.pinHash.isNotEmpty() && it.widgetHide } ?: false
             val chips = remember(o, hidden) { o?.let { quickChips(context, it, hidden) } ?: emptyList() }
@@ -189,24 +189,24 @@ class QuickLogAction : ActionCallback {
     }
 }
 
-/** Tema widget mengikuti setelan aplikasi (DARK bawaan, LIGHT, atau SYSTEM = ikut HP). */
-@Volatile private var widgetTheme = "DARK"
+/** Tema widget mengikuti setelan aplikasi (LIGHT bawaan, DARK, atau SYSTEM = ikut HP). */
+@Volatile private var widgetTheme = "LIGHT"
 
 private fun pal(day: Long, night: Long) = when (widgetTheme) {
-    "LIGHT" -> ColorProvider(day = Color(day), night = Color(day))
+    "DARK" -> ColorProvider(day = Color(night), night = Color(night))
     "SYSTEM" -> ColorProvider(day = Color(day), night = Color(night))
-    else -> ColorProvider(day = Color(night), night = Color(night))
+    else -> ColorProvider(day = Color(day), night = Color(day))
 }
 
-private val paper get() = pal(0xFFF4F1EE, 0xFF16141B)
-private val ink get() = pal(0xFF17110E, 0xFFF4F1F6)
-private val mute get() = pal(0xFF6F6560, 0xFFA8A2AE)
-private val line get() = pal(0xFFEAE4DF, 0xFF29252F)
+private val paper get() = pal(0xFFFFFFFF, 0xFF0F1828)
+private val ink get() = pal(0xFF0B1B33, 0xFFEEF3FA)
+private val mute get() = pal(0xFF586A82, 0xFF9FB0C7)
+private val line get() = pal(0xFFE0E7F0, 0xFF1C2A40)
 private val caution get() = pal(0xFFE08A1E, 0xFFD1A263)
 private val over get() = pal(0xFFD9392B, 0xFFD9826F)
-private val inkInverse get() = pal(0xFFF4F1EE, 0xFF16141B)
-private val accent get() = pal(0xFFFFE3D1, 0xFF3A2218)
-private val brand get() = pal(0xFFD9481A, 0xFFF2782E)
+private val inkInverse get() = pal(0xFFFFFFFF, 0xFF0F1828)
+private val accent get() = pal(0xFFDCE9FA, 0xFF16304F)
+private val brand get() = pal(0xFF1D63C8, 0xFF5AA2FF)
 
 @Composable
 private fun WidgetBody(

@@ -42,7 +42,7 @@ data class Settings(
     /** Grafik di beranda: DONUT, BAR, atau BUBBLE. */
     val chart: String = "DONUT",
     /** Tema: DARK (bawaan), LIGHT, atau SYSTEM. */
-    val theme: String = "DARK",
+    val theme: String = "LIGHT",
     /** Saat kunci PIN aktif, widget menyembunyikan saldo. */
     val widgetHide: Boolean = true,
     /** Versi foto profil (0 = belum ada). Dipakai agar gambar dimuat ulang saat diganti. */
@@ -113,7 +113,7 @@ class SettingsStore @Inject constructor(@ApplicationContext private val context:
         ),
         defaultAccountId = p[K.defaultAccount] ?: 0,
         chart = p[K.chart] ?: "DONUT",
-        theme = p[K.theme] ?: "DARK",
+        theme = p[K.theme] ?: "LIGHT",
         widgetHide = p[K.widgetHide] ?: true,
         avatarVersion = p[K.avatarVersion] ?: 0,
     )

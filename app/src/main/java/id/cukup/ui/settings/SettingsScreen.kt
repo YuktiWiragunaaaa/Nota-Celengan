@@ -298,7 +298,7 @@ fun SettingsScreen(
             Bullet("Cukup nggak pakai internet, jadi datamu nggak ke mana-mana.")
             Bullet("Datanya nggak ikut backup Google. Kalau aplikasinya dihapus, datanya ikut hilang.")
         }
-        Text("Cukup 0.9.6", style = Type.bodySmall, color = c.faint, modifier = Modifier.padding(horizontal = Gutter, vertical = 20.dp))
+        Text("Cukup 0.9.7", style = Type.bodySmall, color = c.faint, modifier = Modifier.padding(horizontal = Gutter, vertical = 20.dp))
     }
 
     if (confirmErase) {

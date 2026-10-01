@@ -21,8 +21,8 @@ import androidx.compose.ui.unit.sp
 import id.cukup.R
 
 /**
- * Cukup v0.4: hangat dan hidup. Gradien oranye ke merah tua untuk bagian utama,
- * kartu putih bersih untuk isi, warna kantong cerah dan bisa dipilih sendiri.
+ * Cukup v0.9.7: biru dan putih. Biru tua yang tenang untuk bagian utama (cukup netral supaya warna
+ * kategori di grafik tidak bertabrakan), kartu putih untuk isi, dan satu biru terang sebagai aksen.
  */
 @Immutable
 data class CukupColors(
@@ -42,6 +42,8 @@ data class CukupColors(
     val brand: List<Color>,
     val pockets: List<Color>,
     val isDark: Boolean,
+    /** Satu-satunya warna aksen: tombol terpilih, tautan, penanda aktif. */
+    val accent: Color,
 ) {
     fun pocket(index: Int): Color = pockets[((index % pockets.size) + pockets.size) % pockets.size]
 
@@ -49,7 +51,6 @@ data class CukupColors(
     fun of(color: Int?, index: Int): Color = color?.let { Color(it) } ?: pocket(index)
 
     val brandBrush: Brush get() = Brush.verticalGradient(brand)
-    val accent: Color get() = brand.last()
 }
 
 /** Warna yang bisa dipilih untuk kantong. Cerah, terbaca di atas gradien dan di atas putih. */
@@ -63,7 +64,7 @@ val PocketPalette = listOf(
     Color(0xFFF25FC6), // magenta
     Color(0xFFFF8A3D), // jingga
     Color(0xFFB98A64), // cokelat
-    Color(0xFFFFB38A), // peach (dulu abu-abu: kusam; sian: terlalu dingin untuk palet hangat)
+    Color(0xFFFFB38A), // peach
     Color(0xFFC4A1FF), // lavender
     Color(0xFF2FB8D6), // biru kehijauan
     Color(0xFFFF6F59), // koral
@@ -73,36 +74,39 @@ val PocketPalette = listOf(
 )
 
 private val Light = CukupColors(
-    paper = Color(0xFFF4F1EE),
+    paper = Color(0xFFF3F6FB),
     card = Color(0xFFFFFFFF),
-    surface = Color(0xFFEFEAE6),
-    ink = Color(0xFF17110E),
-    mute = Color(0xFF6F6560),
-    faint = Color(0xFFABA29D),
-    line = Color(0xFFEAE4DF),
-    dark = Color(0xFF17110E),
+    surface = Color(0xFFE8EEF6),
+    ink = Color(0xFF0B1B33),
+    mute = Color(0xFF586A82),
+    faint = Color(0xFF9AA9BD),
+    line = Color(0xFFE0E7F0),
+    dark = Color(0xFF0B1B33),
     onDark = Color(0xFFFFFFFF),
     onDarkMute = Color(0xB3FFFFFF),
     good = Color(0xFF1F9D6B),
     caution = Color(0xFFE08A1E),
     over = Color(0xFFD9392B),
-    brand = listOf(Color(0xFF3B0A04), Color(0xFF8C1C07), Color(0xFFD9481A), Color(0xFFF2782E)),
+    // Biru tua ke biru sedang: latar grafik tetap gelap dan netral, bukan biru menyala.
+    brand = listOf(Color(0xFF081C3A), Color(0xFF0E2F5C), Color(0xFF13427F), Color(0xFF1A559F)),
     pockets = PocketPalette,
     isDark = false,
+    accent = Color(0xFF1D63C8),
 )
 
 private val Dark = Light.copy(
-    // Gelap netral sedikit ungu: kartu terasa seperti kaca di atas latar pekat.
-    paper = Color(0xFF0B0A0D),
-    card = Color(0xFF16141B),
-    surface = Color(0xFF211E27),
-    ink = Color(0xFFF4F1F6),
-    mute = Color(0xFFA8A2AE),
-    faint = Color(0xFF6E6875),
-    line = Color(0xFF29252F),
+    // Gelap kebiruan: kartu terasa seperti kaca di atas latar pekat.
+    paper = Color(0xFF070C16),
+    card = Color(0xFF0F1828),
+    surface = Color(0xFF182438),
+    ink = Color(0xFFEEF3FA),
+    mute = Color(0xFF9FB0C7),
+    faint = Color(0xFF63748C),
+    line = Color(0xFF1C2A40),
     dark = Color(0xFF000000),
-    brand = listOf(Color(0xFF1A0503), Color(0xFF5E1405), Color(0xFFB63A12), Color(0xFFF2782E)),
+    brand = listOf(Color(0xFF03070F), Color(0xFF081A35), Color(0xFF0E2F5C), Color(0xFF164A8C)),
     isDark = true,
+    accent = Color(0xFF5AA2FF),
 )
 
 val LocalCukupColors = staticCompositionLocalOf { Light }
