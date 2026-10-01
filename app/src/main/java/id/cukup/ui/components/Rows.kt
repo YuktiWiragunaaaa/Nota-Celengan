@@ -3,6 +3,7 @@ package id.cukup.ui.components
 import androidx.compose.foundation.border
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -37,6 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.AnnotatedString
@@ -45,6 +47,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import id.cukup.domain.Category
 import id.cukup.domain.Presets
 import id.cukup.domain.Rupiah
 import id.cukup.ui.theme.PocketPalette
@@ -241,4 +244,69 @@ fun LookPicker(emoji: String, color: Int?, onEmoji: (String) -> Unit, onColor: (
             )
         }
     }
+    Spacer(Modifier.height(14.dp))
+    FreeColor(current, onColor)
+}
+
+/** Warna bebas: geser rona, pekat, dan terang sampai pas. */
+@Composable
+private fun FreeColor(current: Color, onColor: (Int) -> Unit) {
+    val c = colors
+    var hue by remember { mutableStateOf(0f) }
+    var sat by remember { mutableStateOf(0.7f) }
+    var light by remember { mutableStateOf(0.55f) }
+    // Warna terakhir yang berasal dari geseran ini; kalau warnanya diganti dari luar (palet), geseran ikut menyesuaikan.
+    var mine by remember { mutableStateOf<Int?>(null) }
+    if (mine != current.toArgb()) {
+        val hsl = FloatArray(3).also { androidx.core.graphics.ColorUtils.colorToHSL(current.toArgb(), it) }
+        hue = hsl[0]
+        sat = hsl[1].coerceIn(0.15f, 1f)
+        light = hsl[2].coerceIn(0.3f, 0.8f)
+        mine = current.toArgb()
+    }
+    fun emit() {
+        val argb = Color.hsl(hue.coerceIn(0f, 359.9f), sat, light).toArgb()
+        mine = argb
+        onColor(argb)
+    }
+    Eyebrow("Warna bebas")
+    Spacer(Modifier.height(4.dp))
+    val rainbow = remember { List(13) { Color.hsl(it * 30f % 360f, 0.8f, 0.55f) } }
+    Track("Rona", hue / 360f, Brush.horizontalGradient(rainbow)) { hue = it * 360f; emit() }
+    Track("Pekat", (sat - 0.15f) / 0.85f, Brush.horizontalGradient(listOf(Color.hsl(hue, 0.15f, light), Color.hsl(hue, 1f, light)))) { sat = 0.15f + it * 0.85f; emit() }
+    Track("Terang", (light - 0.3f) / 0.5f, Brush.horizontalGradient(listOf(Color.hsl(hue, sat, 0.3f), Color.hsl(hue, sat, 0.8f)))) { light = 0.3f + it * 0.5f; emit() }
+    Text("Terang dibatasi supaya ikon dan tulisan tetap terbaca di tema gelap maupun terang.", style = Type.bodySmall, color = c.faint)
+}
+
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun Track(label: String, value: Float, brush: Brush, onChange: (Float) -> Unit) {
+    val c = colors
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(label, style = Type.bodySmall, color = c.mute, modifier = Modifier.width(52.dp))
+        androidx.compose.material3.Slider(
+            value = value.coerceIn(0f, 1f), onValueChange = onChange, modifier = Modifier.weight(1f),
+            track = { androidx.compose.foundation.layout.Box(Modifier.fillMaxWidth().height(10.dp).clip(Pill).background(brush)) },
+            colors = androidx.compose.material3.SliderDefaults.colors(thumbColor = c.ink),
+        )
+    }
+}
+
+/** Ganti ikon & warna sebuah kategori dari mana saja (mis. tekan-tahan di grafik). */
+@Composable
+fun CategoryLookDialog(category: Category, onDismiss: () -> Unit, onSave: (Category) -> Unit) {
+    val c = colors
+    var draft by remember(category.id) { mutableStateOf(category) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(category.name, style = Type.title) },
+        text = {
+            Column(Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState())) {
+                LookPicker(draft.emoji, draft.color, { draft = draft.copy(emoji = it) }, { draft = draft.copy(color = it) }, fallback = colorOf(category))
+            }
+        },
+        confirmButton = { TextButton({ onSave(draft) }) { Text("Simpan", color = c.ink) } },
+        dismissButton = { TextButton(onDismiss) { Text("Batal", color = c.mute) } },
+        containerColor = c.card,
+    )
 }

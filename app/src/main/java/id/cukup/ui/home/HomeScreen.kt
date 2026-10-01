@@ -97,7 +97,10 @@ import id.cukup.ui.components.Bubble
 import id.cukup.ui.components.BubbleChart
 import id.cukup.notif.MoneyNotificationListener
 import id.cukup.ui.settings.span
+import id.cukup.ui.components.AmountDialog
 import id.cukup.ui.components.CardShape
+import id.cukup.ui.components.CategoryLookDialog
+import id.cukup.ui.components.LineButton
 import id.cukup.ui.components.Hairline
 import id.cukup.ui.components.ChartSwitch
 import id.cukup.ui.components.DonutChart
@@ -160,6 +163,9 @@ fun HomeScreen(
                 data, vm::chart, onOpenInbox, onOpenProfile, onOpenHelp,
                 onOpenAccount = onOpenAccount, onOpenTx = onOpenTx,
                 onSchedule = { sch -> vm.settings { it.copy(schedule = sch) } },
+                onTransfer = { onAdd(TxType.TRANSFER) },
+                onSetBalance = { accountId, v -> vm.setAccountBalance(accountId, v) },
+                onSaveCategory = vm::saveCategory,
             )
         }
         item {
@@ -232,13 +238,21 @@ private fun Hero(
     onOpenAccount: (Long) -> Unit,
     onOpenTx: (Long) -> Unit,
     onSchedule: (id.cukup.domain.Schedule) -> Unit,
+    onTransfer: () -> Unit,
+    onSetBalance: (Long, Long) -> Unit,
+    onSaveCategory: (id.cukup.domain.Category) -> Unit,
 ) {
     val c = colors
     val white = Color.White
     // Hampir semua angka di bagian atas bisa diketuk untuk melihat rinciannya.
     var sheet by remember { mutableStateOf<HeroSheet?>(null) }
     var editSchedule by remember { mutableStateOf(false) }
-    sheet?.let { HeroDetails(it, o, onDismiss = { sheet = null }, onOpenAccount = { id -> sheet = null; onOpenAccount(id) }, onOpenTx = { id -> sheet = null; onOpenTx(id) }) }
+    sheet?.let {
+        HeroDetails(
+            it, o, onDismiss = { sheet = null }, onOpenAccount = { id -> sheet = null; onOpenAccount(id) }, onOpenTx = { id -> sheet = null; onOpenTx(id) },
+            onTransfer = { sheet = null; onTransfer() }, onSetBalance = onSetBalance,
+        )
+    }
     if (editSchedule) {
         var draft by remember { mutableStateOf(o.settings.schedule) }
         AlertDialog(
@@ -360,7 +374,11 @@ private fun Hero(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 28.dp, vertical = 36.dp),
             )
         } else {
-            SpendingChart(o, parts, chart, selected, incomeView) { selected = if (selected == it) null else it }
+            var recolor by remember { mutableStateOf<Long?>(null) }
+            recolor?.let(o.categoryById::get)?.let { cat ->
+                CategoryLookDialog(cat, onDismiss = { recolor = null }) { onSaveCategory(it); recolor = null }
+            }
+            SpendingChart(o, parts, chart, selected, incomeView, onRecolor = { recolor = it }) { selected = if (selected == it) null else it }
             val pick = parts.firstOrNull { (it.category?.id ?: -1L) == selected }
             AnimatedContent(pick, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "pick") { p ->
                 Column(Modifier.fillMaxWidth().padding(horizontal = 28.dp).height(44.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -378,7 +396,10 @@ private fun Hero(
 }
 
 @Composable
-private fun SpendingChart(o: Overview, parts: List<CategoryAmount>, type: String, selected: Long?, income: Boolean, onSelect: (Long) -> Unit) {
+private fun SpendingChart(
+    o: Overview, parts: List<CategoryAmount>, type: String, selected: Long?, income: Boolean,
+    onRecolor: (Long) -> Unit, onSelect: (Long) -> Unit,
+) {
     val colorsOf = parts.map { colorOf(it.category) }
     val slices = remember(parts, colorsOf) {
         parts.mapIndexed { i, p -> Slice(p.category?.id ?: -1L, p.category?.name ?: "Tanpa kategori", p.category?.emoji ?: "🧾", p.amount.toFloat(), colorsOf[i], Rupiah.short(p.amount)) }
@@ -391,14 +412,16 @@ private fun SpendingChart(o: Overview, parts: List<CategoryAmount>, type: String
             "BAR" -> HBarChart(
                 slices.take(5), selected, pick,
                 Modifier.fillMaxSize().padding(horizontal = 28.dp, vertical = 12.dp).wrapContentHeight(Alignment.CenterVertically),
+                onLongPress = onRecolor,
             )
             "BUBBLE" -> BubbleChart(
                 bubbles = slices.map { Bubble(it.key, it.emoji, it.label, it.valueText, it.value.coerceAtLeast(1f), -1f, it.color) },
                 selected = selected,
                 onSelect = onSelect,
                 modifier = Modifier.fillMaxSize().padding(horizontal = 28.dp, vertical = 8.dp),
+                onLongPress = onRecolor,
             )
-            else -> DonutChart(slices, selected, pick, Modifier.fillMaxSize().padding(vertical = 16.dp)) {
+            else -> DonutChart(slices, selected, pick, Modifier.fillMaxSize().padding(vertical = 16.dp), onLongPress = onRecolor) {
                 val p = parts.firstOrNull { (it.category?.id ?: -1L) == selected }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     GlassIcon(p?.category?.emoji ?: "🧾", Color.White, size = 36.dp, onDark = true)
@@ -596,8 +619,19 @@ private enum class HeroSheet { WALLETS, INCOME, EXPENSE, NET }
 /** Rincian angka di bagian atas Beranda: dompet, uang masuk, uang keluar, atau selisih periode ini. */
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
-private fun HeroDetails(kind: HeroSheet, o: Overview, onDismiss: () -> Unit, onOpenAccount: (Long) -> Unit, onOpenTx: (Long) -> Unit) {
+private fun HeroDetails(
+    kind: HeroSheet, o: Overview, onDismiss: () -> Unit, onOpenAccount: (Long) -> Unit, onOpenTx: (Long) -> Unit,
+    onTransfer: () -> Unit, onSetBalance: (Long, Long) -> Unit,
+) {
     val c = colors
+    var fixing by remember { mutableStateOf<AccountBalance?>(null) }
+    fixing?.let { ab ->
+        AmountDialog(
+            "Samakan saldo ${ab.account.name}",
+            "Isi saldo yang benar sekarang (lihat di aplikasi bank/e-wallet atau hitung uang tunai). Selisihnya dicatat sebagai penyesuaian; riwayat lain tidak berubah.",
+            ab.balance, onDismiss = { fixing = null }, allowNegative = true,
+        ) { v -> onSetBalance(ab.account.id, v); fixing = null }
+    }
     androidx.compose.material3.ModalBottomSheet(onDismissRequest = onDismiss, containerColor = c.card) {
         androidx.compose.foundation.lazy.LazyColumn(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
             when (kind) {
@@ -605,6 +639,16 @@ private fun HeroDetails(kind: HeroSheet, o: Overview, onDismiss: () -> Unit, onO
                     val wallets = o.accounts.filter { it.account.kind != AccountKind.PAYLATER }
                     val total = wallets.sumOf { it.balance.coerceAtLeast(0) }.coerceAtLeast(1)
                     item { SheetTitle("Uangmu di mana", Rupiah.format(o.netWorth), "${wallets.size} dompet" + if (o.debt > 0) " · hutang ${Rupiah.short(o.debt)}" else "") }
+                    item {
+                        // Dua cara membetulkan angka: uangnya memang pindah dompet, atau catatannya yang meleset.
+                        Column(Modifier.padding(horizontal = Gutter).padding(bottom = 8.dp)) {
+                            LineButton("Pindah uang antar dompet", onClick = onTransfer, modifier = Modifier.fillMaxWidth(), height = 44.dp)
+                            Text(
+                                "Angkanya beda dengan bank atau isi dompet? Ketuk \"Samakan\" di dompet itu.",
+                                style = Type.bodySmall, color = c.mute, modifier = Modifier.padding(top = 8.dp),
+                            )
+                        }
+                    }
                     items(o.accounts.sortedByDescending { it.balance }, key = { "a" + it.account.id }) { ab ->
                         val share = (ab.balance.coerceAtLeast(0).toFloat() / total).coerceIn(0f, 1f)
                         Row(
@@ -624,6 +668,8 @@ private fun HeroDetails(kind: HeroSheet, o: Overview, onDismiss: () -> Unit, onO
                                     }
                                 }
                             }
+                            Spacer(Modifier.width(8.dp))
+                            TextAction("Samakan", { fixing = ab })
                         }
                     }
                 }

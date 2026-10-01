@@ -69,9 +69,10 @@ fun HelpScreen(onBack: () -> Unit) {
     val c = colors
     val pages = remember {
         listOf(
+            Page("Mulai dari sini", "Kalau begini, harus bagaimana?", "Soal yang paling sering muncul saat dipakai sehari-hari. Ketuk untuk lihat langkahnya.") { ScenarioDemo() },
             Page("1 · Dua bagian", "Catatan vs Rencana", "Catatan = uang sungguhan. Rencana = batas yang kamu buat sendiri. Ketuk untuk bandingkan.") { SidesDemo() },
             Page("2 · Tiga tombol", "Keluar, Masuk, Pindah", "Coba ketuk tombolnya dan lihat saldo dompet berubah. Pindah tidak mengubah total.") { ButtonsDemo() },
-            Page("3 · Rencana", "Bagi gaji otomatis", "Geser gajimu. Cukup membagi ke pos 50/30/20 tanpa memindahkan uang.") { PlanDemo() },
+            Page("3 · Rencana", "Bagi gaji otomatis", "Geser gajimu. Cukup membagi ke pos 50/30/20 tanpa memindahkan uang. Tidak suka persen? Tiap pos juga bisa diisi nominal bebas per hari, minggu, atau gajian.") { PlanDemo() },
             Page("4 · Aman per hari", "Berapa boleh jajan hari ini?", "Sisa batas belanja dibagi sisa hari sampai gajian. Geser dan lihat angkanya.") { DailyDemo() },
             Page("5 · Catat otomatis", "Notifikasi jadi catatan", "Transfer dan bayar dari bank/e-wallet langsung tercatat ke dompet yang benar.") { NotifDemo() },
             Page("6 · Serba cepat", "Trik biar makin praktis", "Ketuk tiap trik untuk lihat caranya.") { TipsDemo() },
@@ -301,6 +302,27 @@ private fun TipsDemo() {
         Triple("🏦", "Dompet bermerek", "Beri nama dompet sesuai bank (BCA, Krom, OVO) supaya notifikasinya masuk ke dompet yang tepat."),
         Triple("🛟", "Kunci PIN", "Setelan › Kunci pakai PIN. Sidik jari juga bisa."),
     )
+    ExpandList(tips)
+}
+
+/** Soal yang paling sering muncul saat dipakai sehari-hari, dan langkah persisnya. */
+@Composable
+private fun ScenarioDemo() {
+    ExpandList(
+        listOf(
+            Triple("🔔", "Transfer tidak tercatat sendiri", "Biasanya karena HP menutup Cukup diam-diam. Buka Setelan › Baca notifikasi: di sana terlihat statusnya, tiga langkah supaya tidak terulang, dan daftar notifikasi terakhir beserta alasan kalau ada yang dilewati."),
+            Triple("⚖️", "Saldo beda dengan bank", "Ketuk angka besar di Beranda › \"Samakan\" di dompetnya › isi saldo yang benar. Selisihnya dicatat sebagai penyesuaian, riwayat lain tidak berubah."),
+            Triple("🔁", "Uangnya cuma pindah dompet", "Tarik tunai, top up e-wallet, atau transfer ke rekening sendiri = Pindah (tombol ⇄), bukan Keluar. Total uangmu tidak berubah."),
+            Triple("💸", "Penghasilanku tidak tetap", "Rencana › Ubah › pilih \"Nominal bebas\" dan ketik batasnya, misalnya Makan Rp300 rb per minggu. Mau tetap pakai persen? Ketuk \"Uang yang dibagi\" › \"Uang masuk periode lalu\": yang masuk kemarin, itu yang dibagi sekarang."),
+            Triple("⏰", "Mau diingatkan sebelum kebablasan", "Tiap pos mengingatkan saat 80% batasnya terpakai dan saat lewat, di jangkanya sendiri (hari, minggu, atau gajian). Nyalakan di Setelan › Beri tahu kalau belanja kebanyakan."),
+            Triple("🎨", "Ganti warna atau ikon kategori", "Tekan-tahan bagian grafiknya (donat, batang, atau gelembung). Warnanya bisa dipilih bebas."),
+        ),
+    )
+}
+
+@Composable
+private fun ExpandList(tips: List<Triple<String, String, String>>) {
+    val c = colors
     var open by remember { mutableStateOf<Int?>(null) }
     tips.forEachIndexed { i, (e, t, d) ->
         Column(

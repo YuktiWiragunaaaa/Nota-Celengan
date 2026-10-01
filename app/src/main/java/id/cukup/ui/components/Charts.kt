@@ -12,6 +12,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -60,6 +61,8 @@ fun DonutChart(
     onSelect: (Long?) -> Unit,
     modifier: Modifier = Modifier,
     track: Color = Color.White.copy(alpha = 0.12f),
+    /** Tekan-tahan sebuah irisan (mis. untuk ganti warnanya). */
+    onLongPress: (Long) -> Unit = {},
     center: @Composable () -> Unit = {},
 ) {
     val sweep = remember { Animatable(0f) }
@@ -79,26 +82,26 @@ fun DonutChart(
     Box(modifier, contentAlignment = Alignment.Center) {
         Canvas(
             Modifier.fillMaxSize().pointerInput(slices) {
-                detectTapGestures { p ->
+                // Irisan di titik sentuh; null bila di lubang tengah atau di luar cincin.
+                fun hit(p: Offset): Slice? {
                     val cx = size.width / 2f
                     val cy = size.height / 2f
                     val r = min(size.width, size.height) / 2f
                     val d = hypot(p.x - cx, p.y - cy)
-                    if (d < r * 0.5f || d > r * 1.05f) {
-                        onSelect(null)
-                        return@detectTapGestures
-                    }
+                    if (d < r * 0.5f || d > r * 1.05f) return null
                     var angle = Math.toDegrees(atan2((p.y - cy).toDouble(), (p.x - cx).toDouble())).toFloat() + 90f
                     if (angle < 0) angle += 360f
                     var acc = 0f
                     for (s in slices) {
                         acc += s.value / total * 360f
-                        if (angle <= acc) {
-                            onSelect(s.key)
-                            return@detectTapGestures
-                        }
+                        if (angle <= acc) return s
                     }
+                    return null
                 }
+                detectTapGestures(
+                    onLongPress = { p -> hit(p)?.let { onLongPress(it.key) } },
+                    onTap = { p -> onSelect(hit(p)?.key) },
+                )
             },
         ) {
             val r = size.minDimension / 2f
@@ -136,6 +139,7 @@ fun HBarChart(
     modifier: Modifier = Modifier,
     textColor: Color = Color.White,
     track: Color = Color.White.copy(alpha = 0.12f),
+    onLongPress: (Long) -> Unit = {},
 ) {
     val max = slices.maxOfOrNull { it.value }?.takeIf { it > 0f } ?: 1f
     Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -146,7 +150,9 @@ fun HBarChart(
                 val dim = selected != null && selected != s.key
                 val fade = animateFloatAsState(if (dim) 0.35f else 1f, tween(250), label = "fade")
                 Row(
-                    Modifier.fillMaxWidth().clip(Pill).clickable { onSelect(if (selected == s.key) null else s.key) }.padding(horizontal = 6.dp, vertical = 2.dp),
+                    Modifier.fillMaxWidth().clip(Pill)
+                        .combinedClickable(onLongClick = { onLongPress(s.key) }) { onSelect(if (selected == s.key) null else s.key) }
+                        .padding(horizontal = 6.dp, vertical = 2.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     GlassIcon(s.emoji, s.color, size = 28.dp, onDark = textColor == Color.White)

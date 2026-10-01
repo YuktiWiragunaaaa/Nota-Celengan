@@ -9,6 +9,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -113,6 +114,7 @@ fun BubbleChart(
     onSelect: (Long) -> Unit,
     modifier: Modifier = Modifier,
     onDark: Boolean = true,
+    onLongPress: (Long) -> Unit = {},
 ) {
     val layout = remember(bubbles.map { it.key to it.weight }) { pack(bubbles.map { it.weight }) }
     val appear = remember { Animatable(0f) }
@@ -151,10 +153,11 @@ fun BubbleChart(
                         alpha = appear.value.coerceIn(0f, 1f)
                     }
                     .clip(CircleShape)
-                    .clickable(
+                    .combinedClickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
                         role = Role.Button,
+                        onLongClick = { onLongPress(b.key) },
                     ) { onSelect(b.key) }
                     .semantics { contentDescription = "${b.label}, ${b.value}" },
                 contentAlignment = Alignment.Center,

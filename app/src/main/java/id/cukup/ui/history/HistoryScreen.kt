@@ -53,6 +53,7 @@ import id.cukup.domain.TxType
 import id.cukup.ui.components.CardShape
 import id.cukup.ui.components.Choice
 import id.cukup.ui.components.DayBarChart
+import id.cukup.ui.components.CategoryLookDialog
 import id.cukup.ui.components.DonutChart
 import id.cukup.ui.components.Gutter
 import id.cukup.ui.components.HBarChart
@@ -139,7 +140,10 @@ class HistoryViewModel @Inject constructor(repository: MoneyRepository) : ViewMo
 }
 
 @Composable
-fun HistoryScreen(contentPadding: PaddingValues, onOpenTx: (Long) -> Unit, vm: HistoryViewModel = hiltViewModel()) {
+fun HistoryScreen(
+    contentPadding: PaddingValues, onOpenTx: (Long) -> Unit, vm: HistoryViewModel = hiltViewModel(),
+    app: id.cukup.ui.AppViewModel = hiltViewModel(),
+) {
     val s by vm.state.collectAsStateWithLifecycle()
     val c = colors
     var day by rememberSaveable(s.range) { mutableStateOf<Int?>(null) }
@@ -236,13 +240,17 @@ fun HistoryScreen(contentPadding: PaddingValues, onOpenTx: (Long) -> Unit, vm: H
                         Choice("Masuk", incomeView, { incomeView = true; picked = null })
                     }
                     Text(if (incomeView) s.incomeReading else s.reading, style = Type.bodySmall, color = c.mute, modifier = Modifier.padding(top = 8.dp, bottom = 12.dp))
+                    var recolor by rememberSaveable { mutableStateOf<Long?>(null) }
+                    cats.firstOrNull { it.category?.id == recolor }?.category?.let { cat ->
+                        CategoryLookDialog(cat, onDismiss = { recolor = null }) { app.saveCategory(it); recolor = null }
+                    }
                     val slices = cats.map { p -> Slice(p.category?.id ?: -1L, p.category?.name ?: "Tanpa kategori", p.category?.emoji ?: "🧾", p.amount.toFloat(), colorOf(p.category), Rupiah.short(p.amount)) }
                     AnimatedContent(breakdown, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "bd") { type ->
                         if (type == "BAR") {
-                            HBarChart(slices, picked, { picked = it }, textColor = c.ink, track = c.line)
+                            HBarChart(slices, picked, { picked = it }, textColor = c.ink, track = c.line, onLongPress = { recolor = it })
                         } else {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                DonutChart(slices, picked, { picked = it }, Modifier.height(150.dp).weight(1f), track = c.line) {
+                                DonutChart(slices, picked, { picked = it }, Modifier.height(150.dp).weight(1f), track = c.line, onLongPress = { recolor = it }) {
                                     val p = cats.firstOrNull { (it.category?.id ?: -1L) == picked }
                                     val total = cats.sumOf { it.amount }.coerceAtLeast(1)
                                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
