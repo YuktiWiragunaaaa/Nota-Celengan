@@ -58,12 +58,14 @@ class MainActivity : FragmentActivity() {
 
     private var openAdd by mutableStateOf(false)
     private var addCategory by mutableStateOf(0L)
+    private var openReport by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         openAdd = intent?.getBooleanExtra(EXTRA_ADD, false) ?: false
         addCategory = intent?.getLongExtra(EXTRA_CATEGORY, 0L) ?: 0L
+        openReport = intent?.getBooleanExtra(EXTRA_REPORT, false) ?: false
 
         setContent {
             val settings by settingsStore.settings.collectAsState(initial = null as Settings?)
@@ -78,7 +80,7 @@ class MainActivity : FragmentActivity() {
                 when {
                     s == null -> Box(Modifier.fillMaxSize().background(colors.paper))
                     s.biometricLock && s.pinHash.isNotEmpty() && LockState.locked -> LockScreen(s)
-                    else -> CukupNav(onboarded = s.onboarded, openAdd = openAdd, onAddHandled = { openAdd = false; addCategory = 0 }, addCategory = addCategory)
+                    else -> CukupNav(onboarded = s.onboarded, openAdd = openAdd, onAddHandled = { openAdd = false; addCategory = 0 }, addCategory = addCategory, openReport = openReport, onReportHandled = { openReport = false })
                 }
             }
         }
@@ -86,6 +88,7 @@ class MainActivity : FragmentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        if (intent.getBooleanExtra(EXTRA_REPORT, false)) openReport = true
         if (intent.getBooleanExtra(EXTRA_ADD, false)) {
             addCategory = intent.getLongExtra(EXTRA_CATEGORY, 0L)
             openAdd = true
@@ -145,5 +148,6 @@ class MainActivity : FragmentActivity() {
     companion object {
         const val EXTRA_ADD = "id.cukup.ADD"
         const val EXTRA_CATEGORY = "id.cukup.CATEGORY"
+        const val EXTRA_REPORT = "id.cukup.REPORT"
     }
 }

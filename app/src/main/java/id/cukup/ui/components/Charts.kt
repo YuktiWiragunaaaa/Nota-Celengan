@@ -50,6 +50,24 @@ import kotlin.math.min
 /** Satu bagian grafik. */
 data class Slice(val key: Long, val label: String, val emoji: String, val value: Float, val color: Color, val valueText: String)
 
+/** Kunci irisan gabungan "Lainnya". */
+const val OTHER_KEY = -2L
+
+/**
+ * Banyak kategori membuat donat terpecah jadi serpihan yang tidak terbaca. Yang kecil-kecil digabung
+ * jadi satu irisan: paling banyak [max] irisan, dan yang di bawah 4% ikut digabung.
+ */
+fun List<Slice>.merged(max: Int = 6, color: Color, text: (Float) -> String): List<Slice> {
+    val total = sumOf { it.value.toDouble() }.toFloat()
+    if (size <= 3 || total <= 0f) return this
+    val sorted = sortedByDescending { it.value }
+    val keep = sorted.take(max - 1).filter { it.value / total >= 0.04f }.ifEmpty { sorted.take(1) }
+    val rest = sorted.drop(keep.size)
+    if (rest.size < 2) return this
+    val sum = rest.sumOf { it.value.toDouble() }.toFloat()
+    return keep + Slice(OTHER_KEY, "${rest.size} lainnya", "🧾", sum, color, text(sum))
+}
+
 /**
  * Donat interaktif. Sentuh irisan untuk memilih; irisan terpilih menebal, yang lain meredup.
  * [center] digambar di tengah lubang.

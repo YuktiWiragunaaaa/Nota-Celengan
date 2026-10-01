@@ -99,6 +99,8 @@ import id.cukup.notif.MoneyNotificationListener
 import id.cukup.ui.settings.span
 import id.cukup.ui.components.AmountDialog
 import id.cukup.ui.components.CardShape
+import id.cukup.ui.components.OTHER_KEY
+import id.cukup.ui.components.merged
 import id.cukup.ui.components.CategoryLookDialog
 import id.cukup.ui.components.LineButton
 import id.cukup.ui.components.Hairline
@@ -421,13 +423,25 @@ private fun SpendingChart(
                 modifier = Modifier.fillMaxSize().padding(horizontal = 28.dp, vertical = 8.dp),
                 onLongPress = onRecolor,
             )
-            else -> DonutChart(slices, selected, pick, Modifier.fillMaxSize().padding(vertical = 16.dp), onLongPress = onRecolor) {
+            else -> {
+                // Kategori kecil-kecil digabung supaya donat tidak pecah jadi serpihan.
+                val donut = remember(slices) { slices.merged(color = Color.White.copy(alpha = 0.38f)) { Rupiah.short(it.toLong()) } }
+                val other = donut.lastOrNull()?.takeIf { it.key == OTHER_KEY && selected == OTHER_KEY }
+                DonutChart(donut, selected, pick, Modifier.fillMaxSize().padding(vertical = 16.dp), onLongPress = onRecolor) {
                 val p = parts.firstOrNull { (it.category?.id ?: -1L) == selected }
+                if (other != null) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(other.label, style = Type.label, color = Color.White.copy(alpha = 0.72f))
+                        Text(other.valueText, style = Type.title, color = Color.White)
+                        Text("lihat di grafik batang", style = Type.label, color = Color.White.copy(alpha = 0.6f))
+                    }
+                } else
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     GlassIcon(p?.category?.emoji ?: "🧾", Color.White, size = 36.dp, onDark = true)
                     Text(p?.category?.name ?: if (income) "Total masuk" else "Total keluar", style = Type.label, color = Color.White.copy(alpha = 0.72f))
                     Text(Rupiah.short(p?.amount ?: if (income) o.totals.income else o.totals.expense), style = Type.title, color = Color.White)
                 }
+            }
             }
         }
     }

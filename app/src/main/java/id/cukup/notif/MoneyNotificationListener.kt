@@ -30,6 +30,7 @@ class MoneyNotificationListener : NotificationListenerService() {
 
     @Inject lateinit var repository: MoneyRepository
     @Inject lateinit var log: NoticeLog
+    @Inject lateinit var paydayReport: id.cukup.data.PaydayReport
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var beat: Job? = null
@@ -46,6 +47,8 @@ class MoneyNotificationListener : NotificationListenerService() {
             while (isActive) {
                 delay(NoticeLog.BEAT_MS)
                 log.beat(System.currentTimeMillis())
+                // Selagi pembaca hidup, sekalian periksa apakah sudah tanggal gajian.
+                runCatching { paydayReport.check() }
             }
         }
         // Susul notifikasi yang datang selagi Cukup dimatikan sistem dan masih ada di panel notifikasi.

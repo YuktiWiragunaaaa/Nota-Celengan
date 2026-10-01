@@ -59,6 +59,7 @@ import id.cukup.ui.components.Gutter
 import id.cukup.ui.components.InfoBox
 import id.cukup.ui.components.InkButton
 import id.cukup.ui.components.LineField
+import id.cukup.ui.components.Link
 import id.cukup.ui.components.LineButton
 import id.cukup.ui.components.LookPicker
 import id.cukup.ui.components.Option
@@ -76,7 +77,7 @@ import id.cukup.ui.theme.colors
  * Tidak ada uang yang dipindah di sini.
  */
 @Composable
-fun PlanScreen(contentPadding: PaddingValues, onEditPlan: () -> Unit, vm: AppViewModel = hiltViewModel()) {
+fun PlanScreen(contentPadding: PaddingValues, onEditPlan: () -> Unit, onOpenReport: () -> Unit, vm: AppViewModel = hiltViewModel()) {
     val o by vm.overview.collectAsStateWithLifecycle()
     val c = colors
     val data = o ?: return
@@ -95,6 +96,8 @@ fun PlanScreen(contentPadding: PaddingValues, onEditPlan: () -> Unit, vm: AppVie
             ),
             Modifier.padding(horizontal = Gutter),
         )
+        Spacer(Modifier.height(8.dp))
+        Link("Laporan periode lalu", "Pengeluaran terbanyak, kesimpulan, dan saran. Dikirim juga tiap tanggal gajian.", leading = "🧾", onClick = onOpenReport)
 
         if (data.plan.isEmpty()) {
             SectionHeader("Pilih cara membagi")

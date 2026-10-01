@@ -14,6 +14,7 @@ import javax.inject.Inject
 class CukupApp : Application() {
 
     @Inject lateinit var backup: Backup
+    @Inject lateinit var paydayReport: id.cukup.data.PaydayReport
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -25,6 +26,7 @@ class CukupApp : Application() {
             delay(5_000)
             runCatching { backup.autoBackup() }
                 .onFailure { android.util.Log.w("Cukup", "Cadangan otomatis gagal", it) }
+            runCatching { paydayReport.check() }
         }
     }
 }

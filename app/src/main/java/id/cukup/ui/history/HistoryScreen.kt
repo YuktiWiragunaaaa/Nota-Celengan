@@ -55,6 +55,7 @@ import id.cukup.ui.components.Choice
 import id.cukup.ui.components.DayBarChart
 import id.cukup.ui.components.CategoryLookDialog
 import id.cukup.ui.components.DonutChart
+import id.cukup.ui.components.merged
 import id.cukup.ui.components.Gutter
 import id.cukup.ui.components.HBarChart
 import id.cukup.ui.components.Id
@@ -250,7 +251,7 @@ fun HistoryScreen(
                             HBarChart(slices, picked, { picked = it }, textColor = c.ink, track = c.line, onLongPress = { recolor = it })
                         } else {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                DonutChart(slices, picked, { picked = it }, Modifier.height(150.dp).weight(1f), track = c.line, onLongPress = { recolor = it }) {
+                                DonutChart(slices.merged(color = c.faint) { Rupiah.short(it.toLong()) }, picked, { picked = it }, Modifier.height(150.dp).weight(1f), track = c.line, onLongPress = { recolor = it }) {
                                     val p = cats.firstOrNull { (it.category?.id ?: -1L) == picked }
                                     val total = cats.sumOf { it.amount }.coerceAtLeast(1)
                                     Column(horizontalAlignment = Alignment.CenterHorizontally) {

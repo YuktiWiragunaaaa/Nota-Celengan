@@ -68,6 +68,7 @@ import id.cukup.ui.onboarding.OnboardingScreen
 import id.cukup.ui.settings.ProfileScreen
 import id.cukup.ui.review.InboxScreen
 import id.cukup.ui.review.TxDetailScreen
+import id.cukup.ui.plan.ReportScreen
 import id.cukup.ui.settings.AutoScreen
 import id.cukup.ui.settings.SettingsScreen
 import id.cukup.ui.theme.Type
@@ -88,6 +89,7 @@ private object Routes {
     const val CATEGORIES = "categories"
     const val HELP = "help"
     const val AUTO = "auto"
+    const val REPORT = "report"
 
     fun add(type: TxType = TxType.EXPENSE, account: Long = 0, edit: Long = 0, category: Long = 0) =
         "add?type=${type.name}&account=$account&edit=$edit&category=$category"
@@ -105,7 +107,10 @@ private val tabs = listOf(
 )
 
 @Composable
-fun CukupNav(onboarded: Boolean, openAdd: Boolean, onAddHandled: () -> Unit, addCategory: Long = 0) {
+fun CukupNav(
+    onboarded: Boolean, openAdd: Boolean, onAddHandled: () -> Unit, addCategory: Long = 0,
+    openReport: Boolean = false, onReportHandled: () -> Unit = {},
+) {
     val nav = rememberNavController()
     val entry by nav.currentBackStackEntryAsState()
     val route = entry?.destination?.route
@@ -118,6 +123,13 @@ fun CukupNav(onboarded: Boolean, openAdd: Boolean, onAddHandled: () -> Unit, add
         if (openAdd && onboarded) {
             nav.navigate(Routes.add(category = addCategory))
             onAddHandled()
+        }
+    }
+
+    LaunchedEffect(openReport, onboarded) {
+        if (openReport && onboarded) {
+            nav.navigate(Routes.REPORT)
+            onReportHandled()
         }
     }
 
@@ -157,7 +169,7 @@ fun CukupNav(onboarded: Boolean, openAdd: Boolean, onAddHandled: () -> Unit, add
                 )
             }
             composable(Routes.HISTORY) { HistoryScreen(tabPadding, onOpenTx = openTx) }
-            composable(Routes.PLAN) { PlanScreen(tabPadding, onEditPlan = { nav.navigate(Routes.PLAN_EDIT) }) }
+            composable(Routes.PLAN) { PlanScreen(tabPadding, onEditPlan = { nav.navigate(Routes.PLAN_EDIT) }, onOpenReport = { nav.navigate(Routes.REPORT) }) }
             composable(Routes.SETTINGS) {
                 SettingsScreen(
                     tabPadding,
@@ -198,6 +210,7 @@ fun CukupNav(onboarded: Boolean, openAdd: Boolean, onAddHandled: () -> Unit, add
             composable(Routes.CATEGORIES) { CategoriesScreen(onBack = { nav.popBackStack() }) }
             composable(Routes.HELP) { HelpScreen(onBack = { nav.popBackStack() }) }
             composable(Routes.AUTO) { AutoScreen(onBack = { nav.popBackStack() }, onOpenInbox = { nav.navigate(Routes.INBOX) }) }
+            composable(Routes.REPORT) { ReportScreen(onBack = { nav.popBackStack() }, onOpenPlan = { nav.popBackStack(); nav.switchTab(Routes.PLAN) }) }
             composable(Routes.PROFILE) {
                 ProfileScreen(
                     onBack = { nav.popBackStack() },

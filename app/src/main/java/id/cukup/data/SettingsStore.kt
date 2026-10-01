@@ -49,6 +49,8 @@ data class Settings(
     val avatarVersion: Long = 0,
     /** Peringatan terakhir yang sudah dikirim: "<awal periode>:<tingkat>", agar tidak berulang. */
     val lastAlert: String = "",
+    /** Awal periode gajian terakhir yang laporannya sudah dikirim. */
+    val lastReport: String = "",
 )
 
 private val Context.dataStore by preferencesDataStore("settings")
@@ -71,6 +73,7 @@ class SettingsStore @Inject constructor(@ApplicationContext private val context:
         val appLinks = stringPreferencesKey("app_links")
         val budgetAlerts = booleanPreferencesKey("budget_alerts")
         val lastAlert = stringPreferencesKey("last_alert")
+        val lastReport = stringPreferencesKey("last_report")
         val singleLimit = longPreferencesKey("single_limit")
         val basisMode = stringPreferencesKey("plan_basis_mode")
         val basisAmount = longPreferencesKey("plan_basis_amount")
@@ -102,6 +105,7 @@ class SettingsStore @Inject constructor(@ApplicationContext private val context:
         }.toMap(),
         budgetAlerts = p[K.budgetAlerts] ?: true,
         lastAlert = p[K.lastAlert] ?: "",
+        lastReport = p[K.lastReport] ?: "",
         singleLimit = p[K.singleLimit] ?: 0,
         planBasis = PlanBasis(
             mode = p[K.basisMode]?.let { runCatching { PlanBasis.Mode.valueOf(it) }.getOrNull() } ?: PlanBasis.Mode.FIXED,
@@ -138,6 +142,7 @@ class SettingsStore @Inject constructor(@ApplicationContext private val context:
             p[K.appLinks] = next.appLinks.entries.joinToString(";") { "${it.key}=${it.value}" }
             p[K.budgetAlerts] = next.budgetAlerts
             p[K.lastAlert] = next.lastAlert
+            p[K.lastReport] = next.lastReport
             p[K.singleLimit] = next.singleLimit
             p[K.basisMode] = next.planBasis.mode.name
             p[K.basisAmount] = next.planBasis.fixedAmount
