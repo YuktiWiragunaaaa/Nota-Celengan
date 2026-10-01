@@ -167,11 +167,18 @@ fun BubbleChart(
                     val glow = if (isSelected || bubbles.size == 1) 1f else 0.75f
                     // Liquid glass: badan kaca bening, warna kategori hanya jadi inti bercahaya di tengah.
                     drawCircle(
-                        Brush.radialGradient(
+                        if (onDark) Brush.radialGradient(
                             0f to b.color.copy(alpha = 0.85f * glow),
                             0.3f to b.color.copy(alpha = 0.55f * glow),
                             0.7f to b.color.copy(alpha = 0.10f * glow),
-                            1f to Color.White.copy(alpha = if (onDark) 0.08f else 0.05f),
+                            1f to Color.White.copy(alpha = 0.08f),
+                            center = center, radius = r,
+                        ) else Brush.radialGradient(
+                            // Di latar terang kacanya berwarna penuh: inti pekat, tepi tetap berwarna, tidak memudar ke abu-abu.
+                            0f to b.color.copy(alpha = 0.95f * glow),
+                            0.5f to b.color.copy(alpha = 0.78f * glow),
+                            0.85f to b.color.copy(alpha = 0.42f * glow),
+                            1f to b.color.copy(alpha = 0.30f * glow),
                             center = center, radius = r,
                         ),
                     )
@@ -180,11 +187,11 @@ fun BubbleChart(
                         drawArc(b.color.copy(alpha = 0.45f * glow), -90f, 360f * fill, useCenter = true)
                     }
                     // Bayangan lembut di bawah supaya terasa bervolume.
-                    drawCircle(Brush.verticalGradient(0.6f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.18f)))
+                    drawCircle(Brush.verticalGradient(0.6f to Color.Transparent, 1f to Color.Black.copy(alpha = if (onDark) 0.18f else 0.06f)))
                     // Kilau kaca di kiri atas.
                     drawCircle(
                         Brush.radialGradient(
-                            0f to Color.White.copy(alpha = 0.38f),
+                            0f to Color.White.copy(alpha = if (onDark) 0.38f else 0.55f),
                             1f to Color.Transparent,
                             center = Offset(this.size.width * 0.34f, this.size.height * 0.26f), radius = r * 0.55f,
                         ),
@@ -197,7 +204,7 @@ fun BubbleChart(
                     )
                 }
                 val big = rPx > with(density) { 46.dp.toPx() }
-                val textColor = if (onDark) Color.White else Color(0xFF17110E)
+                val textColor = if (onDark) Color.White else Color(0xFF0B1B33)
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     val glyph = glyphOf(b.emoji)
                     if (glyph != null) androidx.compose.material3.Icon(glyph, null, tint = textColor, modifier = Modifier.size(if (big) 22.dp else 18.dp))

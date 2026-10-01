@@ -51,6 +51,12 @@ data class CukupColors(
     fun of(color: Int?, index: Int): Color = color?.let { Color(it) } ?: pocket(index)
 
     val brandBrush: Brush get() = Brush.verticalGradient(brand)
+
+    /** Sapuan lembut di belakang saldo Beranda; memudar ke warna halaman. */
+    val heroBrush: Brush
+        get() = Brush.verticalGradient(
+            if (isDark) listOf(Color(0xFF0D2548), Color(0xFF0A1830), paper) else listOf(Color(0xFFD6E6FB), Color(0xFFE9F1FC), paper),
+        )
 }
 
 /** Warna yang bisa dipilih untuk kantong. Cerah, terbaca di atas gradien dan di atas putih. */

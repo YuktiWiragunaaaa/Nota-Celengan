@@ -115,8 +115,8 @@ fun CukupNav(
     val entry by nav.currentBackStackEntryAsState()
     val route = entry?.destination?.route
     val showBar = route in tabs.map { it.route }
-    // Layar bergradien memakai ikon status bar terang.
-    LightStatusBarIcons(light = route == Routes.HOME || route == Routes.PROFILE)
+    // Layar bergradien gelap memakai ikon status bar terang; Beranda sekarang mengikuti tema.
+    LightStatusBarIcons(light = route == Routes.PROFILE)
     val c = colors
 
     LaunchedEffect(openAdd, onboarded) {

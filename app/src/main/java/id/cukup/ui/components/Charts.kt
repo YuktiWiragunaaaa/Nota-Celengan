@@ -277,15 +277,15 @@ fun DayBarChart(
 /** Pilihan jenis grafik: ikon kecil dalam pil. */
 @Composable
 fun ChartSwitch(options: List<Pair<String, androidx.compose.ui.graphics.vector.ImageVector>>, current: String, onPick: (String) -> Unit, modifier: Modifier = Modifier) {
-    Row(modifier.clip(Pill).background(Color.White.copy(alpha = 0.14f)).padding(3.dp)) {
+    Row(modifier.clip(Pill).background(colors.surface).padding(3.dp)) {
         options.forEach { (id, icon) ->
             val on = id == current
             Box(
-                Modifier.clip(Pill).background(if (on) Color.White else Color.Transparent).clickable { onPick(id) }
+                Modifier.clip(Pill).background(if (on) colors.accent else Color.Transparent).clickable { onPick(id) }
                     .padding(horizontal = 12.dp, vertical = 6.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                androidx.compose.material3.Icon(icon, id, tint = if (on) colors.accent else Color.White, modifier = Modifier.width(18.dp).height(18.dp))
+                androidx.compose.material3.Icon(icon, id, tint = if (on) Color.White else colors.mute, modifier = Modifier.width(18.dp).height(18.dp))
             }
         }
     }
