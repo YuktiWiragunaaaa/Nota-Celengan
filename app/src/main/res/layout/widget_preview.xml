@@ -49,7 +49,8 @@
             android:textColor="#EEF3FA"
             android:textSize="12sp" />
 
-        <View
+        <!-- Pengisi ruang. Harus TextView: pratinjau widget hanya boleh berisi jenis tampilan yang didukung widget, dan View polos tidak termasuk. -->
+        <TextView
             android:layout_width="0dp"
             android:layout_height="1dp"
             android:layout_weight="1" />
