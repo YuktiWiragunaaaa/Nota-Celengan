@@ -310,9 +310,35 @@ class MoneyRepository @Inject constructor(
             note(NoticeLog.Result.SKIPPED, NotificationParser.whySkipped(packageName, title, text) ?: "Tidak terbaca")
             return@withLock false
         }
-        val s = settingsStore.current()
+        var s = settingsStore.current()
         if (!s.onboarded) return@withLock false
-        val accounts = dao.accounts().map { it.toDomain() }
+        var accounts = dao.accounts().map { it.toDomain() }
+        // Tiap bank/e-wallet punya dompetnya sendiri tanpa perlu diatur: kalau belum ada dompet untuk merek ini,
+        // pakai dompet umum sejenis yang belum dipakai merek lain, atau buat dompet baru bernama merek itu.
+        var createdWallet = false
+        val brand = Brands.forPackage(packageName)
+        if (brand != null && !parsed.isPaylater) {
+            val named = accounts.any { Brands.forAccountName(it.name)?.key == brand.key }
+            val linked = s.appLinks[brand.key]?.let { id -> accounts.any { it.id == id } } == true
+            if (!named && !linked) {
+                val free = accounts.filter { it.kind == brand.kind && Brands.forAccountName(it.name) == null }.firstOrNull { g ->
+                    s.appLinks.none { (key, id) -> id == g.id && key != brand.key } &&
+                        dao.notifiedApps(g.id).all { it == parsed.appLabel }
+                }
+                val target = free?.id ?: run {
+                    createdWallet = true
+                    dao.upsertAccount(
+                        AccountEntity(
+                            name = brand.name, emoji = if (brand.kind == AccountKind.BANK) "🏦" else "👛", kind = brand.kind.name,
+                            initialBalance = 0, sortOrder = accounts.size,
+                        ),
+                    )
+                }
+                settingsStore.update { it.copy(appLinks = it.appLinks + (brand.key to target)) }
+                s = settingsStore.current()
+                accounts = dao.accounts().map { it.toDomain() }
+            }
+        }
         val account = guessAccount(packageName, accounts, parsed.isPaylater, s)
         // Yakin = dompet tertaut/bernama brand ini/satu-satunya sejenis. Kalau hanya tebakan, jangan disimpan diam-diam.
         val confident = account != null && (parsed.isPaylater || Brands.accountFor(packageName, accounts, s.appLinks) == account)
@@ -385,7 +411,10 @@ class MoneyRepository @Inject constructor(
         val label = "${if (type == TxType.INCOME) "Masuk" else if (type == TxType.TRANSFER) "Pindah" else "Keluar"} ${Rupiah.format(parsed.amount)}"
         when {
             !saved -> note(NoticeLog.Result.SKIPPED, "Sudah pernah dicatat")
-            auto -> note(NoticeLog.Result.RECORDED, "$label · ${account?.let(names::get).orEmpty()}")
+            auto -> note(
+                NoticeLog.Result.RECORDED,
+                "$label · ${account?.let(names::get).orEmpty()}" + if (createdWallet) " · dompet ini baru dibuat otomatis, samakan saldonya sekali" else "",
+            )
             account == null -> note(NoticeLog.Result.PENDING, "$label · belum ada dompet untuk $appName. Buat dompetnya atau tautkan di halaman dompet.")
             !confident -> note(NoticeLog.Result.PENDING, "$label · dompetnya masih tebakan. Tautkan $appName ke dompet yang benar.")
             duplicate -> note(NoticeLog.Result.PENDING, "$label · mirip catatan lain, mungkin dobel")
@@ -402,7 +431,7 @@ class MoneyRepository @Inject constructor(
                 }
                 val where = if (tx.type == TxType.TRANSFER) "${account?.let(names::get).orEmpty()} → ${mentioned?.let(names::get).orEmpty()}"
                 else listOf(account?.let(names::get).orEmpty(), category?.name.orEmpty(), tx.merchant).filter { it.isNotBlank() }.joinToString(" · ")
-                notice.post(newId, "$what ${Rupiah.format(tx.amount)}", where, RecordedNotice.Undo.DELETE)
+                notice.post(newId, "$what ${Rupiah.format(tx.amount)}", where + if (createdWallet) " · dompet baru, samakan saldonya" else "", RecordedNotice.Undo.DELETE)
             }
         }
         saved

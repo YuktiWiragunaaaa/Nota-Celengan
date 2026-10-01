@@ -79,6 +79,10 @@ interface CukupDao {
     )
     suspend fun findNotified(amount: Long, type: String, from: Long, to: Long): List<TransactionEntity>
 
+    /** Aplikasi yang notifikasinya pernah dicatat ke dompet ini. */
+    @Query("SELECT DISTINCT sourceApp FROM transactions WHERE accountId = :accountId AND source = 'NOTIFICATION' AND sourceApp IS NOT NULL")
+    suspend fun notifiedApps(accountId: Long): List<String>
+
     /** Duplikat sungguhan: nominal, jenis, dan dompet sama dalam rentang waktu. */
     @Query(
         "SELECT COUNT(*) FROM transactions WHERE amount = :amount AND type = :type AND accountId IS :accountId " +
