@@ -271,7 +271,20 @@ fun AccountForm(initial: Account, isNew: Boolean, onBack: () -> Unit, onSave: (A
                 )
             }
             Spacer(Modifier.height(16.dp))
-            LookPicker(emoji, color, { emoji = it }, { color = it }, fallback = colorOf(initial))
+            // Dompet bermerek (BCA, GoPay, ...) selalu tampil dengan logo atau monogram mereknya, jadi memilih ikon di sini tidak berpengaruh.
+            val brand = Brands.forAccountName(name)
+            if (brand != null) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    GlassIcon("🏦", Color(brand.color.toInt()), size = 44.dp, mark = brand.mark)
+                    Spacer(Modifier.width(12.dp))
+                    Text(
+                        "Dikenali sebagai ${brand.name}, jadi memakai logonya. Ikon dan warna tidak perlu dipilih.",
+                        style = Type.bodySmall, color = c.mute,
+                    )
+                }
+            } else {
+                LookPicker(emoji, color, { emoji = it }, { color = it }, fallback = colorOf(initial))
+            }
             Spacer(Modifier.height(24.dp))
         }
         InkButton(
