@@ -7,6 +7,8 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import kotlinx.coroutines.delay
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -161,10 +163,17 @@ fun HBarChart(
 ) {
     val max = slices.maxOfOrNull { it.value }?.takeIf { it > 0f } ?: 1f
     Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        slices.forEach { s ->
+        slices.forEachIndexed { index, s ->
             key(s.key) {
                 // State animasi dibaca di drawBehind (fase gambar), bukan saat menyusun layout.
                 val grow = animateFloatAsState(s.value / max, spring(dampingRatio = 0.75f, stiffness = 120f), label = "bar")
+                // Masuk bergiliran dari atas: tiap batang tumbuh dari nol sedikit setelah batang sebelumnya.
+                val appear = remember { Animatable(0f) }
+                LaunchedEffect(Unit) {
+                    delay(70L * index)
+                    appear.animateTo(1f, spring(dampingRatio = 0.7f, stiffness = 110f))
+                }
+                val thick = animateFloatAsState(if (selected == s.key) 1f else 0.72f, spring(dampingRatio = 0.6f, stiffness = 300f), label = "thick")
                 val dim = selected != null && selected != s.key
                 val fade = animateFloatAsState(if (dim) 0.35f else 1f, tween(250), label = "fade")
                 Row(
@@ -187,11 +196,13 @@ fun HBarChart(
                         Box(Modifier.fillMaxWidth().height(10.dp).clip(Pill).background(track)) {
                             Box(
                                 Modifier.fillMaxSize().drawBehind {
-                                    val w = size.width * grow.value.coerceIn(0.02f, 1f)
+                                    val w = size.width * (grow.value * appear.value).coerceIn(0.02f, 1f)
                                     val a = fade.value
+                                    val h = size.height * thick.value
                                     drawRoundRect(
                                         Brush.horizontalGradient(listOf(s.color.copy(alpha = 0.55f * a), s.color.copy(alpha = a)), endX = w),
-                                        size = Size(w, size.height), cornerRadius = CornerRadius(size.height / 2, size.height / 2),
+                                        topLeft = Offset(0f, (size.height - h) / 2),
+                                        size = Size(w, h), cornerRadius = CornerRadius(h / 2, h / 2),
                                     )
                                 },
                             )
@@ -219,7 +230,8 @@ fun DayBarChart(
     limitColor: Color = Color.Gray,
 ) {
     val grow = remember { Animatable(0f) }
-    LaunchedEffect(values) { grow.snapTo(0f); grow.animateTo(1f, spring(dampingRatio = 0.7f, stiffness = 90f)) }
+    LaunchedEffect(values) { grow.snapTo(0f); grow.animateTo(1f, tween(900, easing = LinearEasing)) }
+    val pop = animateFloatAsState(if (selected != null) 1f else 0f, spring(dampingRatio = 0.55f, stiffness = 320f), label = "pop")
     val max = (values.maxOrNull() ?: 0L).coerceAtLeast(limitPerDay).coerceAtLeast(1L)
     Column(modifier) {
         Box(Modifier.fillMaxWidth().weight(1f)) {
@@ -245,9 +257,12 @@ fun DayBarChart(
                     }
                 }
                 values.forEachIndexed { i, v ->
-                    val bh = (h * (v.toFloat() / max) * grow.value).coerceAtLeast(if (v > 0) 3.dp.toPx() else 2.dp.toPx())
-                    val left = slot * i + (slot - barW) / 2
+                    // Gelombang: batang kiri mulai lebih dulu, tiap batang punya kurva naiknya sendiri.
+                    val wave = FastOutSlowInEasing.transform(((grow.value - 0.5f * i / n) / 0.5f).coerceIn(0f, 1f))
                     val isSel = selected == i
+                    val bw = if (isSel) barW * (1f + 0.18f * pop.value) else barW
+                    val bh = (h * (v.toFloat() / max) * wave).coerceAtLeast(if (v > 0) 3.dp.toPx() else 2.dp.toPx())
+                    val left = slot * i + (slot - bw) / 2
                     val color = when {
                         v == 0L -> faint
                         selected != null && !isSel -> barColor.copy(alpha = 0.35f)
@@ -256,7 +271,7 @@ fun DayBarChart(
                     val top = topPad + h - bh
                     drawRoundRect(
                         Brush.verticalGradient(listOf(color, color.copy(alpha = color.alpha * 0.45f)), startY = top, endY = top + bh),
-                        Offset(left, top), Size(barW, bh), CornerRadius(barW / 2, barW / 2),
+                        Offset(left, top), Size(bw, bh), CornerRadius(bw / 2, bw / 2),
                     )
                 }
             }

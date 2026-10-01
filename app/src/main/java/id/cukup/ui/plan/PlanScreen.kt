@@ -59,7 +59,11 @@ import id.cukup.ui.components.Eyebrow
 import id.cukup.ui.components.Gutter
 import id.cukup.ui.components.InfoBox
 import id.cukup.ui.components.InkButton
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import id.cukup.ui.components.Hairline
 import id.cukup.ui.components.LineField
+import id.cukup.ui.components.ScheduleEditor
+import id.cukup.ui.components.describe
 import id.cukup.ui.components.Link
 import id.cukup.ui.components.LineButton
 import id.cukup.ui.components.LookPicker
@@ -84,6 +88,7 @@ fun PlanScreen(contentPadding: PaddingValues, onEditPlan: () -> Unit, onOpenRepo
     val data = o ?: return
     var editBasis by remember { mutableStateOf(false) }
     var confirmClear by remember { mutableStateOf(false) }
+    var editSchedule by remember { mutableStateOf(false) }
     var goalEditing by remember { mutableStateOf<Goal?>(null) }
     var goalAdding by remember { mutableStateOf<Goal?>(null) }
 
@@ -98,6 +103,7 @@ fun PlanScreen(contentPadding: PaddingValues, onEditPlan: () -> Unit, onOpenRepo
             Modifier.padding(horizontal = Gutter),
         )
         Spacer(Modifier.height(8.dp))
+        PayRules(data, onIncome = { editBasis = true }, onSchedule = { editSchedule = true }, onSplit = onEditPlan)
         Link("Laporan periode lalu", "Pengeluaran terbanyak, kesimpulan, dan saran. Dikirim juga tiap tanggal gajian.", leading = "🧾", onClick = onOpenReport)
 
         if (data.plan.isEmpty()) {
@@ -130,10 +136,8 @@ fun PlanScreen(contentPadding: PaddingValues, onEditPlan: () -> Unit, onOpenRepo
                 }
             }
         } else {
-            // Uang yang dibagi hanya dipakai pos berpersen.
-            if (data.plan.any { !it.fixed }) Basis(data) { editBasis = true }
             Totals(data)
-            SectionHeader("Pos rencana", trailing = { TextAction("Ubah", onEditPlan) })
+            SectionHeader("Rencana", trailing = { TextAction("Ubah", onEditPlan) })
             data.planStatus.rows.forEach { row -> PosRow(row, data) }
             Row(Modifier.padding(horizontal = Gutter, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 LineButton("Ubah rencana", onEditPlan, Modifier.weight(1f), height = 44.dp)
@@ -146,11 +150,22 @@ fun PlanScreen(contentPadding: PaddingValues, onEditPlan: () -> Unit, onOpenRepo
     }
 
     if (editBasis) BasisDialog(data, onDismiss = { editBasis = false }) { vm.setPlanBasis(it); editBasis = false }
+    if (editSchedule) {
+        var draft by remember { mutableStateOf(data.settings.schedule) }
+        AlertDialog(
+            onDismissRequest = { editSchedule = false },
+            title = { Text("Tanggal gajian", style = Type.title) },
+            text = { Column(Modifier.verticalScroll(rememberScrollState())) { ScheduleEditor(draft, { draft = it }) } },
+            confirmButton = { TextButton({ vm.settings { it.copy(schedule = draft) }; editSchedule = false }) { Text("Simpan", color = c.ink) } },
+            dismissButton = { TextButton({ editSchedule = false }) { Text("Batal", color = c.mute) } },
+            containerColor = c.card,
+        )
+    }
     if (confirmClear) {
         AlertDialog(
             onDismissRequest = { confirmClear = false },
             title = { Text("Hapus rencana?", style = Type.title) },
-            text = { Text("Pos rencana dihapus. Catatan dan saldo dompet tidak berubah sama sekali.", style = Type.body) },
+            text = { Text("Rencana dihapus. Catatan dan saldo dompet tidak berubah sama sekali.", style = Type.body) },
             confirmButton = { TextButton({ vm.clearPlan(); confirmClear = false }) { Text("Hapus", color = c.over) } },
             dismissButton = { TextButton({ confirmClear = false }) { Text("Batal", color = c.ink) } },
             containerColor = c.card,
@@ -167,6 +182,49 @@ fun PlanScreen(contentPadding: PaddingValues, onEditPlan: () -> Unit, onOpenRepo
             "Isi berapa yang sudah kamu sisihkan. Ini hanya catatan target; saldo dompet tidak berubah.",
             0, onDismiss = { goalAdding = null }, allowNegative = true, confirmText = "Tambah",
         ) { vm.addToGoal(g.id, it); goalAdding = null }
+    }
+}
+
+/**
+ * Aturan gaji: tiga hal yang menentukan seluruh rencana, di satu kartu.
+ * Pendapatan = uang yang dibagi, tanggal gajian = kapan periode mulai, pembagian = batas tiap pos.
+ */
+@Composable
+private fun PayRules(o: Overview, onIncome: () -> Unit, onSchedule: () -> Unit, onSplit: () -> Unit) {
+    val c = colors
+    val b = o.settings.planBasis
+    Column(Modifier.padding(horizontal = Gutter).padding(top = 14.dp, bottom = 6.dp).fillMaxWidth().cardSurface()) {
+        Eyebrow("Aturan gaji", Modifier.padding(start = 16.dp, top = 14.dp), color = c.accent)
+        RuleRow(
+            "Pendapatan",
+            Rupiah.format(o.planStatus.basis) + when (b.mode) {
+                PlanBasis.Mode.FIXED -> " · angka tetap"
+                PlanBasis.Mode.LAST_PERIOD -> " · dari uang masuk periode lalu"
+                PlanBasis.Mode.THIS_PERIOD -> " · dari uang masuk periode ini"
+            },
+            warn = o.planStatus.basis <= 0 && o.plan.any { !it.fixed },
+            onClick = onIncome,
+        )
+        Hairline(Modifier.padding(horizontal = 16.dp))
+        RuleRow("Tanggal gajian", o.settings.schedule.describe() + " · awal tiap periode", onClick = onSchedule)
+        Hairline(Modifier.padding(horizontal = 16.dp))
+        RuleRow(
+            "Pembagian",
+            if (o.plan.isEmpty()) "Belum diatur. Ketuk untuk membagi uangmu." else o.plan.joinToString(" · ") { "${it.name} ${it.share}" },
+            onClick = onSplit,
+        )
+    }
+}
+
+@Composable
+private fun RuleRow(title: String, value: String, warn: Boolean = false, onClick: () -> Unit) {
+    val c = colors
+    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(title, style = Type.strong, color = c.ink)
+            Text(value, style = Type.bodySmall, color = if (warn) c.caution else c.mute)
+        }
+        Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = c.faint)
     }
 }
 
