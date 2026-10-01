@@ -90,7 +90,7 @@ class CukupWidget : GlanceAppWidget() {
             // Ikuti aliran data: sesi Glance bisa hidup lama, jadi nilai sekali-muat akan basi.
             val state = repo.overview.collectAsState(initial = first)
             val o = state.value
-            widgetTheme = o?.settings?.theme ?: "LIGHT"
+            widgetTheme = o?.settings?.theme ?: "DARK"
             // Kunci PIN aktif = saldo tidak ditampilkan di layar utama (bisa dimatikan di Setelan).
             val hidden = o?.settings?.let { it.biometricLock && it.pinHash.isNotEmpty() && it.widgetHide } ?: false
             val chips = remember(o, hidden) { o?.let { quickChips(context, it, hidden) } ?: emptyList() }
@@ -189,13 +189,13 @@ class QuickLogAction : ActionCallback {
     }
 }
 
-/** Tema widget mengikuti setelan aplikasi (LIGHT bawaan, DARK, atau SYSTEM = ikut HP). */
-@Volatile private var widgetTheme = "LIGHT"
+/** Tema widget mengikuti setelan aplikasi (DARK bawaan, LIGHT, atau SYSTEM = ikut HP). */
+@Volatile private var widgetTheme = "DARK"
 
 private fun pal(day: Long, night: Long) = when (widgetTheme) {
-    "DARK" -> ColorProvider(day = Color(night), night = Color(night))
+    "LIGHT" -> ColorProvider(day = Color(day), night = Color(day))
     "SYSTEM" -> ColorProvider(day = Color(day), night = Color(night))
-    else -> ColorProvider(day = Color(day), night = Color(day))
+    else -> ColorProvider(day = Color(night), night = Color(night))
 }
 
 private val paper get() = pal(0xFFFFFFFF, 0xFF0F1828)

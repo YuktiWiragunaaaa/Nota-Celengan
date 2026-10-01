@@ -71,9 +71,9 @@ class MainActivity : FragmentActivity() {
             val settings by settingsStore.settings.collectAsState(initial = null as Settings?)
             val systemDark = androidx.compose.foundation.isSystemInDarkTheme()
             val dark = when (settings?.theme) {
-                "DARK" -> true
+                "LIGHT" -> false
                 "SYSTEM" -> systemDark
-                else -> false
+                else -> true
             }
             CukupTheme(dark = dark) {
                 val s = settings
