@@ -145,22 +145,24 @@ fun GlassIcon(
     val base = if (onDark) Color.White else tint
     val fill = Brush.linearGradient(
         // Di tema terang kacanya diberi warna lebih pekat; kalau tidak, ikon nyaris hilang di atas kartu putih.
+        // Tema terang: keping berwarna penuh dengan ikon terang, supaya sepekat tema gelap. Kaca pucat di atas putih terlihat pudar.
         listOf(
-            base.copy(alpha = if (onDark) 0.26f else if (c.isDark) 0.30f else 0.40f),
-            base.copy(alpha = if (onDark || c.isDark) 0.10f else 0.20f),
+            base.copy(alpha = if (onDark) 0.26f else if (c.isDark) 0.30f else 1f),
+            if (onDark || c.isDark) base.copy(alpha = 0.10f) else lerp(base, Color(0xFF0B1B33), 0.18f),
         ),
     )
     val rim = Brush.linearGradient(
         if (c.isDark || onDark) listOf(Color.White.copy(alpha = 0.35f), base.copy(alpha = 0.25f), Color.White.copy(alpha = 0.15f))
         // Tepi putih tidak terlihat di atas putih: di tema terang tepinya memakai warna ikon.
-        else listOf(Color.White.copy(alpha = 0.9f), base.copy(alpha = 0.45f), base.copy(alpha = 0.30f)),
+        else listOf(Color.White.copy(alpha = 0.55f), base, lerp(base, Color(0xFF0B1B33), 0.25f)),
     )
     // Ikon sedikit lebih gelap dari warna aslinya supaya kontras di atas kaca terang.
     // Di tema gelap, warna brand yang sangat gelap (mis. ungu OVO) dicerahkan lebih banyak supaya tetap terbaca.
     val ink = when {
         onDark -> Color.White
         c.isDark -> lerp(tint, Color.White, if (tint.luminance() < 0.15f) 0.55f else 0.25f)
-        else -> lerp(tint, Color(0xFF0B1B33), 0.42f)
+        // Di atas keping berwarna penuh: putih, kecuali warnanya sangat terang (kuning, peach) yang butuh ikon gelap.
+        else -> if (tint.luminance() > 0.62f) Color(0xFF0B1B33) else Color.White
     }
     Box(
         modifier.size(size).clip(shape).background(fill).border(1.dp, rim, shape),
@@ -170,7 +172,7 @@ fun GlassIcon(
         Box(
             Modifier.fillMaxSize().background(
                 Brush.verticalGradient(
-                    0f to Color.White.copy(alpha = if (c.isDark) 0.10f else 0.38f),
+                    0f to Color.White.copy(alpha = if (c.isDark) 0.10f else 0.22f),
                     0.5f to Color.White.copy(alpha = 0f),
                 ),
             ),

@@ -175,10 +175,10 @@ fun BubbleChart(
                             center = center, radius = r,
                         ) else Brush.radialGradient(
                             // Di latar terang kacanya berwarna penuh: inti pekat, tepi tetap berwarna, tidak memudar ke abu-abu.
-                            0f to b.color.copy(alpha = 0.95f * glow),
-                            0.5f to b.color.copy(alpha = 0.78f * glow),
-                            0.85f to b.color.copy(alpha = 0.42f * glow),
-                            1f to b.color.copy(alpha = 0.30f * glow),
+                            0f to b.color.copy(alpha = 1f * glow),
+                             0.6f to b.color.copy(alpha = 0.92f * glow),
+                             0.9f to b.color.copy(alpha = 0.72f * glow),
+                             1f to b.color.copy(alpha = 0.60f * glow),
                             center = center, radius = r,
                         ),
                     )
