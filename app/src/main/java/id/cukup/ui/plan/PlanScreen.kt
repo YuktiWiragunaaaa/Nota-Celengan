@@ -424,6 +424,13 @@ private fun PosRow(row: PosStatus, o: Overview) {
                 Text(if (row.pos.kind == PlanKind.SAVE) "sudah disisihkan" else "${Rupiah.short(row.used)} terpakai", style = Type.label, color = c.faint)
             }
         }
+        if (row.moved != 0L && row.pos.kind == PlanKind.SPEND) {
+            // Pos belanja: uang yang sudah kamu pindahkan ke dompet pos ini, terpisah dari yang sudah dibelanjakan.
+            Text(
+                (if (row.moved > 0) "Sudah dipindah ke dompet pos ini: " else "Dipindah keluar dari dompet pos ini: ") + Rupiah.format(kotlin.math.abs(row.moved)),
+                style = Type.bodySmall, color = c.mute, modifier = Modifier.padding(top = 4.dp),
+            )
+        }
         Spacer(Modifier.height(8.dp))
         UsageBar(row.ratio, if (row.pos.kind == PlanKind.SAVE) c.good else color)
         if (open) {

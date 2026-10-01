@@ -27,6 +27,8 @@ data class PosStatus(
     /** Batas dan pemakaian kalau dihitung satu periode gajian penuh; dipakai untuk ringkasan. */
     val limitCycle: Long = limit,
     val usedCycle: Long = used,
+    /** Uang yang masuk ke dompet pos ini periode ini (dipindah atau diterima di sana), dikurangi yang dipindah keluar. */
+    val moved: Long = 0,
 ) {
     val left: Long get() = limit - used
     val ratio: Float get() = if (limit <= 0) (if (used > 0) 1f else 0f) else used.toFloat() / limit
@@ -100,28 +102,53 @@ object Planner {
         val used = mutableMapOf<Long, Long>()
         val usedCycle = mutableMapOf<Long, Long>()
         val firstSave = plan.sortedBy { it.sortOrder }.firstOrNull { it.kind == PlanKind.SAVE }?.id
-        for (t in transactions) {
-            if (t.status != TxStatus.CONFIRMED || t.occurredAt !in minOf(from, weekFrom) until to) continue
-            val posId = when {
-                t.type == TxType.EXPENSE -> t.categoryId?.let { planOf[it] } ?: t.accountId?.let { planOfAccount[it] }
-                t.type == TxType.TRANSFER && t.toAccountId in savings && t.accountId !in savings -> firstSave
-                else -> null
-            } ?: continue
+        val kindOf = plan.associate { it.id to it.kind }
+        // Uang yang masuk ke dompet sebuah pos periode ini (dipindah dari dompet lain, atau diterima langsung di sana).
+        val moved = mutableMapOf<Long, Long>()
+        fun count(posId: Long, t: Transaction, amount: Long) {
             // Minggu berjalan bisa mulai sebelum hari gajian; yang sebelum gajian tidak masuk hitungan periode.
-            if (t.occurredAt >= from) usedCycle[posId] = (usedCycle[posId] ?: 0) + t.amount
+            if (t.occurredAt >= from) usedCycle[posId] = (usedCycle[posId] ?: 0) + amount
             val own = when (periodOf[posId]) {
                 PosPeriod.WEEK -> weekFrom
                 PosPeriod.DAY -> dayFrom
                 else -> from
             }
-            if (t.occurredAt >= own) used[posId] = (used[posId] ?: 0) + t.amount
+            if (t.occurredAt >= own) used[posId] = (used[posId] ?: 0) + amount
+        }
+        for (t in transactions) {
+            if (t.status != TxStatus.CONFIRMED || t.occurredAt !in minOf(from, weekFrom) until to) continue
+            val fromPos = t.accountId?.let { planOfAccount[it] }?.takeIf(kindOf::containsKey)
+            val toPos = t.toAccountId?.let { planOfAccount[it] }?.takeIf(kindOf::containsKey)
+            when (t.type) {
+                TxType.EXPENSE -> {
+                    // Pengeluaran dari dompet pos tabungan bukan "menabung", jadi dompet hanya jadi cadangan untuk pos belanja.
+                    val posId = t.categoryId?.let { planOf[it] } ?: fromPos?.takeIf { kindOf[it] == PlanKind.SPEND }
+                    if (posId != null) count(posId, t, t.amount)
+                }
+                TxType.TRANSFER -> {
+                    if (toPos != fromPos) {
+                        // Memindah uang ke dompet sebuah pos = mengisi pos itu; memindahnya keluar lagi mengurangi.
+                        if (toPos != null && t.occurredAt >= from) moved[toPos] = (moved[toPos] ?: 0) + t.amount
+                        if (fromPos != null && t.occurredAt >= from) moved[fromPos] = (moved[fromPos] ?: 0) - t.amount
+                        if (toPos != null && kindOf[toPos] == PlanKind.SAVE) count(toPos, t, t.amount)
+                        if (fromPos != null && kindOf[fromPos] == PlanKind.SAVE) count(fromPos, t, -t.amount)
+                    }
+                    // Dompet berjenis Tabungan yang belum dikelompokkan: tetap dihitung ke pos tabungan pertama.
+                    if (toPos == null && fromPos == null && firstSave != null && t.toAccountId in savings && t.accountId !in savings) count(firstSave, t, t.amount)
+                }
+                TxType.INCOME -> if (fromPos != null) {
+                    // Uang yang diterima langsung di dompet sebuah pos (mis. transfer dari rekening lain yang terbaca sebagai uang masuk).
+                    if (t.occurredAt >= from) moved[fromPos] = (moved[fromPos] ?: 0) + t.amount
+                    if (kindOf[fromPos] == PlanKind.SAVE) count(fromPos, t, t.amount)
+                }
+            }
         }
         val rows = plan.sortedBy { it.sortOrder }.map {
             val limit = limits[it.id] ?: 0
             when (it.period) {
-                PosPeriod.CYCLE -> PosStatus(it, limit, used[it.id] ?: 0, daysLeft)
-                PosPeriod.WEEK -> PosStatus(it, limit, used[it.id] ?: 0, weekDaysLeft, limit * cycleDays / 7, usedCycle[it.id] ?: 0)
-                PosPeriod.DAY -> PosStatus(it, limit, used[it.id] ?: 0, 1, limit * cycleDays, usedCycle[it.id] ?: 0)
+                PosPeriod.CYCLE -> PosStatus(it, limit, (used[it.id] ?: 0).coerceAtLeast(0), daysLeft, moved = moved[it.id] ?: 0)
+                PosPeriod.WEEK -> PosStatus(it, limit, (used[it.id] ?: 0).coerceAtLeast(0), weekDaysLeft, limit * cycleDays / 7, (usedCycle[it.id] ?: 0).coerceAtLeast(0), moved[it.id] ?: 0)
+                PosPeriod.DAY -> PosStatus(it, limit, (used[it.id] ?: 0).coerceAtLeast(0), 1, limit * cycleDays, (usedCycle[it.id] ?: 0).coerceAtLeast(0), moved[it.id] ?: 0)
             }
         }
         return PlanStatus(basis, rows, daysLeft)

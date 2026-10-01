@@ -95,6 +95,24 @@ class PlannerTest {
     }
 
     @Test
+    fun `moving money into a wallet grouped to a pos fills that pos this period`() {
+        val krom = Account(6, "Krom", "🏦", AccountKind.BANK, planId = 12) // pos Tabungan (SAVE)
+        val dana = Account(7, "DANA", "👛", AccountKind.EWALLET, planId = 11) // pos Keinginan (SPEND)
+        val txs = listOf(
+            Transaction(1, TxType.TRANSFER, 500_000, accountId = 1, toAccountId = 6, occurredAt = 10),
+            Transaction(2, TxType.TRANSFER, 100_000, accountId = 6, toAccountId = 1, occurredAt = 11), // ditarik lagi
+            Transaction(3, TxType.INCOME, 50_000, accountId = 6, occurredAt = 12), // diterima langsung di Krom
+            Transaction(4, TxType.TRANSFER, 200_000, accountId = 1, toAccountId = 7, occurredAt = 13),
+            Transaction(5, TxType.EXPENSE, 30_000, accountId = 6, categoryId = 3, occurredAt = 14), // belanja dari dompet tabungan: bukan menabung
+        )
+        val rows = Planner.status(plan, listOf(food, coffee, gift), listOf(wallet, krom, dana), txs, 1_000_000, 0, 100, 10).rows.associateBy { it.pos.id }
+        assertEquals(450_000L, rows[12]!!.used) // 500 - 100 + 50
+        assertEquals(450_000L, rows[12]!!.moved)
+        assertEquals(0L, rows[11]!!.used) // memindah ke dompet pos belanja bukan belanja
+        assertEquals(200_000L, rows[11]!!.moved)
+    }
+
+    @Test
     fun `basis modes`() {
         assertEquals(4_000_000L, Planner.basis(PlanBasis(PlanBasis.Mode.FIXED, 4_000_000), 1, 2))
         assertEquals(2L, Planner.basis(PlanBasis(PlanBasis.Mode.LAST_PERIOD), 1, 2))
