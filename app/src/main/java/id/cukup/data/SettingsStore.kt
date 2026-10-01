@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
+import id.cukup.domain.BalanceAdjust
 import id.cukup.domain.PlanBasis
 import id.cukup.domain.Frequency
 import id.cukup.domain.Schedule
@@ -51,6 +52,8 @@ data class Settings(
     val lastAlert: String = "",
     /** Awal periode gajian terakhir yang laporannya sudah dikirim. */
     val lastReport: String = "",
+    /** "Samakan saldo" terakhir (dompet, waktu, selisih), supaya rencana periode ini ikut menghitungnya. */
+    val adjusts: List<BalanceAdjust> = emptyList(),
 )
 
 private val Context.dataStore by preferencesDataStore("settings")
@@ -74,6 +77,7 @@ class SettingsStore @Inject constructor(@ApplicationContext private val context:
         val budgetAlerts = booleanPreferencesKey("budget_alerts")
         val lastAlert = stringPreferencesKey("last_alert")
         val lastReport = stringPreferencesKey("last_report")
+        val adjusts = stringPreferencesKey("adjusts")
         val singleLimit = longPreferencesKey("single_limit")
         val basisMode = stringPreferencesKey("plan_basis_mode")
         val basisAmount = longPreferencesKey("plan_basis_amount")
@@ -106,6 +110,10 @@ class SettingsStore @Inject constructor(@ApplicationContext private val context:
         budgetAlerts = p[K.budgetAlerts] ?: true,
         lastAlert = p[K.lastAlert] ?: "",
         lastReport = p[K.lastReport] ?: "",
+        adjusts = p[K.adjusts].orEmpty().split(';').mapNotNull { e ->
+            val v = e.split(',').mapNotNull(String::toLongOrNull).takeIf { it.size == 3 } ?: return@mapNotNull null
+            BalanceAdjust(v[0], v[1], v[2])
+        },
         singleLimit = p[K.singleLimit] ?: 0,
         planBasis = PlanBasis(
             mode = p[K.basisMode]?.let { runCatching { PlanBasis.Mode.valueOf(it) }.getOrNull() } ?: PlanBasis.Mode.FIXED,
@@ -143,6 +151,7 @@ class SettingsStore @Inject constructor(@ApplicationContext private val context:
             p[K.budgetAlerts] = next.budgetAlerts
             p[K.lastAlert] = next.lastAlert
             p[K.lastReport] = next.lastReport
+            p[K.adjusts] = next.adjusts.takeLast(80).joinToString(";") { "${it.accountId},${it.at},${it.delta}" }
             p[K.singleLimit] = next.singleLimit
             p[K.basisMode] = next.planBasis.mode.name
             p[K.basisAmount] = next.planBasis.fixedAmount

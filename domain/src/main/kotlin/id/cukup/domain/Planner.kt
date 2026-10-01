@@ -35,6 +35,9 @@ data class PosStatus(
     val warning: Warning get() = if (pos.kind == PlanKind.SPEND) Warning.of(used, limit) else Warning.CALM
 }
 
+/** Saldo dompet yang disamakan dengan kenyataan ("Samakan saldo"): selisihnya dan kapan. */
+data class BalanceAdjust(val accountId: Long, val at: Long, val delta: Long)
+
 /** Ringkasan rencana periode ini. */
 data class PlanStatus(
     /** Uang masuk yang dibagi ke pos (dari [PlanBasis]). */
@@ -92,6 +95,7 @@ object Planner {
         dayFrom: Long = from,
         weekDaysLeft: Int = daysLeft,
         cycleDays: Int = 30,
+        adjusts: List<BalanceAdjust> = emptyList(),
     ): PlanStatus {
         val limits = split(basis, plan).toMap()
         val planOf = categories.associate { it.id to it.planId }
@@ -105,15 +109,15 @@ object Planner {
         val kindOf = plan.associate { it.id to it.kind }
         // Uang yang masuk ke dompet sebuah pos periode ini (dipindah dari dompet lain, atau diterima langsung di sana).
         val moved = mutableMapOf<Long, Long>()
-        fun count(posId: Long, t: Transaction, amount: Long) {
+        fun count(posId: Long, at: Long, amount: Long) {
             // Minggu berjalan bisa mulai sebelum hari gajian; yang sebelum gajian tidak masuk hitungan periode.
-            if (t.occurredAt >= from) usedCycle[posId] = (usedCycle[posId] ?: 0) + amount
+            if (at >= from) usedCycle[posId] = (usedCycle[posId] ?: 0) + amount
             val own = when (periodOf[posId]) {
                 PosPeriod.WEEK -> weekFrom
                 PosPeriod.DAY -> dayFrom
                 else -> from
             }
-            if (t.occurredAt >= own) used[posId] = (used[posId] ?: 0) + amount
+            if (at >= own) used[posId] = (used[posId] ?: 0) + amount
         }
         for (t in transactions) {
             if (t.status != TxStatus.CONFIRMED || t.occurredAt !in minOf(from, weekFrom) until to) continue
@@ -123,25 +127,32 @@ object Planner {
                 TxType.EXPENSE -> {
                     // Pengeluaran dari dompet pos tabungan bukan "menabung", jadi dompet hanya jadi cadangan untuk pos belanja.
                     val posId = t.categoryId?.let { planOf[it] } ?: fromPos?.takeIf { kindOf[it] == PlanKind.SPEND }
-                    if (posId != null) count(posId, t, t.amount)
+                    if (posId != null) count(posId, t.occurredAt, t.amount)
                 }
                 TxType.TRANSFER -> {
                     if (toPos != fromPos) {
                         // Memindah uang ke dompet sebuah pos = mengisi pos itu; memindahnya keluar lagi mengurangi.
                         if (toPos != null && t.occurredAt >= from) moved[toPos] = (moved[toPos] ?: 0) + t.amount
                         if (fromPos != null && t.occurredAt >= from) moved[fromPos] = (moved[fromPos] ?: 0) - t.amount
-                        if (toPos != null && kindOf[toPos] == PlanKind.SAVE) count(toPos, t, t.amount)
-                        if (fromPos != null && kindOf[fromPos] == PlanKind.SAVE) count(fromPos, t, -t.amount)
+                        if (toPos != null && kindOf[toPos] == PlanKind.SAVE) count(toPos, t.occurredAt, t.amount)
+                        if (fromPos != null && kindOf[fromPos] == PlanKind.SAVE) count(fromPos, t.occurredAt, -t.amount)
                     }
                     // Dompet berjenis Tabungan yang belum dikelompokkan: tetap dihitung ke pos tabungan pertama.
-                    if (toPos == null && fromPos == null && firstSave != null && t.toAccountId in savings && t.accountId !in savings) count(firstSave, t, t.amount)
+                    if (toPos == null && fromPos == null && firstSave != null && t.toAccountId in savings && t.accountId !in savings) count(firstSave, t.occurredAt, t.amount)
                 }
                 TxType.INCOME -> if (fromPos != null) {
                     // Uang yang diterima langsung di dompet sebuah pos (mis. transfer dari rekening lain yang terbaca sebagai uang masuk).
                     if (t.occurredAt >= from) moved[fromPos] = (moved[fromPos] ?: 0) + t.amount
-                    if (kindOf[fromPos] == PlanKind.SAVE) count(fromPos, t, t.amount)
+                    if (kindOf[fromPos] == PlanKind.SAVE) count(fromPos, t.occurredAt, t.amount)
                 }
             }
+        }
+        // Saldo yang disamakan tanpa catatan (mis. uang sudah di Krom sebelum notifikasinya terbaca) ikut mengisi pos dompet itu.
+        for (a in adjusts) {
+            if (a.at !in minOf(from, weekFrom) until to) continue
+            val posId = planOfAccount[a.accountId]?.takeIf(kindOf::containsKey) ?: continue
+            if (a.at >= from) moved[posId] = (moved[posId] ?: 0) + a.delta
+            if (kindOf[posId] == PlanKind.SAVE) count(posId, a.at, a.delta)
         }
         val rows = plan.sortedBy { it.sortOrder }.map {
             val limit = limits[it.id] ?: 0

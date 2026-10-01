@@ -18,6 +18,7 @@ import id.cukup.data.db.MerchantRuleEntity
 import id.cukup.data.db.PlanPosEntity
 import id.cukup.data.db.TransactionEntity
 import id.cukup.domain.Account
+import id.cukup.domain.BalanceAdjust
 import id.cukup.domain.Brands
 import id.cukup.domain.Rupiah
 import id.cukup.domain.AccountBalance
@@ -29,6 +30,7 @@ import id.cukup.domain.Ledger
 import id.cukup.domain.MerchantClassifier
 import id.cukup.domain.NotificationParser
 import id.cukup.domain.PayCycle
+import id.cukup.domain.PlanKind
 import id.cukup.domain.PlanPos
 import id.cukup.domain.PlanPreset
 import id.cukup.domain.PlanStatus
@@ -169,6 +171,7 @@ class MoneyRepository @Inject constructor(
                 dayFrom = millis(today),
                 weekDaysLeft = 8 - today.dayOfWeek.value,
                 cycleDays = cycle.length.coerceAtLeast(1),
+                adjusts = s.adjusts,
             ),
         )
     }
@@ -212,6 +215,7 @@ class MoneyRepository @Inject constructor(
         val a = dao.account(id) ?: return
         val now = current().accounts.firstOrNull { it.account.id == id }?.balance ?: return
         dao.upsertAccount(a.copy(initialBalance = a.initialBalance + (actual - now)))
+        if (actual != now) settingsStore.update { it.copy(adjusts = it.adjusts + BalanceAdjust(id, System.currentTimeMillis(), actual - now)) }
         changed()
     }
 
@@ -438,6 +442,21 @@ class MoneyRepository @Inject constructor(
     }
 
     private val ingestLock = kotlinx.coroutines.sync.Mutex()
+
+    /**
+     * Satu kali: dompet pos tabungan yang baru dipakai periode ini dan saldonya diisi lewat "Samakan saldo"
+     * (sebelum penyamaan ikut dicatat waktunya) dianggap terisi periode ini, supaya rencana "Gajian ini" menghitungnya.
+     */
+    suspend fun seedAdjusts(): Int {
+        val o = current()
+        val save = o.plan.filter { it.kind == PlanKind.SAVE }.map { it.id }.toSet()
+        val seeds = o.accounts.map { it.account }
+            .filter { a -> a.planId in save && a.initialBalance > 0 && o.settings.adjusts.none { it.accountId == a.id } }
+            .filter { a -> o.transactions.none { (it.accountId == a.id || it.toAccountId == a.id) && it.occurredAt < o.cycleStart } }
+            .map { BalanceAdjust(it.id, System.currentTimeMillis(), it.initialBalance) }
+        if (seeds.isNotEmpty()) settingsStore.update { it.copy(adjusts = it.adjusts + seeds) }
+        return seeds.size
+    }
 
     /**
      * Perapian satu kali untuk catatan lama: tiap bank/e-wallet yang notifikasinya pernah dicatat mendapat dompetnya

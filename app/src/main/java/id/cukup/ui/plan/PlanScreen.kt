@@ -431,13 +431,21 @@ private fun PosRow(row: PosStatus, o: Overview) {
                 style = Type.bodySmall, color = c.mute, modifier = Modifier.padding(top = 4.dp),
             )
         }
+        val wallets = o.accounts.filter { it.account.planId == row.pos.id }
+        if (wallets.isNotEmpty()) {
+            // Sama dengan yang terlihat di "Semua uangku": uang yang sekarang ada di dompet pos ini.
+            Text(
+                "Di ${wallets.joinToString { it.account.name }} sekarang: ${Rupiah.format(wallets.sumOf { it.balance })}",
+                style = Type.bodySmall, color = c.mute, modifier = Modifier.padding(top = 4.dp),
+            )
+        }
         Spacer(Modifier.height(8.dp))
         UsageBar(row.ratio, if (row.pos.kind == PlanKind.SAVE) c.good else color)
         if (open) {
             Spacer(Modifier.height(8.dp))
             Text(
                 if (row.pos.kind == PlanKind.SAVE) {
-                    "Dihitung dari: uang yang kamu pindah ke dompet jenis Tabungan" + if (cats.isEmpty()) "." else ", dan pengeluaran ${cats.joinToString { it.name }}."
+                    "Dihitung dari: uang yang masuk ke dompet pos ini periode ini (dipindah, diterima, atau saldonya disamakan)" + if (cats.isEmpty()) "." else ", dan pengeluaran ${cats.joinToString { it.name }}."
                 } else if (cats.isEmpty()) {
                     "Belum ada kategori yang dihitung di sini. Ketuk Ubah untuk memilih."
                 } else {

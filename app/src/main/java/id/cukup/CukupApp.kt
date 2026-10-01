@@ -38,6 +38,14 @@ class CukupApp : Application() {
                     android.util.Log.i("Cukup", "Perapian dompet: $moved catatan dipindah")
                 }
             }.onFailure { android.util.Log.w("Cukup", "Perapian dompet gagal", it) }
+            runCatching {
+                val prefs = getSharedPreferences("one_time", MODE_PRIVATE)
+                if (!prefs.getBoolean("seed_adjusts_v1", false)) {
+                    val n = repository.seedAdjusts()
+                    prefs.edit().putBoolean("seed_adjusts_v1", true).apply()
+                    android.util.Log.i("Cukup", "Saldo awal dompet tabungan dihitung ke periode ini: $n dompet")
+                }
+            }.onFailure { android.util.Log.w("Cukup", "Hitung saldo awal gagal", it) }
         }
     }
 }

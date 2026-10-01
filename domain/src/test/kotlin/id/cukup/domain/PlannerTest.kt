@@ -113,6 +113,16 @@ class PlannerTest {
     }
 
     @Test
+    fun `a balance set by hand this period fills the wallet's pos`() {
+        val krom = Account(6, "Krom", "🏦", AccountKind.BANK, planId = 12)
+        val adjusts = listOf(BalanceAdjust(6, 20, 500_000), BalanceAdjust(6, 200, 900_000), BalanceAdjust(1, 20, 70_000))
+        val rows = Planner.status(plan, listOf(food, coffee, gift), listOf(wallet, krom), emptyList(), 1_000_000, 0, 100, 10, adjusts = adjusts)
+            .rows.associateBy { it.pos.id }
+        assertEquals(500_000L, rows[12]!!.used) // yang di luar periode dan dompet tanpa pos tidak dihitung
+        assertEquals(500_000L, rows[12]!!.moved)
+    }
+
+    @Test
     fun `basis modes`() {
         assertEquals(4_000_000L, Planner.basis(PlanBasis(PlanBasis.Mode.FIXED, 4_000_000), 1, 2))
         assertEquals(2L, Planner.basis(PlanBasis(PlanBasis.Mode.LAST_PERIOD), 1, 2))
