@@ -78,6 +78,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -358,7 +359,8 @@ private fun Hero(
             buildAnnotatedString {
                 if (total < 0 && !hidden) withStyle(SpanStyle(color = soft)) { append("−") }
                 withStyle(SpanStyle(color = soft, fontSize = heroSize * 0.55f)) { append("Rp") }
-                append(if (hidden) "••••••" else digits)
+                // Titik sensor lebih kecil dari angkanya supaya tidak mendominasi layar.
+                if (hidden) withStyle(SpanStyle(fontSize = heroSize * 0.62f, letterSpacing = 0.1.em)) { append(" ••••••") } else append(digits)
             },
             style = Type.hero.copy(fontSize = heroSize), color = white,
             modifier = Modifier.fillMaxWidth().padding(horizontal = Gutter).clip(CardShape).clickable { sheet = HeroSheet.WALLETS },

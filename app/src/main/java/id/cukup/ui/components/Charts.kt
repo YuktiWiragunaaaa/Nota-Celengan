@@ -70,6 +70,24 @@ fun List<Slice>.merged(max: Int = 6, color: Color, text: (Float) -> String): Lis
     return keep + Slice(OTHER_KEY, "${rest.size} lainnya", "🧾", sum, color, text(sum))
 }
 
+/** Celah antar irisan donat (derajat), termasuk ruang untuk ujung membulat. Tetap, karena tebal cincin sebanding jari-jarinya. */
+private const val DONUT_GAP = 22.4f
+
+/**
+ * Sudut tiap irisan. Irisan yang terlalu kecil diberi sudut minimum supaya tetap berbentuk irisan
+ * (bukan titik yang menimpa tetangganya); sisanya menyesuaikan agar jumlahnya tetap 360.
+ */
+private fun donutAngles(slices: List<Slice>, total: Float): List<Float> {
+    val raw = slices.map { it.value / total * 360f }
+    if (slices.size < 2) return raw
+    val min = DONUT_GAP * 1.5f
+    val small = raw.count { it > 0f && it < min }
+    val big = raw.filter { it >= min }.sum()
+    if (small == 0 || big <= 0f || small * min >= 300f) return raw
+    val scale = (360f - small * min) / big
+    return raw.map { if (it <= 0f) 0f else if (it < min) min else it * scale }
+}
+
 /**
  * Donat interaktif. Sentuh irisan untuk memilih; irisan terpilih menebal, yang lain meredup.
  * [center] digambar di tengah lubang.
@@ -88,6 +106,7 @@ fun DonutChart(
     val sweep = remember { Animatable(0f) }
     LaunchedEffect(Unit) { sweep.animateTo(1f, tween(1100, easing = FastOutSlowInEasing)) }
     val total = slices.sumOf { it.value.toDouble() }.toFloat().takeIf { it > 0f } ?: 1f
+    val angles = remember(slices) { donutAngles(slices, total) }
     // Tiap irisan punya animasi pilih sendiri (pegas). Nilainya baru dibaca saat menggambar,
     // jadi animasi hanya menggambar ulang, tidak menyusun ulang seluruh grafik tiap frame.
     val lift = slices.map { s ->
@@ -112,8 +131,8 @@ fun DonutChart(
                     var angle = Math.toDegrees(atan2((p.y - cy).toDouble(), (p.x - cx).toDouble())).toFloat() + 90f
                     if (angle < 0) angle += 360f
                     var acc = 0f
-                    for (s in slices) {
-                        acc += s.value / total * 360f
+                    slices.forEachIndexed { i, s ->
+                        acc += angles[i]
                         if (angle <= acc) return s
                     }
                     return null
@@ -129,18 +148,17 @@ fun DonutChart(
             val box = Size((r - thick / 2) * 2, (r - thick / 2) * 2)
             val tl = Offset(size.width / 2 - box.width / 2, size.height / 2 - box.height / 2)
             drawArc(track, 0f, 360f, false, tl, box, style = Stroke(thick))
-            // Celah antar irisan dalam derajat, termasuk ruang untuk ujung membulat.
-            val gap = if (slices.size > 1) Math.toDegrees((thick / (r - thick / 2)).toDouble()).toFloat() * 1.2f else 0f
+            val gap = if (slices.size > 1) DONUT_GAP else 0f
             var start = -90f
             slices.forEachIndexed { i, s ->
-                val full = s.value / total * 360f
+                val full = angles[i]
                 val l = lift[i].value
                 val w = thick * (1f + 0.22f * l.coerceAtLeast(0f))
                 val alpha = 1f - 0.6f * (-l).coerceAtLeast(0f)
                 val sweepDeg = ((full - gap).coerceAtLeast(0.5f)) * sweep.value
                 if (full > 0.5f) {
-                    // Cahaya lembut di belakang irisan.
-                    drawArc(s.color.copy(alpha = 0.18f * alpha), start + gap / 2, sweepDeg, false, tl, box, style = Stroke(w * 1.7f, cap = StrokeCap.Round))
+                    // Cahaya lembut hanya di irisan yang dipilih; kalau semua irisan bercahaya, sambungannya menumpuk jadi bercak.
+                    if (l > 0f) drawArc(s.color.copy(alpha = 0.18f * l), start + gap / 2, sweepDeg, false, tl, box, style = Stroke(w * 1.5f, cap = StrokeCap.Round))
                     drawArc(s.color.copy(alpha = alpha), start + gap / 2, sweepDeg, false, tl, box, style = Stroke(w, cap = StrokeCap.Round))
                 }
                 start += full
