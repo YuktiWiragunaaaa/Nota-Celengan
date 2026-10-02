@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -191,6 +192,13 @@ fun SettingsScreen(
         Row(Modifier.padding(horizontal = Gutter, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf("DARK" to "Gelap", "LIGHT" to "Terang", "SYSTEM" to "Ikuti HP").forEach { (key, label) ->
                 Choice(label, s.theme == key, { vm.settings { it.copy(theme = key) } })
+            }
+        }
+        // Skin: set warna aplikasi dan widget. Skin berbayar yang belum dimiliki tampil terkunci.
+        Row(Modifier.padding(horizontal = Gutter).padding(bottom = 10.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            id.cukup.ui.theme.Skins.all.forEach { skin ->
+                val usable = skin.usable(s.ownedSkins)
+                Choice(if (usable) skin.name else "${skin.name} · terkunci", s.skin == skin.id, { if (usable) vm.settings { it.copy(skin = skin.id) } })
             }
         }
 

@@ -46,6 +46,8 @@ data class CukupColors(
     val accent: Color,
     /** Teks/ikon di atas [accent]. */
     val onAccent: Color,
+    /** Sapuan di belakang saldo Beranda, dari atas; ujung bawahnya selalu memudar ke [paper]. */
+    val hero: List<Color>,
 ) {
     fun pocket(index: Int): Color = pockets[((index % pockets.size) + pockets.size) % pockets.size]
 
@@ -54,11 +56,8 @@ data class CukupColors(
 
     val brandBrush: Brush get() = Brush.verticalGradient(brand)
 
-    /** Sapuan lembut di belakang saldo Beranda; memudar ke warna halaman. Putih di tema terang, biru tua di tema gelap. */
-    val heroBrush: Brush
-        get() = Brush.verticalGradient(
-            if (isDark) listOf(Color(0xFF0D2548), Color(0xFF0A1830), paper) else listOf(Color(0xFF86B2F4), Color(0xFFBDD6F9), Color(0xFFEAF2FD), paper),
-        )
+    /** Sapuan lembut di belakang saldo Beranda; memudar ke warna halaman. */
+    val heroBrush: Brush get() = Brush.verticalGradient(hero + paper)
 }
 
 /** Warna yang bisa dipilih untuk kantong. Cerah, terbaca di atas gradien dan di atas putih. */
@@ -81,7 +80,7 @@ val PocketPalette = listOf(
     Color(0xFF7C8CFF), // periwinkle
 )
 
-private val Light = CukupColors(
+internal val Light = CukupColors(
     // Halaman dan kartu sama-sama putih; kartu dibedakan dengan garis tepi tipis (lihat cardSurface).
     paper = Color(0xFFFFFFFF),
     card = Color(0xFFFFFFFF),
@@ -102,9 +101,10 @@ private val Light = CukupColors(
     isDark = false,
     accent = Color(0xFF1D63C8),
     onAccent = Color(0xFFFFFFFF),
+    hero = listOf(Color(0xFF86B2F4), Color(0xFFBDD6F9), Color(0xFFEAF2FD)),
 )
 
-private val Dark = Light.copy(
+internal val Dark = Light.copy(
     // Gelap kebiruan: kartu terasa seperti kaca di atas latar pekat.
     paper = Color(0xFF070C16),
     card = Color(0xFF0F1828),
@@ -122,6 +122,7 @@ private val Dark = Light.copy(
     accent = Color(0xFF5AA2FF),
     // Biru terang di tema gelap butuh teks gelap supaya terbaca.
     onAccent = Color(0xFF05142B),
+    hero = listOf(Color(0xFF0D2548), Color(0xFF0A1830)),
 )
 
 val LocalCukupColors = staticCompositionLocalOf { Light }
@@ -153,8 +154,8 @@ object Type {
 }
 
 @Composable
-fun CukupTheme(dark: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
-    val c = if (dark) Dark else Light
+fun CukupTheme(dark: Boolean = isSystemInDarkTheme(), skin: Skin = Skins.Blue, content: @Composable () -> Unit) {
+    val c = if (dark) skin.dark else skin.light
     val scheme = if (dark) {
         darkColorScheme(
             primary = c.accent, onPrimary = Color.White, background = c.paper, onBackground = c.ink,

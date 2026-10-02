@@ -20,6 +20,9 @@ import androidx.glance.appwidget.provideContent
 import androidx.glance.appwidget.updateAll
 import androidx.glance.background
 import androidx.glance.color.ColorProvider
+import id.cukup.ui.theme.Skin
+import id.cukup.ui.theme.Skins
+import id.cukup.ui.theme.WidgetColors
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
 import androidx.glance.layout.Column
@@ -91,6 +94,7 @@ class CukupWidget : GlanceAppWidget() {
             val state = repo.overview.collectAsState(initial = first)
             val o = state.value
             widgetTheme = o?.settings?.theme ?: "DARK"
+            widgetSkin = Skins.of(o?.settings?.skin, o?.settings?.ownedSkins.orEmpty())
             // Kunci PIN aktif = saldo tidak ditampilkan di layar utama (bisa dimatikan di Setelan).
             val hidden = o?.settings?.let { it.biometricLock && it.pinHash.isNotEmpty() && it.widgetHide } ?: false
             val chips = remember(o, hidden) { o?.let { quickChips(context, it, hidden) } ?: emptyList() }
@@ -194,23 +198,30 @@ class QuickLogAction : ActionCallback {
 /** Tema widget mengikuti setelan aplikasi (DARK bawaan, LIGHT, atau SYSTEM = ikut HP). */
 @Volatile private var widgetTheme = "DARK"
 
-private fun pal(day: Long, night: Long) = when (widgetTheme) {
-    "LIGHT" -> ColorProvider(day = Color(day), night = Color(day))
-    "SYSTEM" -> ColorProvider(day = Color(day), night = Color(night))
-    else -> ColorProvider(day = Color(night), night = Color(night))
+/** Skin widget mengikuti skin aplikasi. */
+@Volatile private var widgetSkin: Skin = Skins.Blue
+
+private fun pal(pick: (WidgetColors) -> Long): androidx.glance.unit.ColorProvider {
+    val day = Color(pick(widgetSkin.widgetLight))
+    val night = Color(pick(widgetSkin.widgetDark))
+    return when (widgetTheme) {
+        "LIGHT" -> ColorProvider(day = day, night = day)
+        "SYSTEM" -> ColorProvider(day = day, night = night)
+        else -> ColorProvider(day = night, night = night)
+    }
 }
 
-private val paper get() = pal(0xFFFFFFFF, 0xFF0F1828)
-private val ink get() = pal(0xFF0B1B33, 0xFFEEF3FA)
-private val mute get() = pal(0xFF586A82, 0xFF9FB0C7)
-private val line get() = pal(0xFFE0E7F0, 0xFF1C2A40)
-private val caution get() = pal(0xFFE08A1E, 0xFFD1A263)
-private val over get() = pal(0xFFCC2F22, 0xFFE0564A)
-private val good get() = pal(0xFF12855A, 0xFF1FA06F)
-private val onColor get() = pal(0xFFFFFFFF, 0xFFFFFFFF)
-private val inkInverse get() = pal(0xFFFFFFFF, 0xFF0F1828)
-private val accent get() = pal(0xFFDCE9FA, 0xFF16304F)
-private val brand get() = pal(0xFF1D63C8, 0xFF5AA2FF)
+private val paper get() = pal { it.paper }
+private val ink get() = pal { it.ink }
+private val mute get() = pal { it.mute }
+private val line get() = pal { it.line }
+private val caution get() = pal { it.caution }
+private val over get() = pal { it.over }
+private val good get() = pal { it.good }
+private val onColor get() = pal { it.onColor }
+private val inkInverse get() = pal { it.inkInverse }
+private val accent get() = pal { it.accent }
+private val brand get() = pal { it.brand }
 
 @Composable
 private fun WidgetBody(
