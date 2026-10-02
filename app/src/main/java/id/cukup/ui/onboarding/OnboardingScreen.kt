@@ -86,7 +86,7 @@ fun OnboardingScreen(onDone: () -> Unit, vm: OnboardingViewModel = hiltViewModel
                     OnboardingStep.WALLETS -> WalletsStep(s, vm::onIntent)
                     OnboardingStep.SCHEDULE -> {
                         Heading("Biasanya <i>gajian</i> kapan?", "Bisa gaji, uang saku, atau hasil jualan. Ini menentukan awal dan akhir tiap periode (\"bulan ini\" / \"minggu ini\").")
-                        ScheduleEditor(s.schedule, { vm.onIntent(OnboardingIntent.SetSchedule(it)) })
+                        ScheduleEditor(s.schedule, { vm.onIntent(OnboardingIntent.SetSchedule(it)) }, Modifier.padding(horizontal = Gutter))
                     }
                     OnboardingStep.PLAN -> PlanStep(s, vm::onIntent)
                     OnboardingStep.PERMISSIONS -> PermissionsStep()

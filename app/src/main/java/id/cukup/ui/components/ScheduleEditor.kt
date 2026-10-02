@@ -77,7 +77,7 @@ fun ScheduleEditor(schedule: Schedule, onChange: (Schedule) -> Unit, modifier: M
         onChange(Schedule.fromRange(start, end(start)))
     }
 
-    Column(modifier.padding(horizontal = Gutter)) {
+    Column(modifier) {
         Eyebrow("Periode gajian")
         Spacer(Modifier.height(6.dp))
         Text(

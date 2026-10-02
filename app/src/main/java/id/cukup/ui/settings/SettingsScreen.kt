@@ -324,7 +324,7 @@ fun SettingsScreen(
         AlertDialog(
             onDismissRequest = { editSchedule = false },
             title = { Text("Jadwal gajian", style = Type.title) },
-            text = { ScheduleEditor(draft, { draft = it }) },
+            text = { Column(Modifier.verticalScroll(rememberScrollState())) { ScheduleEditor(draft, { draft = it }) } },
             confirmButton = { TextButton({ vm.settings { it.copy(schedule = draft) }; editSchedule = false }) { Text("Simpan", color = c.ink) } },
             dismissButton = { TextButton({ editSchedule = false }) { Text("Batal", color = c.mute) } },
             containerColor = c.paper,

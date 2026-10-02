@@ -164,8 +164,11 @@ fun HomeScreen(
     val prefs = remember { context.getSharedPreferences("ui", android.content.Context.MODE_PRIVATE) }
     var hidden by remember { mutableStateOf(prefs.getBoolean("hide_money", false)) }
 
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    Box(Modifier.fillMaxSize().background(c.paper)) {
     LazyColumn(
-        Modifier.fillMaxSize().background(c.paper),
+        Modifier.fillMaxSize(),
+        state = listState,
         contentPadding = PaddingValues(bottom = contentPadding.calculateBottomPadding()),
     ) {
         item {
@@ -242,6 +245,10 @@ fun HomeScreen(
         }
         item { Spacer(Modifier.height(24.dp)) }
     }
+    // Setelah bagian atas tergulir, isi halaman tidak boleh terlihat menumpuk di balik jam dan ikon status.
+    val scrolled by remember { androidx.compose.runtime.derivedStateOf { listState.firstVisibleItemIndex > 0 } }
+    if (scrolled) Box(Modifier.fillMaxWidth().background(c.paper).windowInsetsPadding(WindowInsets.statusBars))
+    }
 }
 
 @Composable
@@ -279,7 +286,7 @@ private fun Hero(
         AlertDialog(
             onDismissRequest = { editSchedule = false },
             title = { Text("Jadwal gajian", style = Type.title) },
-            text = { Column(Modifier.verticalScroll(rememberScrollState())) { ScheduleEditor(draft, { draft = it }, Modifier.padding(horizontal = 0.dp)) } },
+            text = { Column(Modifier.verticalScroll(rememberScrollState())) { ScheduleEditor(draft, { draft = it }) } },
             confirmButton = { TextButton({ onSchedule(draft); editSchedule = false }) { Text("Simpan", color = c.ink) } },
             dismissButton = { TextButton({ editSchedule = false }) { Text("Batal", color = c.mute) } },
             containerColor = c.card,
