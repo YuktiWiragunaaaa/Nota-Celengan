@@ -77,7 +77,7 @@ class MainActivity : FragmentActivity() {
                 "SYSTEM" -> systemDark
                 else -> true
             }
-            CukupTheme(dark = dark, skin = id.cukup.ui.theme.Skins.of(settings?.skin, settings?.ownedSkins.orEmpty())) {
+            CukupTheme(dark = dark) {
                 val s = settings
                 when {
                     s == null -> Box(Modifier.fillMaxSize().background(colors.paper))

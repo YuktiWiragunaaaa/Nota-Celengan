@@ -54,10 +54,6 @@ data class Settings(
     val lastReport: String = "",
     /** "Samakan saldo" terakhir (dompet, waktu, selisih), supaya rencana periode ini ikut menghitungnya. */
     val adjusts: List<BalanceAdjust> = emptyList(),
-    /** Skin (set warna aplikasi dan widget) yang dipakai; lihat Skins. */
-    val skin: String = "blue",
-    /** Skin berbayar yang sudah dimiliki. Diisi saat pembelian di Play Store disambungkan. */
-    val ownedSkins: Set<String> = emptySet(),
 )
 
 private val Context.dataStore by preferencesDataStore("settings")
@@ -83,8 +79,6 @@ class SettingsStore @Inject constructor(@ApplicationContext private val context:
         val lastAlert = stringPreferencesKey("last_alert")
         val lastReport = stringPreferencesKey("last_report")
         val adjusts = stringPreferencesKey("adjusts")
-        val skin = stringPreferencesKey("skin")
-        val ownedSkins = stringPreferencesKey("owned_skins")
         val singleLimit = longPreferencesKey("single_limit")
         val basisMode = stringPreferencesKey("plan_basis_mode")
         val basisAmount = longPreferencesKey("plan_basis_amount")
@@ -132,8 +126,6 @@ class SettingsStore @Inject constructor(@ApplicationContext private val context:
         theme = p[K.theme] ?: "DARK",
         widgetHide = p[K.widgetHide] ?: true,
         avatarVersion = p[K.avatarVersion] ?: 0,
-        skin = p[K.skin] ?: "blue",
-        ownedSkins = p[K.ownedSkins].orEmpty().split(',').filter { it.isNotBlank() }.toSet(),
     )
 
     private companion object {
@@ -162,8 +154,6 @@ class SettingsStore @Inject constructor(@ApplicationContext private val context:
             p[K.budgetAlerts] = next.budgetAlerts
             p[K.lastAlert] = next.lastAlert
             p[K.lastReport] = next.lastReport
-            p[K.skin] = next.skin
-            p[K.ownedSkins] = next.ownedSkins.joinToString(",")
             p[K.adjusts] = next.adjusts.takeLast(80).joinToString(";") { "${it.accountId},${it.at},${it.delta}" }
             p[K.singleLimit] = next.singleLimit
             p[K.basisMode] = next.planBasis.mode.name
