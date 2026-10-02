@@ -78,6 +78,9 @@ fun CategoryActions(
         // Satu catatan terbuka sekaligus; pilihannya kategori lain yang sejenis.
         var open by remember { mutableStateOf<Long?>(null) }
         val targets = choices.filter { it.id != category?.id }
+        // Catatan terakhir sudah dipindah: tidak ada lagi yang perlu dilakukan di sini.
+        var moved by remember { mutableStateOf(false) }
+        if (txs.isEmpty() && moved) androidx.compose.runtime.LaunchedEffect(Unit) { onDismiss() }
         if (txs.isEmpty()) {
             Text("Tidak ada catatan di sini.", style = Type.body, color = c.faint, modifier = Modifier.padding(horizontal = Gutter).padding(bottom = 32.dp))
             return@ModalBottomSheet
@@ -106,6 +109,7 @@ fun CategoryActions(
                                     Modifier.clip(Pill).cardSurface(Pill).clickable {
                                         (listOf(tx) + same).forEach { onMove(it, t.id) }
                                         open = null
+                                        moved = true
                                     }.padding(start = 6.dp, end = 12.dp, top = 5.dp, bottom = 5.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {

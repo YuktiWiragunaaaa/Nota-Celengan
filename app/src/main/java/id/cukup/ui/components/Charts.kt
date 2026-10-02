@@ -200,7 +200,7 @@ fun HBarChart(
                                     val a = fade.value
                                     val h = size.height * thick.value
                                     drawRoundRect(
-                                        Brush.horizontalGradient(listOf(s.color.copy(alpha = 0.55f * a), s.color.copy(alpha = a)), endX = w),
+                                        Brush.horizontalGradient(listOf(s.color.copy(alpha = 0.88f * a), s.color.copy(alpha = a)), endX = w),
                                         topLeft = Offset(0f, (size.height - h) / 2),
                                         size = Size(w, h), cornerRadius = CornerRadius(h / 2, h / 2),
                                     )
@@ -270,7 +270,7 @@ fun DayBarChart(
                     }
                     val top = topPad + h - bh
                     drawRoundRect(
-                        Brush.verticalGradient(listOf(color, color.copy(alpha = color.alpha * 0.45f)), startY = top, endY = top + bh),
+                        Brush.verticalGradient(listOf(color, color.copy(alpha = color.alpha * 0.82f)), startY = top, endY = top + bh),
                         Offset(left, top), Size(bw, bh), CornerRadius(bw / 2, bw / 2),
                     )
                 }
