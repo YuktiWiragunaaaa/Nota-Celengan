@@ -211,6 +211,9 @@ private val onColor get() = pal(0xFFFFFFFF, 0xFFFFFFFF)
 private val inkInverse get() = pal(0xFFFFFFFF, 0xFF0F1828)
 private val accent get() = pal(0xFFDCE9FA, 0xFF16304F)
 private val brand get() = pal(0xFF1D63C8, 0xFF5AA2FF)
+/** Batang hari-hari sebelumnya: tetap biru supaya terpisah jelas dari latar; hari ini memakai [brand]. */
+private val bar get() = pal(0xFF8FB4EA, 0xFF3F6FB3)
+private val barEmpty get() = pal(0xFFC9D5E6, 0xFF33455F)
 
 @Composable
 private fun WidgetBody(
@@ -364,8 +367,8 @@ private fun WeekChart(week: List<Long>, hidden: Boolean, modifier: GlanceModifie
         Row(modifier = GlanceModifier.fillMaxWidth().defaultWeight(), verticalAlignment = Alignment.Bottom) {
             week.forEachIndexed { i, v ->
                 Column(modifier = GlanceModifier.defaultWeight().fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally, verticalAlignment = Alignment.Bottom) {
-                    val h = if (v <= 0) 2 else (4 + 60 * v / max).toInt()
-                    Box(modifier = GlanceModifier.width(10.dp).height(h.dp).background(if (i == 6) brand else line).cornerRadius(3.dp)) {}
+                    val h = if (v <= 0) 3 else (4 + 60 * v / max).toInt()
+                    Box(modifier = GlanceModifier.width(10.dp).height(h.dp).background(if (i == 6 && v > 0) brand else if (v > 0) bar else barEmpty).cornerRadius(3.dp)) {}
                     Spacer(GlanceModifier.height(3.dp))
                     Text(names[today.minusDays((6 - i).toLong()).dayOfWeek.value % 7], style = TextStyle(color = mute, fontSize = 9.sp))
                 }
