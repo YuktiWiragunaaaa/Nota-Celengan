@@ -62,6 +62,7 @@ class Backup @Inject constructor(
                     .put("monthDay", s.schedule.monthDay)
                     .put("weekday", s.schedule.weekday)
                     .put("anchor", s.schedule.anchor)
+                    .put("days", s.schedule.days)
                     .put("autoConfirm", s.autoConfirm)
                     .put("budgetAlerts", s.budgetAlerts)
                     .put("singleLimit", s.singleLimit)
@@ -131,6 +132,7 @@ class Backup @Inject constructor(
                     monthDay = s.optInt("monthDay", old.schedule.monthDay),
                     weekday = s.optInt("weekday", old.schedule.weekday),
                     anchor = s.optLong("anchor", old.schedule.anchor),
+                    days = s.optInt("days", old.schedule.days),
                 ),
                 onboarded = true,
                 autoConfirm = s.optBoolean("autoConfirm"),

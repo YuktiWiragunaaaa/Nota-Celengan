@@ -65,4 +65,46 @@ class PayCycleTest {
         assertEquals(LocalDate.of(2026, 10, 2), PayCycle.of(LocalDate.of(2026, 10, 3), s).start)
         assertEquals(LocalDate.of(2026, 10, 16), PayCycle.of(LocalDate.of(2026, 10, 3), s).nextPayday)
     }
+
+    private val tenDays = Schedule(Frequency.DAYS, anchor = LocalDate.of(2026, 10, 1).toEpochDay(), days = 10)
+
+    @Test
+    fun `days cycle on first day`() {
+        val c = PayCycle.of(LocalDate.of(2026, 10, 11), tenDays)
+        assertEquals(LocalDate.of(2026, 10, 11), c.start)
+        assertEquals(LocalDate.of(2026, 10, 21), c.nextPayday)
+        assertEquals(10, c.length)
+    }
+
+    @Test
+    fun `days cycle on last day`() {
+        val c = PayCycle.of(LocalDate.of(2026, 10, 10), tenDays)
+        assertEquals(LocalDate.of(2026, 10, 1), c.start)
+        assertEquals(LocalDate.of(2026, 10, 11), c.nextPayday)
+        assertEquals(1, c.daysLeft(LocalDate.of(2026, 10, 10)))
+    }
+
+    @Test
+    fun `days cycle before anchor`() {
+        val c = PayCycle.of(LocalDate.of(2026, 9, 28), tenDays)
+        assertEquals(LocalDate.of(2026, 9, 21), c.start)
+        assertEquals(LocalDate.of(2026, 10, 1), c.nextPayday)
+    }
+
+    @Test
+    fun `fromRange maps simplest schedule`() {
+        val w = Schedule.fromRange(LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 7))
+        assertEquals(Frequency.WEEKLY, w.frequency)
+        assertEquals(4, w.weekday) // Kamis
+        val b = Schedule.fromRange(LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 14))
+        assertEquals(Frequency.BIWEEKLY, b.frequency)
+        val m = Schedule.fromRange(LocalDate.of(2026, 10, 25), LocalDate.of(2026, 11, 24))
+        assertEquals(Frequency.MONTHLY, m.frequency)
+        assertEquals(25, m.monthDay)
+        val d = Schedule.fromRange(LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 10))
+        assertEquals(Frequency.DAYS, d.frequency)
+        assertEquals(10, d.days)
+        assertEquals(LocalDate.of(2026, 10, 1).toEpochDay(), d.anchor)
+        assertEquals(Frequency.MONTHLY, Schedule.fromRange(LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 31)).frequency)
+    }
 }

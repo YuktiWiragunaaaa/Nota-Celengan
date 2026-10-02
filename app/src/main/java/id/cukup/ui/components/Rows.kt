@@ -220,9 +220,14 @@ fun LookPicker(emoji: String, color: Int?, onEmoji: (String) -> Unit, onColor: (
     Eyebrow("Ikon")
     Spacer(Modifier.height(8.dp))
     val tint = current
+    // Ringkas dulu: selusin ikon dan palet. Sisanya baru muncul kalau diminta.
+    var allIcons by remember { mutableStateOf(false) }
+    var freeColor by remember { mutableStateOf(false) }
+    // Hanya ikon yang punya versi garis, supaya semua ikon tetap seragam.
+    val icons = remember { Presets.emojis.distinctBy { glyphOf(it) }.filter { glyphOf(it) != null } }
+    val shown = if (allIcons) icons else (icons.take(12) + icons.filter { glyphOf(it) == glyphOf(emoji) }).distinct()
     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        // Hanya ikon yang punya versi garis, supaya semua ikon tetap seragam.
-        Presets.emojis.distinctBy { glyphOf(it) }.filter { glyphOf(it) != null }.forEach { e ->
+        shown.forEach { e ->
             val selected = glyphOf(e) == glyphOf(emoji)
             GlassIcon(
                 e, if (selected) tint else c.mute, size = if (selected) 46.dp else 40.dp,
@@ -230,6 +235,7 @@ fun LookPicker(emoji: String, color: Int?, onEmoji: (String) -> Unit, onColor: (
             )
         }
     }
+    if (icons.size > shown.size || allIcons) TextAction(if (allIcons) "Lebih sedikit" else "Ikon lainnya", { allIcons = !allIcons })
     Spacer(Modifier.height(14.dp))
     Eyebrow("Warna")
     Spacer(Modifier.height(8.dp))
@@ -244,8 +250,8 @@ fun LookPicker(emoji: String, color: Int?, onEmoji: (String) -> Unit, onColor: (
             )
         }
     }
-    Spacer(Modifier.height(14.dp))
-    FreeColor(current, onColor)
+    TextAction(if (freeColor) "Tutup warna lain" else "Warna lain", { freeColor = !freeColor })
+    if (freeColor) FreeColor(current, onColor)
 }
 
 /** Warna bebas: geser rona, pekat, dan terang sampai pas. */
@@ -269,8 +275,6 @@ private fun FreeColor(current: Color, onColor: (Int) -> Unit) {
         mine = argb
         onColor(argb)
     }
-    Eyebrow("Warna bebas")
-    Spacer(Modifier.height(4.dp))
     val rainbow = remember { List(13) { Color.hsl(it * 30f % 360f, 0.8f, 0.55f) } }
     Track("Rona", hue / 360f, Brush.horizontalGradient(rainbow)) { hue = it * 360f; emit() }
     Track("Pekat", (sat - 0.15f) / 0.85f, Brush.horizontalGradient(listOf(Color.hsl(hue, 0.15f, light), Color.hsl(hue, 1f, light)))) { sat = 0.15f + it * 0.85f; emit() }

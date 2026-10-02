@@ -50,6 +50,9 @@ class AppViewModel @Inject constructor(
     /** Ganti dompet sebuah catatan; untuk notifikasi, aplikasi itu ikut diarahkan ke dompet ini. */
     fun moveTo(tx: id.cukup.domain.Transaction, accountId: Long) = go { repository.save(tx.copy(accountId = accountId)) }
 
+    /** Ganti kategori sebuah catatan (mis. dari tekan-tahan grafik); tempat belanjanya ikut diingat untuk catatan berikutnya. */
+    fun recategorize(tx: id.cukup.domain.Transaction, categoryId: Long) = go { repository.save(tx.copy(categoryId = categoryId)) }
+
     /** Cadangan otomatis di HP, terbaru dulu. */
     fun autoBackups(): List<java.io.File> = backup.autoBackups()
 

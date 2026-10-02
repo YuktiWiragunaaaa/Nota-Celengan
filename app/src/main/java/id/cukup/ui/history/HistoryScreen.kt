@@ -54,7 +54,7 @@ import id.cukup.ui.components.CardShape
 import id.cukup.ui.components.cardSurface
 import id.cukup.ui.components.Choice
 import id.cukup.ui.components.DayBarChart
-import id.cukup.ui.components.CategoryLookDialog
+import id.cukup.ui.components.CategoryActions
 import id.cukup.ui.components.DonutChart
 import id.cukup.ui.components.merged
 import id.cukup.ui.components.Gutter
@@ -83,6 +83,7 @@ enum class Range(val label: String) { THIS("Periode ini"), LAST("Periode lalu"),
 data class HistoryState(
     val loaded: Boolean = false,
     val range: Range = Range.THIS,
+    val account: Long? = null,
     val overview: Overview? = null,
     val days: List<LocalDate> = emptyList(),
     val daily: List<Long> = emptyList(),
@@ -99,8 +100,12 @@ data class HistoryState(
 @HiltViewModel
 class HistoryViewModel @Inject constructor(repository: MoneyRepository) : ViewModel() {
     private val range = MutableStateFlow(Range.THIS)
+    /** Dompet yang dipilih; null = semua. Menyaring grafik dan angka juga, bukan hanya daftar. */
+    private val account = MutableStateFlow<Long?>(null)
 
-    val state: StateFlow<HistoryState> = combine(repository.overview, range) { o, r ->
+    val state: StateFlow<HistoryState> = combine(repository.overview, range, account) { o, r, picked ->
+        // Dompet yang sudah dihapus/diarsipkan: kembali ke semua dompet.
+        val acc = picked?.takeIf { id -> o.accounts.any { it.account.id == id } }
         val today = LocalDate.now()
         val (from, toExclusive) = when (r) {
             Range.THIS -> o.cycle.start to o.cycle.nextPayday
@@ -110,7 +115,9 @@ class HistoryViewModel @Inject constructor(repository: MoneyRepository) : ViewMo
         val shownEnd = if (toExclusive.isAfter(today.plusDays(1))) today.plusDays(1) else toExclusive
         val n = ChronoUnit.DAYS.between(from, shownEnd).toInt().coerceIn(1, 62)
         val days = (0 until n).map { from.plusDays(it.toLong()) }
-        val inRange = o.confirmed.filter { localDate(it.occurredAt).let { d -> !d.isBefore(from) && d.isBefore(toExclusive) } }
+        val inRange = o.confirmed
+            .filter { acc == null || it.accountId == acc || it.toAccountId == acc }
+            .filter { localDate(it.occurredAt).let { d -> !d.isBefore(from) && d.isBefore(toExclusive) } }
         val daily = LongArray(n)
         inRange.filter { it.type == TxType.EXPENSE }.forEach { t ->
             val i = ChronoUnit.DAYS.between(from, localDate(t.occurredAt)).toInt()
@@ -122,6 +129,7 @@ class HistoryViewModel @Inject constructor(repository: MoneyRepository) : ViewMo
         HistoryState(
             loaded = true,
             range = r,
+            account = acc,
             overview = o,
             days = days,
             daily = daily.toList(),
@@ -132,12 +140,16 @@ class HistoryViewModel @Inject constructor(repository: MoneyRepository) : ViewMo
             reading = ChartReader.readSpending(byCategory, Totals(income, daily.sum()), r.label.lowercase()).firstOrNull() ?: "",
             incomeByCategory = incomeByCategory,
             incomeReading = ChartReader.readIncome(incomeByCategory, r.label.lowercase()).firstOrNull() ?: "",
-            limitPerDay = if (r == Range.THIS && o.planStatus.active) o.planStatus.spendLimit / o.cycle.length.coerceAtLeast(1) else 0,
+            limitPerDay = if (acc == null && r == Range.THIS && o.planStatus.active) o.planStatus.spendLimit / o.cycle.length.coerceAtLeast(1) else 0,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HistoryState())
 
     fun setRange(r: Range) {
         range.value = r
+    }
+
+    fun setAccount(id: Long?) {
+        account.value = id
     }
 }
 
@@ -148,18 +160,17 @@ fun HistoryScreen(
 ) {
     val s by vm.state.collectAsStateWithLifecycle()
     val c = colors
-    var day by rememberSaveable(s.range) { mutableStateOf<Int?>(null) }
-    var picked by rememberSaveable(s.range) { mutableStateOf<Long?>(null) }
+    var day by rememberSaveable(s.range, s.account) { mutableStateOf<Int?>(null) }
+    var picked by rememberSaveable(s.range, s.account) { mutableStateOf<Long?>(null) }
     var breakdown by rememberSaveable { mutableStateOf("DONUT") }
     var incomeView by rememberSaveable { mutableStateOf(false) }
-    var account by rememberSaveable { mutableStateOf<Long?>(null) }
+    val account = s.account
     val o = s.overview
 
     val selectedDay = day?.let { s.days.getOrNull(it) }
     val list = s.txs
         .filter { selectedDay == null || localDate(it.occurredAt) == selectedDay }
         .filter { picked == null || (it.categoryId ?: -1L) == picked }
-        .filter { account == null || it.accountId == account || it.toAccountId == account }
     val groups = list.groupBy { localDate(it.occurredAt) }.toList().sortedByDescending { it.first }
 
     LazyColumn(Modifier.fillMaxSize().background(c.paper), contentPadding = contentPadding) {
@@ -170,8 +181,8 @@ fun HistoryScreen(
             }
             if (o != null && o.accounts.size > 1) {
                 LazyRow(contentPadding = PaddingValues(horizontal = Gutter), horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
-                    item { Choice("Semua dompet", account == null, { account = null }) }
-                    items(o.accounts) { ab -> Choice(ab.account.name, account == ab.account.id, { account = ab.account.id }) }
+                    item { Choice("Semua dompet", account == null, { vm.setAccount(null) }) }
+                    items(o.accounts) { ab -> Choice(ab.account.name, account == ab.account.id, { vm.setAccount(ab.account.id) }) }
                 }
             }
         }
@@ -243,8 +254,14 @@ fun HistoryScreen(
                     }
                     Text(if (incomeView) s.incomeReading else s.reading, style = Type.bodySmall, color = c.mute, modifier = Modifier.padding(top = 8.dp, bottom = 12.dp))
                     var recolor by rememberSaveable { mutableStateOf<Long?>(null) }
-                    cats.firstOrNull { it.category?.id == recolor }?.category?.let { cat ->
-                        CategoryLookDialog(cat, onDismiss = { recolor = null }) { app.saveCategory(it); recolor = null }
+                    recolor?.takeIf { it != id.cukup.ui.components.OTHER_KEY }?.let { key ->
+                        val type = if (incomeView) TxType.INCOME else TxType.EXPENSE
+                        CategoryActions(
+                            category = o?.categoryById?.get(key),
+                            txs = s.txs.filter { it.type == type && (it.categoryId ?: -1L) == key },
+                            choices = o?.categories.orEmpty().filter { it.kind == if (incomeView) id.cukup.domain.CategoryKind.INCOME else id.cukup.domain.CategoryKind.EXPENSE },
+                            onDismiss = { recolor = null }, onSaveCategory = app::saveCategory, onMove = app::recategorize,
+                        )
                     }
                     val slices = cats.map { p -> Slice(p.category?.id ?: -1L, p.category?.name ?: "Tanpa kategori", p.category?.emoji ?: "🧾", p.amount.toFloat(), colorOf(p.category), Rupiah.short(p.amount)) }
                     AnimatedContent(breakdown, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "bd") { type ->
@@ -280,7 +297,7 @@ fun HistoryScreen(
         item {
             Row(Modifier.padding(horizontal = Gutter).padding(top = 24.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("Transaksi", style = Type.title, color = c.ink, modifier = Modifier.weight(1f))
-                if (day != null || picked != null || account != null) Choice("Tampilkan semua", false, { day = null; picked = null; account = null })
+                if (day != null || picked != null || account != null) Choice("Tampilkan semua", false, { day = null; picked = null; vm.setAccount(null) })
             }
         }
         if (s.loaded && groups.isEmpty()) {

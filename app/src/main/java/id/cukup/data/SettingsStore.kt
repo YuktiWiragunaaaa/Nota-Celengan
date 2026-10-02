@@ -67,6 +67,7 @@ class SettingsStore @Inject constructor(@ApplicationContext private val context:
         val frequency = stringPreferencesKey("frequency")
         val weekday = intPreferencesKey("weekday")
         val anchor = longPreferencesKey("anchor")
+        val periodDays = intPreferencesKey("period_days")
         val onboarded = booleanPreferencesKey("onboarded")
         val biometric = booleanPreferencesKey("biometric")
         val pinHash = stringPreferencesKey("pin_hash")
@@ -96,6 +97,7 @@ class SettingsStore @Inject constructor(@ApplicationContext private val context:
             monthDay = p[K.payday] ?: 25,
             weekday = p[K.weekday] ?: 5,
             anchor = p[K.anchor] ?: 0,
+            days = p[K.periodDays] ?: 7,
         ),
         // Data sebelum v0.6 dikosongkan (lihat CukupDatabase), jadi pengenalan diulang.
         onboarded = (p[K.onboarded] ?: false) && (p[K.dataVersion] ?: 0) >= DATA_VERSION,
@@ -142,6 +144,7 @@ class SettingsStore @Inject constructor(@ApplicationContext private val context:
             p[K.payday] = next.schedule.monthDay
             p[K.weekday] = next.schedule.weekday
             p[K.anchor] = next.schedule.anchor
+            p[K.periodDays] = next.schedule.days
             p[K.onboarded] = next.onboarded
             p[K.biometric] = next.biometricLock
             p[K.pinHash] = next.pinHash

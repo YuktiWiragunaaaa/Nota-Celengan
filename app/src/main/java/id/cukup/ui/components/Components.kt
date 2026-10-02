@@ -61,6 +61,8 @@ import java.util.Locale
 
 val Gutter = 20.dp
 val Id = Locale.forLanguageTag("id-ID")
+/** True selagi nominal disembunyikan (tombol mata di Beranda). */
+val LocalHideMoney = androidx.compose.runtime.compositionLocalOf { false }
 val Pill = RoundedCornerShape(100)
 val CardShape = RoundedCornerShape(24.dp)
 
@@ -264,6 +266,7 @@ fun TxRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val hide = LocalHideMoney.current
     val c = colors
     val title = when {
         tx.merchant.isNotBlank() -> tx.merchant
@@ -303,7 +306,7 @@ fun TxRow(
         }
         Spacer(Modifier.width(12.dp))
         Text(
-            when (tx.type) {
+            if (hide) "•••" else when (tx.type) {
                 TxType.INCOME -> "+" + Rupiah.format(tx.amount)
                 TxType.EXPENSE -> "−" + Rupiah.format(tx.amount)
                 TxType.TRANSFER -> Rupiah.format(tx.amount)

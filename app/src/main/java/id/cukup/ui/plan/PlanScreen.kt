@@ -103,26 +103,11 @@ fun PlanScreen(
 
     Column(Modifier.fillMaxSize().background(c.paper).verticalScroll(rememberScrollState()).padding(contentPadding)) {
         Text("Rencana", style = Type.display, color = c.ink, modifier = Modifier.padding(horizontal = Gutter).padding(top = 24.dp, bottom = 12.dp))
-        InfoBox(
-            "Rencana tidak memindahkan uang",
-            listOf(
-                "Uangmu tetap di dompet seperti yang tercatat. Di sini kamu hanya menetapkan batas, misalnya \"makan maksimal Rp300 rb per minggu\" atau \"keinginan maksimal 30% dari gaji\".",
-                "Cukup lalu membandingkan batas itu dengan catatanmu, dan memberi tahu kalau hampir lewat.",
-            ),
-            Modifier.padding(horizontal = Gutter),
-        )
-        Spacer(Modifier.height(8.dp))
-        Row(Modifier.padding(horizontal = Gutter).padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(Modifier.padding(horizontal = Gutter), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Choice("Gajian ini", !all, { all = false })
             Choice("Semua uangku", all, { all = true })
         }
-        if (all) {
-            AllMoney(data, onTransfer, onOpenAccount, onEditPlan)
-        } else {
-        PayRules(data, onIncome = { editBasis = true }, onSchedule = { editSchedule = true }, onSplit = onEditPlan)
-        Link("Laporan periode lalu", "Pengeluaran terbanyak, kesimpulan, dan saran. Dikirim juga tiap tanggal gajian.", leading = "🧾", onClick = onOpenReport)
-
-        }
+        if (all) AllMoney(data, onTransfer, onOpenAccount, onEditPlan)
 
         if (all) Unit else
         if (data.plan.isEmpty()) {
@@ -155,8 +140,9 @@ fun PlanScreen(
                 }
             }
         } else {
+            PlanChart(data)
             Totals(data)
-            SectionHeader("Rencana", trailing = { TextAction("Ubah", onEditPlan) })
+            SectionHeader("Rincian", trailing = { TextAction("Ubah", onEditPlan) })
             data.planStatus.rows.forEach { row -> PosRow(row, data) }
             Row(Modifier.padding(horizontal = Gutter, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 LineButton("Ubah rencana", onEditPlan, Modifier.weight(1f), height = 44.dp)
@@ -164,7 +150,16 @@ fun PlanScreen(
             }
         }
 
+        if (!all) {
+            // Aturan jarang diubah, jadi di bawah: yang dilihat tiap hari (grafik dan sisa batas) di atas.
+            PayRules(data, onIncome = { editBasis = true }, onSchedule = { editSchedule = true }, onSplit = onEditPlan)
+            Link("Laporan periode lalu", "Pengeluaran terbanyak, kesimpulan, dan saran.", leading = "🧾", onClick = onOpenReport)
+        }
         Goals(data, onNew = { goalEditing = Goal(0, "", "🎯", 0) }, onEdit = { goalEditing = it }, onAdd = { goalAdding = it })
+        Text(
+            "Rencana hanya hitungan: uangmu tidak dipindahkan sampai kamu sendiri yang memindahkannya.",
+            style = Type.bodySmall, color = c.faint, modifier = Modifier.padding(horizontal = Gutter).padding(top = 16.dp),
+        )
         Spacer(Modifier.height(24.dp))
     }
 
@@ -223,7 +218,7 @@ private fun AllMoney(o: Overview, onTransfer: () -> Unit, onOpenAccount: (Long) 
         )
     }
 
-    SectionHeader("Kalau dibagi menurut rencana", trailing = { TextAction("Ubah", onEditPlan) })
+    SectionHeader("Saran pembagian", trailing = { TextAction("Ubah", onEditPlan) })
     when {
         o.plan.isEmpty() -> Text(
             "Belum ada rencana. Ketuk Ubah untuk menentukan pembagiannya, lalu seluruh uangmu ikut terbagi di sini.",
@@ -245,19 +240,22 @@ private fun AllMoney(o: Overview, onTransfer: () -> Unit, onOpenAccount: (Long) 
                             Text(Rupiah.format(part), style = Type.amount, color = c.ink)
                         }
                         Spacer(Modifier.height(6.dp))
-                        UsageBar(p.percent / 100f, colorOf(p))
                         val inPos = o.accounts.filter { it.account.planId == p.id }
+                        // Pekat = sudah ada di dompet pos ini, pucat = belum.
+                        FillBar(if (part > 0) inPos.sumOf { it.balance }.coerceAtLeast(0).toFloat() / part else 0f, colorOf(p))
                         if (inPos.isNotEmpty()) {
                             val have = inPos.sumOf { it.balance }
                             val diff = part - have
                             Text(
                                 "Di ${inPos.joinToString { it.account.name }}: ${Rupiah.format(have)} · " + when {
-                                    diff > 0 -> "kurang ${Rupiah.format(diff)}"
+                                    diff > 0 -> "${have.coerceAtLeast(0) * 100 / part.coerceAtLeast(1)}% · kurang ${Rupiah.format(diff)}"
                                     diff < 0 -> "lebih ${Rupiah.format(-diff)}"
                                     else -> "pas"
                                 },
                                 style = Type.bodySmall, color = if (diff > 0) c.caution else c.mute, modifier = Modifier.padding(top = 6.dp),
                             )
+                        } else {
+                            Text("Belum ada dompet di pos ini", style = Type.bodySmall, color = c.faint, modifier = Modifier.padding(top = 6.dp))
                         }
                     }
                 }
@@ -299,10 +297,56 @@ private fun AllMoney(o: Overview, onTransfer: () -> Unit, onOpenAccount: (Long) 
         style = Type.bodySmall, color = c.faint, modifier = Modifier.padding(horizontal = Gutter).padding(top = 8.dp),
     )
     InkButton("Pindah uang antar dompet", onTransfer, Modifier.padding(horizontal = Gutter, vertical = 12.dp).fillMaxWidth())
-    Text(
-        "Pembagian di atas hanya hitungan: uangmu tidak dipindahkan sampai kamu sendiri yang memindahkannya.",
-        style = Type.bodySmall, color = c.faint, modifier = Modifier.padding(horizontal = Gutter),
-    )
+}
+
+/** Batang isi: bagian yang sudah terlaksana pekat, sisanya pucat dengan warna yang sama. */
+@Composable
+private fun FillBar(ratio: Float, color: Color) {
+    val filled by androidx.compose.animation.core.animateFloatAsState(ratio.coerceIn(0f, 1f), androidx.compose.animation.core.tween(700), label = "fill")
+    Box(Modifier.fillMaxWidth().height(8.dp).clip(Pill).background(color.copy(alpha = 0.22f))) {
+        Box(Modifier.fillMaxWidth(filled).height(8.dp).clip(Pill).background(color))
+    }
+}
+
+/**
+ * Pembagian gajian ini dalam satu cincin: lebar tiap bagian = jatah posnya,
+ * bagian yang pekat = sudah terlaksana (terpakai / disisihkan), yang pucat = belum.
+ */
+@Composable
+private fun PlanChart(o: Overview) {
+    val c = colors
+    val rows = o.planStatus.rows.filter { it.limitCycle > 0 }
+    val total = rows.sumOf { it.limitCycle }
+    if (!o.planStatus.active || total <= 0) return
+    val done = rows.sumOf { it.usedCycle.coerceIn(0, it.limitCycle) }
+    Row(
+        Modifier.padding(horizontal = Gutter).padding(top = 14.dp).fillMaxWidth().cardSurface().padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(124.dp), contentAlignment = Alignment.Center) {
+            PocketRing(
+                rows.map { Triple(colorOf(it.pos), it.limitCycle.toFloat() / total, it.usedCycle.toFloat() / it.limitCycle) },
+                Modifier.size(124.dp), stroke = 14.dp,
+            )
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("${done * 100 / total}%", style = Type.title, color = c.ink)
+                Text("terlaksana", style = Type.label, color = c.faint)
+            }
+        }
+        Spacer(Modifier.width(16.dp))
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            rows.forEach { r ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(10.dp).clip(Pill).background(colorOf(r.pos)))
+                    Spacer(Modifier.width(8.dp))
+                    Column {
+                        Text(r.pos.name, style = Type.label, color = c.ink, maxLines = 1)
+                        Text("${Rupiah.short(r.usedCycle)} dari ${Rupiah.short(r.limitCycle)}", style = Type.label, color = c.mute, maxLines = 1)
+                    }
+                }
+            }
+        }
+    }
 }
 
 /**
@@ -313,7 +357,7 @@ private fun AllMoney(o: Overview, onTransfer: () -> Unit, onOpenAccount: (Long) 
 private fun PayRules(o: Overview, onIncome: () -> Unit, onSchedule: () -> Unit, onSplit: () -> Unit) {
     val c = colors
     val b = o.settings.planBasis
-    Column(Modifier.padding(horizontal = Gutter).padding(top = 14.dp, bottom = 6.dp).fillMaxWidth().cardSurface()) {
+    Column(Modifier.padding(horizontal = Gutter).padding(top = 20.dp, bottom = 6.dp).fillMaxWidth().cardSurface()) {
         Eyebrow("Aturan gaji", Modifier.padding(start = 16.dp, top = 14.dp), color = c.accent)
         RuleRow(
             "Pendapatan",
