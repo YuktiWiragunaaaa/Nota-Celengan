@@ -159,7 +159,7 @@ private fun Cell(text: String, edge: Boolean, inside: Boolean, modifier: Modifie
     val c = colors
     val bg = when {
         edge -> c.accent
-        inside -> c.accent.copy(alpha = 0.18f)
+        inside -> c.accent.copy(alpha = if (c.isDark) 0.38f else 0.18f)
         else -> c.surface
     }
     val shape = RoundedCornerShape(10.dp)

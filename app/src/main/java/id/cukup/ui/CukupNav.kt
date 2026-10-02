@@ -223,6 +223,12 @@ fun CukupNav(
             }
         }
 
+        // Isi halaman yang digulir tidak boleh terlihat menumpuk di balik jam dan ikon status.
+        // Beranda dan Profil punya latar sendiri sampai ke atas, jadi diurus di layarnya masing-masing.
+        if (route != null && route != Routes.HOME && route != Routes.PROFILE && route != Routes.ONBOARDING) {
+            Box(Modifier.fillMaxWidth().height(top).background(c.paper))
+        }
+
         if (showBar) {
             BottomBar(
                 current = route,

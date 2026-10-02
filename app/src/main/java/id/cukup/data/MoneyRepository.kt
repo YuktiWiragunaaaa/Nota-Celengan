@@ -622,6 +622,8 @@ class MoneyRepository @Inject constructor(
         db.withTransaction { db.clearAllTables() }
         // "Hapus semua" berarti semua: cadangan otomatis & salinan pra-update di HP juga dihapus.
         kotlinx.coroutines.withContext(Dispatchers.IO) { DbGuard.backupDir(context).deleteRecursively() }
+        // Pilihan tampilan kecil (mis. total disembunyikan) ikut kembali ke awal.
+        context.getSharedPreferences("ui", android.content.Context.MODE_PRIVATE).edit().clear().apply()
         settingsStore.update { Settings() }
         widgets.refresh()
     }
