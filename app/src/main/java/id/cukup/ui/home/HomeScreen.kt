@@ -104,7 +104,6 @@ import id.cukup.ui.components.cardSurface
 import id.cukup.ui.components.OTHER_KEY
 import id.cukup.ui.components.merged
 import id.cukup.ui.components.CategoryActions
-import id.cukup.ui.components.LocalHideMoney
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
 import id.cukup.ui.components.LineButton
@@ -126,9 +125,6 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
 private val rangeFmt = DateTimeFormatter.ofPattern("d MMM", id.cukup.ui.components.Id)
-
-/** Nominal diganti titik selagi disembunyikan. */
-private fun String.orDots(hidden: Boolean) = if (hidden) "•••" else this
 
 /**
  * CATATAN. Menjawab tiga pertanyaan, berurutan:
@@ -163,12 +159,11 @@ fun HomeScreen(
         Advisor.insights(data.planStatus, data.transactions, data.debt, data.cycle, data.previous, LocalDate.now())
     }
     val recent = remember(data) { data.confirmed.take(20) }
-    // Sembunyikan nominal (mis. saat layar terlihat orang lain); diingat sampai dibuka lagi.
+    // Sembunyikan total uang (mis. saat layar terlihat orang lain); diingat sampai dibuka lagi.
     val context = androidx.compose.ui.platform.LocalContext.current
     val prefs = remember { context.getSharedPreferences("ui", android.content.Context.MODE_PRIVATE) }
     var hidden by remember { mutableStateOf(prefs.getBoolean("hide_money", false)) }
 
-    androidx.compose.runtime.CompositionLocalProvider(LocalHideMoney provides hidden) {
     LazyColumn(
         Modifier.fillMaxSize().background(c.paper),
         contentPadding = PaddingValues(bottom = contentPadding.calculateBottomPadding()),
@@ -201,9 +196,9 @@ fun HomeScreen(
             }
         }
         item { QuickAdd(data, onQuickAdd) }
-        item { Accounts(data.accounts, onOpenAccount, onNewAccount, hidden) }
+        item { Accounts(data.accounts, onOpenAccount, onNewAccount) }
         item { PlanCard(data, onOpenPlan) }
-        if (insights.isNotEmpty() && !hidden) item { InsightPager(insights) }
+        if (insights.isNotEmpty()) item { InsightPager(insights) }
         item { AutoHealth(vm, onOpenAuto) }
         item {
             // Data, bukan tombol: diberi kartu sendiri supaya terbaca terpisah dari fitur di atasnya.
@@ -246,7 +241,6 @@ fun HomeScreen(
             }
         }
         item { Spacer(Modifier.height(24.dp)) }
-    }
     }
 }
 
@@ -344,7 +338,7 @@ private fun Hero(
             Text("Uangmu sekarang", style = Type.bodySmall, color = soft)
             Icon(
                 if (hidden) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
-                if (hidden) "Tampilkan nominal" else "Sembunyikan nominal", tint = soft,
+                if (hidden) "Tampilkan total" else "Sembunyikan total", tint = soft,
                 modifier = Modifier.padding(start = 2.dp).clip(CircleShape).clickable(role = Role.Button, onClick = onHide).padding(8.dp).size(18.dp),
             )
         }
@@ -365,18 +359,18 @@ private fun Hero(
         )
         val sub = buildList {
             add("jumlah ${o.accounts.count { it.account.kind != AccountKind.PAYLATER }} dompet")
-            if (o.debt > 0 && !hidden) add("hutang ${Rupiah.short(o.debt)}")
+            if (o.debt > 0) add("hutang ${Rupiah.short(o.debt)}")
         }.joinToString(" · ")
         Text(sub, style = Type.label, color = soft, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
 
         // 2. Masuk & keluar periode ini.
         Spacer(Modifier.height(16.dp))
         Row(Modifier.padding(horizontal = Gutter).fillMaxWidth().clip(CardShape).background(chip).padding(vertical = 12.dp)) {
-            Flow("Masuk", o.totals.income, "+", hidden, Modifier.weight(1f).clickable { sheet = HeroSheet.INCOME })
+            Flow("Masuk", o.totals.income, "+", Modifier.weight(1f).clickable { sheet = HeroSheet.INCOME })
             Box(Modifier.width(1.dp).height(36.dp).background(c.line))
-            Flow("Keluar", o.totals.expense, "−", hidden, Modifier.weight(1f).clickable { sheet = HeroSheet.EXPENSE })
+            Flow("Keluar", o.totals.expense, "−", Modifier.weight(1f).clickable { sheet = HeroSheet.EXPENSE })
             Box(Modifier.width(1.dp).height(36.dp).background(c.line))
-            Flow("Selisih", o.totals.net, if (o.totals.net >= 0) "+" else "−", hidden, Modifier.weight(1f).clickable { sheet = HeroSheet.NET })
+            Flow("Selisih", o.totals.net, if (o.totals.net >= 0) "+" else "−", Modifier.weight(1f).clickable { sheet = HeroSheet.NET })
         }
         Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.Center) {
             Text(
@@ -425,12 +419,11 @@ private fun Hero(
             AnimatedContent(pick, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "pick") { p ->
                 Column(Modifier.fillMaxWidth().padding(horizontal = 28.dp).height(44.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     if (p == null) {
-                        // Kalimat ringkasan memuat nominal, jadi ikut disembunyikan.
-                        if (!hidden) reading.forEach { line -> Text(line, style = Type.bodySmall, color = soft, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                        reading.forEach { line -> Text(line, style = Type.bodySmall, color = soft, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                     } else {
                         val share = p.amount * 100 / parts.sumOf { it.amount }.coerceAtLeast(1)
                         Text(p.category?.name ?: "Tanpa kategori", style = Type.strong, color = white)
-                        Text("${Rupiah.format(p.amount).orDots(hidden)} · $share% dari semua ${if (incomeView) "uang masuk" else "pengeluaran"}", style = Type.bodySmall, color = soft)
+                        Text("${Rupiah.format(p.amount)} · $share% dari semua ${if (incomeView) "uang masuk" else "pengeluaran"}", style = Type.bodySmall, color = soft)
                     }
                 }
             }
@@ -445,10 +438,9 @@ private fun SpendingChart(
     onRecolor: (Long) -> Unit, onSelect: (Long) -> Unit,
 ) {
     val c = colors
-    val hidden = LocalHideMoney.current
     val colorsOf = parts.map { colorOf(it.category) }
-    val slices = remember(parts, colorsOf, hidden) {
-        parts.mapIndexed { i, p -> Slice(p.category?.id ?: -1L, p.category?.name ?: "Tanpa kategori", p.category?.emoji ?: "🧾", p.amount.toFloat(), colorsOf[i], Rupiah.short(p.amount).orDots(hidden)) }
+    val slices = remember(parts, colorsOf) {
+        parts.mapIndexed { i, p -> Slice(p.category?.id ?: -1L, p.category?.name ?: "Tanpa kategori", p.category?.emoji ?: "🧾", p.amount.toFloat(), colorsOf[i], Rupiah.short(p.amount)) }
     }
     val pick: (Long?) -> Unit = { id -> if (id != null) onSelect(id) else if (selected != null) onSelect(selected) }
     // Tinggi tetap: saat ganti grafik hanya isinya yang berganti (fade = murah), bagian atas Beranda
@@ -471,7 +463,7 @@ private fun SpendingChart(
             )
             else -> {
                 // Kategori kecil-kecil digabung supaya donat tidak pecah jadi serpihan.
-                val donut = remember(slices, hidden) { slices.merged(color = c.faint) { Rupiah.short(it.toLong()).orDots(hidden) } }
+                val donut = remember(slices) { slices.merged(color = c.faint) { Rupiah.short(it.toLong()) } }
                 val other = donut.lastOrNull()?.takeIf { it.key == OTHER_KEY && selected == OTHER_KEY }
                 DonutChart(donut, selected, pick, Modifier.fillMaxSize().padding(vertical = 16.dp), track = c.line, onLongPress = onRecolor) {
                 val p = parts.firstOrNull { (it.category?.id ?: -1L) == selected }
@@ -485,7 +477,7 @@ private fun SpendingChart(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     GlassIcon(p?.category?.emoji ?: "🧾", p?.category?.let { colorOf(it) } ?: c.accent, size = 36.dp)
                     Text(p?.category?.name ?: if (income) "Total masuk" else "Total keluar", style = Type.label, color = c.mute)
-                    Text(Rupiah.short(p?.amount ?: if (income) o.totals.income else o.totals.expense).orDots(hidden), style = Type.title, color = c.ink)
+                    Text(Rupiah.short(p?.amount ?: if (income) o.totals.income else o.totals.expense), style = Type.title, color = c.ink)
                 }
             }
             }
@@ -494,11 +486,11 @@ private fun SpendingChart(
 }
 
 @Composable
-private fun Flow(label: String, amount: Long, sign: String, hidden: Boolean, modifier: Modifier) {
+private fun Flow(label: String, amount: Long, sign: String, modifier: Modifier) {
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         Text(label, style = Type.label, color = colors.mute)
         Text(
-            if (hidden) "•••" else (if (amount == 0L) "" else sign) + Rupiah.short(kotlin.math.abs(amount)),
+            (if (amount == 0L) "" else sign) + Rupiah.short(kotlin.math.abs(amount)),
             style = Type.amount, color = colors.ink, maxLines = 1,
         )
     }
@@ -538,7 +530,7 @@ private fun QuickAdd(data: id.cukup.data.Overview, onPick: (Long) -> Unit) {
 
 /** Kartu dompet bergulir: di sinilah uang sungguhan berada. */
 @Composable
-private fun Accounts(accounts: List<AccountBalance>, onOpen: (Long) -> Unit, onNew: () -> Unit, hidden: Boolean) {
+private fun Accounts(accounts: List<AccountBalance>, onOpen: (Long) -> Unit, onNew: () -> Unit) {
     val c = colors
     Column(Modifier.offset(y = (-18).dp)) {
     SectionHeader("Dompet")
@@ -559,9 +551,9 @@ private fun Accounts(accounts: List<AccountBalance>, onOpen: (Long) -> Unit, onN
                 Spacer(Modifier.height(10.dp))
                 Text(
                     // Di atas 99 juta tidak muat di kartu; pakai bentuk ringkas daripada terpotong.
-                    if (hidden) "Rp •••" else if (kotlin.math.abs(ab.balance) >= 100_000_000) (if (ab.balance < 0) "−Rp" else "Rp") + Rupiah.short(kotlin.math.abs(ab.balance)) else Rupiah.format(ab.balance),
+                    if (kotlin.math.abs(ab.balance) >= 100_000_000) (if (ab.balance < 0) "−Rp" else "Rp") + Rupiah.short(kotlin.math.abs(ab.balance)) else Rupiah.format(ab.balance),
                     style = Type.amount,
-                    color = if (ab.balance < 0 && !hidden) c.over else c.ink, maxLines = 1,
+                    color = if (ab.balance < 0) c.over else c.ink, maxLines = 1,
                 )
             }
         }
@@ -581,7 +573,6 @@ private fun Accounts(accounts: List<AccountBalance>, onOpen: (Long) -> Unit, onN
 @Composable
 private fun PlanCard(o: Overview, onOpen: () -> Unit) {
     val c = colors
-    val hidden = LocalHideMoney.current
     val s = o.planStatus
     Column(
         Modifier.padding(horizontal = Gutter).fillMaxWidth().cardSurface().clickable(onClick = onOpen).padding(16.dp),
@@ -600,7 +591,7 @@ private fun PlanCard(o: Overview, onOpen: () -> Unit) {
         }
         val left = s.spendLeft
         Text(
-            if (left >= 0) "Batas belanja tersisa ${Rupiah.format(left).orDots(hidden)}" else "Belanja lewat rencana ${Rupiah.format(-left).orDots(hidden)}",
+            if (left >= 0) "Batas belanja tersisa ${Rupiah.format(left)}" else "Belanja lewat rencana ${Rupiah.format(-left)}",
             style = Type.strong, color = if (left < 0) c.over else c.ink,
         )
         Spacer(Modifier.height(8.dp))
@@ -608,8 +599,8 @@ private fun PlanCard(o: Overview, onOpen: () -> Unit) {
         Spacer(Modifier.height(6.dp))
         Text(
             when (s.warning) {
-                Warning.OVER -> "Sudah ${Rupiah.short(s.spendUsed).orDots(hidden)} dari rencana ${Rupiah.short(s.spendLimit).orDots(hidden)}."
-                else -> "Aman ${Rupiah.short(s.perDay).orDots(hidden)}/hari · ${s.daysLeft} hari lagi sampai gajian"
+                Warning.OVER -> "Sudah ${Rupiah.short(s.spendUsed)} dari rencana ${Rupiah.short(s.spendLimit)}."
+                else -> "Aman ${Rupiah.short(s.perDay)}/hari · ${s.daysLeft} hari lagi sampai gajian"
             },
             style = Type.bodySmall, color = c.mute,
         )
@@ -685,7 +676,6 @@ private fun HeroDetails(
     onTransfer: () -> Unit, onSetBalance: (Long, Long) -> Unit,
 ) {
     val c = colors
-    val hidden = LocalHideMoney.current
     var fixing by remember { mutableStateOf<AccountBalance?>(null) }
     fixing?.let { ab ->
         AmountDialog(
@@ -700,7 +690,7 @@ private fun HeroDetails(
                 HeroSheet.WALLETS -> {
                     val wallets = o.accounts.filter { it.account.kind != AccountKind.PAYLATER }
                     val total = wallets.sumOf { it.balance.coerceAtLeast(0) }.coerceAtLeast(1)
-                    item { SheetTitle("Uangmu di mana", Rupiah.format(o.netWorth).orDots(hidden), "${wallets.size} dompet" + if (o.debt > 0) " · hutang ${Rupiah.short(o.debt)}".orDots(hidden) else "") }
+                    item { SheetTitle("Uangmu di mana", Rupiah.format(o.netWorth), "${wallets.size} dompet" + if (o.debt > 0) " · hutang ${Rupiah.short(o.debt)}" else "") }
                     item {
                         // Dua cara membetulkan angka: uangnya memang pindah dompet, atau catatannya yang meleset.
                         Column(Modifier.padding(horizontal = Gutter).padding(bottom = 8.dp)) {
@@ -722,7 +712,7 @@ private fun HeroDetails(
                             Column(Modifier.weight(1f)) {
                                 Row {
                                     Text(ab.account.name, style = Type.strong, color = c.ink, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    Text(Rupiah.format(ab.balance).orDots(hidden), style = Type.amount, color = if (ab.balance < 0) c.over else c.ink)
+                                    Text(Rupiah.format(ab.balance), style = Type.amount, color = if (ab.balance < 0) c.over else c.ink)
                                 }
                                 if (ab.account.kind != AccountKind.PAYLATER) {
                                     Box(Modifier.padding(top = 6.dp).fillMaxWidth().height(4.dp).clip(Pill).background(c.line)) {
@@ -753,8 +743,8 @@ private fun HeroDetails(
                         HeroSheet.EXPENSE -> o.totals.expense
                         else -> o.totals.net
                     }
-                    val sub = if (kind == HeroSheet.NET) "Masuk ${Rupiah.short(o.totals.income).orDots(hidden)} − keluar ${Rupiah.short(o.totals.expense).orDots(hidden)}" else "${txs.size} catatan"
-                    item { SheetTitle(title, (if (kind == HeroSheet.NET && amount < 0) "−" else "") + Rupiah.format(kotlin.math.abs(amount)).orDots(hidden), sub) }
+                    val sub = if (kind == HeroSheet.NET) "Masuk ${Rupiah.short(o.totals.income)} − keluar ${Rupiah.short(o.totals.expense)}" else "${txs.size} catatan"
+                    item { SheetTitle(title, (if (kind == HeroSheet.NET && amount < 0) "−" else "") + Rupiah.format(kotlin.math.abs(amount)), sub) }
                     if (txs.isEmpty()) {
                         item { Text("Belum ada catatan.", style = Type.body, color = c.faint, modifier = Modifier.padding(horizontal = Gutter, vertical = 12.dp)) }
                     }
