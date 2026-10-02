@@ -562,7 +562,7 @@ private fun GoalDialog(g: Goal, o: Overview, onDismiss: () -> Unit, onDelete: ()
                 Spacer(Modifier.height(8.dp))
                 val items = listOf(PickItem(-1, "Isi sendiri", "✏️", c.mute)) +
                     o.accounts.map { PickItem(it.account.id, it.account.name, it.account.emoji, colorOf(it.account), Rupiah.short(it.balance), id.cukup.domain.Brands.forAccountName(it.account.name)?.mark) }
-                ChipPicker(items, account ?: -1, { account = it.takeIf { id -> id > 0 } }, Modifier.padding(horizontal = 0.dp))
+                ChipPicker(items, account ?: -1, { account = it.takeIf { id -> id > 0 } }, edge = 0.dp)
                 Text(
                     if (account == null) "Kamu tambahkan sendiri tiap menyisihkan uang." else "Terkumpul = saldo dompet itu. Cocok kalau punya rekening/celengan khusus.",
                     style = Type.bodySmall, color = c.mute, modifier = Modifier.padding(top = 6.dp),

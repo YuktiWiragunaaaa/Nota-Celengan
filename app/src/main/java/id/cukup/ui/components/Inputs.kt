@@ -83,10 +83,12 @@ fun ChipPicker(
     onSelect: (Long) -> Unit,
     modifier: Modifier = Modifier,
     trailing: (@Composable () -> Unit)? = null,
+    /** Jarak dari tepi; 0 kalau deretan ini sudah berada di dalam dialog atau kartu yang berjarak. */
+    edge: androidx.compose.ui.unit.Dp = Gutter,
 ) {
     val c = colors
     Row(
-        modifier.horizontalScroll(rememberScrollState()).padding(horizontal = Gutter),
+        modifier.horizontalScroll(rememberScrollState()).padding(horizontal = edge),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         items.forEach { p ->

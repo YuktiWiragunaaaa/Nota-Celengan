@@ -243,7 +243,7 @@ private fun WidgetBody(
             .clickable(actionStartActivity<MainActivity>()),
     ) {
         Row(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
-            Summary(ready, total, spent, period, plan.takeIf { (tall || chipCount == 0) && !hidden }, pending, hidden, GlanceModifier.defaultWeight().fillMaxHeight())
+            Summary(ready, total, spent, week.lastOrNull() ?: 0, period, plan.takeIf { (tall || chipCount == 0) && !hidden }, pending, hidden, GlanceModifier.defaultWeight().fillMaxHeight())
             if (wide) {
                 Spacer(GlanceModifier.width(16.dp))
                 WeekChart(week, hidden, GlanceModifier.defaultWeight().fillMaxHeight())
@@ -289,6 +289,7 @@ private fun Summary(
     ready: Boolean,
     total: Long,
     spent: Long,
+    today: Long,
     period: String,
     plan: PlanStatus?,
     pending: Int,
@@ -296,28 +297,24 @@ private fun Summary(
     modifier: GlanceModifier,
 ) {
     Column(modifier = modifier) {
-        Text("UANGMU", style = TextStyle(color = mute, fontSize = 10.sp, fontWeight = FontWeight.Medium))
+        // Yang paling sering ingin diketahui dari layar utama: sudah keluar berapa. Saldo cukup jadi keterangan.
+        Text("KELUAR HARI INI", style = TextStyle(color = mute, fontSize = 10.sp, fontWeight = FontWeight.Medium))
         Spacer(GlanceModifier.height(4.dp))
         Text(
-            when {
-                !ready -> "Buka Cukup dulu"
-                hidden -> "Rp•••••"
-                kotlin.math.abs(total) >= 100_000_000 -> "Rp" + Rupiah.short(total)
-                else -> Rupiah.format(total)
-            },
+            if (!ready) "Buka Cukup dulu" else Rupiah.format(today),
             style = TextStyle(color = ink, fontSize = if (ready) 24.sp else 16.sp),
             maxLines = 1,
         )
         Spacer(GlanceModifier.height(2.dp))
-        Text(
-            when {
-                hidden -> "Buka Cukup untuk lihat saldo"
-                pending > 0 -> "$pending perlu dicek · keluar ${Rupiah.short(spent)}"
-                else -> "Keluar $period: ${Rupiah.short(spent)}"
-            },
-            style = TextStyle(color = if (pending > 0) caution else mute, fontSize = 11.sp),
-            maxLines = 1,
-        )
+        if (ready) {
+            Text(
+                (if (pending > 0) "$pending perlu dicek · " else "") + "${period.replaceFirstChar { it.uppercase() }} ${Rupiah.short(spent)}" +
+                    // Kunci PIN aktif = saldo tidak ditampilkan; pengeluaran tetap terlihat.
+                    if (hidden) "" else " · uangmu " + Rupiah.short(total),
+                style = TextStyle(color = if (pending > 0) caution else mute, fontSize = 11.sp),
+                maxLines = 1,
+            )
+        }
         if (plan != null) {
             val tone = when (plan.warning) {
                 Warning.CALM -> ink
@@ -362,7 +359,7 @@ private fun WeekChart(week: List<Long>, hidden: Boolean, modifier: GlanceModifie
     val today = LocalDate.now()
     Column(modifier = modifier) {
         Text("7 HARI", style = TextStyle(color = mute, fontSize = 10.sp, fontWeight = FontWeight.Medium))
-        Text(if (hidden) "Keluar •••" else "Keluar ${Rupiah.short(week.sum())}", style = TextStyle(color = ink, fontSize = 12.sp), maxLines = 1)
+        Text("Keluar ${Rupiah.short(week.sum())}", style = TextStyle(color = ink, fontSize = 12.sp), maxLines = 1)
         Spacer(GlanceModifier.height(6.dp))
         Row(modifier = GlanceModifier.fillMaxWidth().defaultWeight(), verticalAlignment = Alignment.Bottom) {
             week.forEachIndexed { i, v ->

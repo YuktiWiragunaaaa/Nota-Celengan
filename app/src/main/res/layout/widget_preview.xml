@@ -12,7 +12,7 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="UANGMU"
+        android:text="KELUAR HARI INI"
         android:textColor="#9FB0C7"
         android:textSize="10sp" />
 
@@ -20,7 +20,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="2dp"
-        android:text="Rp2.450.000"
+        android:text="Rp43.000"
         android:textColor="#EEF3FA"
         android:textSize="24sp" />
 
@@ -28,7 +28,7 @@
         android:layout_width="wrap_content"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:text="Keluar 550 rb bulan ini"
+        android:text="Bulan ini 550 rb · uangmu 2,4 jt"
         android:textColor="#9FB0C7"
         android:textSize="12sp" />
 
