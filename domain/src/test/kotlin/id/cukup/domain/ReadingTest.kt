@@ -17,7 +17,7 @@ class ReadingTest {
             Totals(income = 1_000_000, expense = 400_000), "bulan ini",
         )
         assertEquals("Makan paling besar: 75% dari 400 rb.", lines[0])
-        assertEquals("Masih tersisa 600 rb dari uang masuk bulan ini.", lines[1])
+        assertEquals("Sisa uang masuk: 600 rb.", lines[1])
     }
 
     @Test

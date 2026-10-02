@@ -19,9 +19,9 @@ object ChartReader {
         else "$name paling besar: ${top.amount * 100 / total}% dari ${Rupiah.short(total)}."
         when {
             totals.income > 0 && totals.expense > totals.income ->
-                out += "Keluar lebih banyak ${Rupiah.short(totals.expense - totals.income)} dari yang masuk."
+                out += "Keluar melebihi masuk ${Rupiah.short(totals.expense - totals.income)}."
             totals.income > 0 ->
-                out += "Masih tersisa ${Rupiah.short(totals.income - totals.expense)} dari uang masuk $periodName."
+                out += "Sisa uang masuk: ${Rupiah.short(totals.income - totals.expense)}."
             parts.size >= 2 -> {
                 val second = parts[1]
                 out += "Disusul ${second.category?.name ?: "tanpa kategori"} (${Rupiah.short(second.amount)})."
