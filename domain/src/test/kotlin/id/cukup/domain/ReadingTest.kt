@@ -23,7 +23,7 @@ class ReadingTest {
     @Test
     fun `warns when spending exceeds income`() {
         val lines = ChartReader.readSpending(listOf(CategoryAmount(food, 500_000)), Totals(400_000, 500_000), "bulan ini")
-        assertTrue(lines[1].startsWith("Keluar lebih banyak"))
+        assertTrue(lines[1].startsWith("Keluar melebihi masuk"))
     }
 
     @Test
